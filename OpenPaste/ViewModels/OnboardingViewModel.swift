@@ -10,7 +10,7 @@ enum OnboardingStep: Int, CaseIterable {
     case ready
 }
 
-@Observable
+@MainActor @Observable
 final class OnboardingViewModel {
     var currentStep: OnboardingStep = .welcome
     var accessibilityGranted: Bool = false
@@ -73,7 +73,7 @@ final class OnboardingViewModel {
     // MARK: - Permissions
 
     func openAccessibilitySettings() {
-        let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")!
+        guard let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility") else { return }
         NSWorkspace.shared.open(url)
     }
 
@@ -159,11 +159,13 @@ final class OnboardingViewModel {
             } else {
                 try SMAppService.mainApp.unregister()
             }
-        } catch {}
+        } catch {
+            print("Launch at login failed: \(error)")
+        }
         UserDefaults.standard.set(launchAtLogin, forKey: "launchAtLogin")
     }
 
-    static var shouldShowOnboarding: Bool {
+    nonisolated static var shouldShowOnboarding: Bool {
         !UserDefaults.standard.bool(forKey: Constants.hasCompletedOnboardingKey)
     }
 }

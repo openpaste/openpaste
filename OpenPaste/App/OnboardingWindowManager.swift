@@ -3,6 +3,7 @@ import SwiftUI
 
 final class OnboardingWindowManager {
     private var window: NSWindow?
+    private var closeObserver: NSObjectProtocol?
 
     @MainActor
     func show(onComplete: @escaping () -> Void) {
@@ -37,20 +38,25 @@ final class OnboardingWindowManager {
 
         window = win
 
-        NotificationCenter.default.addObserver(
+        closeObserver = NotificationCenter.default.addObserver(
             forName: NSWindow.willCloseNotification,
             object: win,
             queue: .main
         ) { [weak self] _ in
+            guard self?.window != nil else { return } // Already handled by close()
             self?.window = nil
-            // If user closes window via X button, mark as completed
             UserDefaults.standard.set(true, forKey: Constants.hasCompletedOnboardingKey)
             onComplete()
         }
     }
 
     func close() {
-        window?.close()
-        window = nil
+        if let obs = closeObserver {
+            NotificationCenter.default.removeObserver(obs)
+            closeObserver = nil
+        }
+        let win = window
+        window = nil // Nil out before close so notification guard works
+        win?.close()
     }
 }

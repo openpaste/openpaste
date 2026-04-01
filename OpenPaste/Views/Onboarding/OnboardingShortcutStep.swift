@@ -88,8 +88,7 @@ struct OnboardingShortcutStep: View {
 
                 viewModel.hotkeyKeyCode = keyCode
                 viewModel.hotkeyModifiers = nsModifiers
-                viewModel.hotkeyDisplayString = viewModel.hotkeyDisplayString // trigger update
-                // Manually build display
+                // Build display string
                 var parts: [String] = []
                 if nsModifiers.contains(.control) { parts.append("⌃") }
                 if nsModifiers.contains(.option) { parts.append("⌥") }
@@ -117,7 +116,7 @@ struct OnboardingShortcutStep: View {
 
     private var shortcutKeyCaps: some View {
         HStack(spacing: 4) {
-            ForEach(Array(viewModel.hotkeyDisplayString), id: \.self) { char in
+            ForEach(Array(viewModel.hotkeyDisplayString.enumerated()), id: \.offset) { _, char in
                 Text(String(char))
                     .font(.system(size: 20, weight: .medium, design: .rounded))
                     .frame(minWidth: 32, minHeight: 32)
@@ -133,7 +132,8 @@ struct OnboardingShortcutStep: View {
             withAnimation(.spring(response: 0.3, dampingFraction: 0.5).delay(0.3)) {
                 bounceKey = true
             }
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+            Task { @MainActor in
+                try? await Task.sleep(for: .milliseconds(600))
                 withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
                     bounceKey = false
                 }

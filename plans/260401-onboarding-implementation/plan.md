@@ -1,6 +1,6 @@
 # Onboarding Implementation Plan
 
-**Status:** In Progress
+**Status:** Completed
 **Created:** 2026-04-01
 **Phases:** 3
 
@@ -11,9 +11,9 @@ Full onboarding experience for OpenPaste: welcome, permissions, shortcut setup, 
 
 | Phase | Description | Status |
 |-------|-------------|--------|
-| 1 | Onboarding ViewModel + Permission utilities | pending |
-| 2 | Onboarding UI views (5 steps) | pending |
-| 3 | App integration + onboarding window | pending |
+| 1 | Onboarding ViewModel + Permission utilities | ✅ Completed |
+| 2 | Onboarding UI views (5 steps) | ✅ Completed |
+| 3 | App integration + onboarding window | ✅ Completed |
 
 ## Architecture
 

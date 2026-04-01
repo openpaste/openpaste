@@ -3,6 +3,8 @@ import Foundation
 import AppKit
 @testable import OpenPaste
 
+@Suite(.serialized)
+@MainActor
 struct OnboardingViewModelTests {
 
     // MARK: - Initial State
@@ -24,6 +26,7 @@ struct OnboardingViewModelTests {
         // Clean UserDefaults for test
         UserDefaults.standard.removeObject(forKey: Constants.customHotkeyModifiersKey)
         UserDefaults.standard.removeObject(forKey: Constants.customHotkeyKeyCodeKey)
+        UserDefaults.standard.synchronize()
 
         let vm = OnboardingViewModel()
         #expect(vm.hotkeyKeyCode == 0x09)
@@ -131,21 +134,27 @@ struct OnboardingViewModelTests {
     @Test func completeOnboardingSavesHotkey() {
         let modsKey = Constants.customHotkeyModifiersKey
         let keyCodeKey = Constants.customHotkeyKeyCodeKey
+        let onboardingKey = Constants.hasCompletedOnboardingKey
         UserDefaults.standard.removeObject(forKey: modsKey)
         UserDefaults.standard.removeObject(forKey: keyCodeKey)
+        UserDefaults.standard.removeObject(forKey: onboardingKey)
+        UserDefaults.standard.synchronize()
 
         let vm = OnboardingViewModel()
         vm.hotkeyKeyCode = 0x08 // C key
         vm.hotkeyModifiers = [.command, .option]
         vm.completeOnboarding()
+        UserDefaults.standard.synchronize()
 
         #expect(UserDefaults.standard.integer(forKey: keyCodeKey) == 0x08)
         #expect(UserDefaults.standard.integer(forKey: modsKey) != 0)
+        #expect(UserDefaults.standard.bool(forKey: onboardingKey) == true)
 
         // Cleanup
         UserDefaults.standard.removeObject(forKey: modsKey)
         UserDefaults.standard.removeObject(forKey: keyCodeKey)
-        UserDefaults.standard.removeObject(forKey: Constants.hasCompletedOnboardingKey)
+        UserDefaults.standard.removeObject(forKey: onboardingKey)
+        UserDefaults.standard.synchronize()
     }
 
     @Test func loadsSavedHotkey() {
@@ -153,6 +162,7 @@ struct OnboardingViewModelTests {
         let keyCodeKey = Constants.customHotkeyKeyCodeKey
         UserDefaults.standard.set(Int(NSEvent.ModifierFlags.command.rawValue), forKey: modsKey)
         UserDefaults.standard.set(0x0C, forKey: keyCodeKey) // Q key
+        UserDefaults.standard.synchronize()
 
         let vm = OnboardingViewModel()
         #expect(vm.hotkeyKeyCode == 0x0C)
@@ -160,6 +170,7 @@ struct OnboardingViewModelTests {
         // Cleanup
         UserDefaults.standard.removeObject(forKey: modsKey)
         UserDefaults.standard.removeObject(forKey: keyCodeKey)
+        UserDefaults.standard.synchronize()
     }
 
     // MARK: - HotkeyManager Integration
@@ -169,6 +180,7 @@ struct OnboardingViewModelTests {
         let keyCodeKey = Constants.customHotkeyKeyCodeKey
         UserDefaults.standard.set(Int(NSEvent.ModifierFlags([.command, .shift]).rawValue), forKey: modsKey)
         UserDefaults.standard.set(0x09, forKey: keyCodeKey) // V key
+        UserDefaults.standard.synchronize()
 
         let (mods, keyCode) = HotkeyManager.loadCustomHotkey()
         #expect(keyCode == 0x09)
@@ -178,11 +190,13 @@ struct OnboardingViewModelTests {
         // Cleanup
         UserDefaults.standard.removeObject(forKey: modsKey)
         UserDefaults.standard.removeObject(forKey: keyCodeKey)
+        UserDefaults.standard.synchronize()
     }
 
     @Test func hotkeyManagerDefaultsToShiftCommandV() {
         UserDefaults.standard.removeObject(forKey: Constants.customHotkeyModifiersKey)
         UserDefaults.standard.removeObject(forKey: Constants.customHotkeyKeyCodeKey)
+        UserDefaults.standard.synchronize()
 
         let (mods, keyCode) = HotkeyManager.loadCustomHotkey()
         #expect(keyCode == 0x09)

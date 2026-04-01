@@ -10,7 +10,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         // Trigger onboarding after menu bar is ready
         if OnboardingViewModel.shouldShowOnboarding {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
+            Task { @MainActor in
+                try? await Task.sleep(for: .milliseconds(800))
                 NotificationCenter.default.post(name: Self.showOnboardingNotification, object: nil)
             }
         }
