@@ -8,4 +8,9 @@ enum Constants {
     static let searchDebounceInterval: TimeInterval = 0.15
     static let appName = "OpenPaste"
     static let bundleIdentifier = "com.openshot.OpenPaste"
+
+    // Onboarding
+    static let hasCompletedOnboardingKey = "hasCompletedOnboarding"
+    static let customHotkeyModifiersKey = "customHotkeyModifiers"
+    static let customHotkeyKeyCodeKey = "customHotkeyKeyCode"
 }

@@ -42,5 +42,6 @@ struct OpenPasteApp: App {
         Settings {
             SettingsView(viewModel: controller.settingsViewModel)
         }
+        .defaultLaunchBehavior(.suppressed)
     }
 }

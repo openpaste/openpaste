@@ -34,9 +34,19 @@ final class HotkeyManager: @unchecked Sendable {
     }
 
     private func handleKeyEvent(_ event: NSEvent) {
-        // ⇧⌘V (Shift+Command+V)
-        guard event.modifierFlags.contains([.shift, .command]),
-              event.keyCode == 0x09 else { return } // V key
+        let (modifiers, keyCode) = Self.loadCustomHotkey()
+        let eventMods = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+        guard eventMods == modifiers, event.keyCode == keyCode else { return }
         onToggle()
+    }
+
+    static func loadCustomHotkey() -> (NSEvent.ModifierFlags, UInt16) {
+        let savedMods = UserDefaults.standard.integer(forKey: Constants.customHotkeyModifiersKey)
+        let savedKey = UserDefaults.standard.integer(forKey: Constants.customHotkeyKeyCodeKey)
+        if savedMods != 0 && savedKey != 0 {
+            return (NSEvent.ModifierFlags(rawValue: UInt(savedMods)), UInt16(savedKey))
+        }
+        // Default: ⇧⌘V
+        return ([.shift, .command], 0x09)
     }
 }

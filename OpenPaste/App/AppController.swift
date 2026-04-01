@@ -10,14 +10,17 @@ final class AppController {
     var searchViewModel: SearchViewModel?
     var collectionViewModel: CollectionViewModel?
     var initError: String?
+    var showOnboarding: Bool
 
     private var container: DependencyContainer?
     private var hotkeyManager: HotkeyManager?
     private var cleanupService: SecurityService?
+    private var onboardingWindowManager: OnboardingWindowManager?
 
     init() {
         let svm = SettingsViewModel()
         settingsViewModel = svm
+        showOnboarding = OnboardingViewModel.shouldShowOnboarding
 
         do {
             let c = try DependencyContainer()
@@ -72,6 +75,17 @@ final class AppController {
         } catch {
             initError = error.localizedDescription
         }
+
+        // Listen for onboarding trigger from AppDelegate
+        NotificationCenter.default.addObserver(
+            forName: AppDelegate.showOnboardingNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in
+                self?.showOnboardingIfNeeded()
+            }
+        }
     }
 
     private func setupHotkey() {
@@ -94,6 +108,22 @@ final class AppController {
                 pasteStackViewModel: pvm,
                 collectionViewModel: cvm
             )
+        }
+    }
+
+    @MainActor
+    func showOnboardingIfNeeded() {
+        guard showOnboarding else { return }
+        let owm = OnboardingWindowManager()
+        onboardingWindowManager = owm
+        owm.show { [weak self] in
+            self?.showOnboarding = false
+            self?.onboardingWindowManager = nil
+            // Re-register hotkey with potentially new key combo
+            Task { @MainActor in
+                self?.hotkeyManager?.unregister()
+                self?.setupHotkey()
+            }
         }
     }
 }
