@@ -1,24 +1,19 @@
-//
-//  ContentView.swift
-//  OpenPaste
-//
-//  Created by Lê Anh Tuấn on 1/4/26.
-//
-
 import SwiftUI
 
 struct ContentView: View {
-    var body: some View {
-        VStack {
-            Image(systemName: "globe")
-                .imageScale(.large)
-                .foregroundStyle(.tint)
-            Text("Hello, world!")
-        }
-        .padding()
-    }
-}
+    let historyViewModel: HistoryViewModel
+    let searchViewModel: SearchViewModel
 
-#Preview {
-    ContentView()
+    var body: some View {
+        VStack(spacing: 0) {
+            SearchView(viewModel: searchViewModel)
+
+            Divider()
+
+            if searchViewModel.query.isEmpty && searchViewModel.filters == .empty {
+                HistoryView(viewModel: historyViewModel)
+            }
+        }
+        .frame(width: 400, height: 560)
+    }
 }

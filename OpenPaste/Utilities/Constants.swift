@@ -1,0 +1,11 @@
+import Foundation
+
+enum Constants {
+    static let defaultPollingInterval: TimeInterval = 0.5
+    static let maxItemSize: Int = 10_485_760
+    static let defaultSensitiveExpiry: TimeInterval = 3600
+    static let defaultHistoryPageSize: Int = 50
+    static let searchDebounceInterval: TimeInterval = 0.15
+    static let appName = "OpenPaste"
+    static let bundleIdentifier = "com.openshot.OpenPaste"
+}
