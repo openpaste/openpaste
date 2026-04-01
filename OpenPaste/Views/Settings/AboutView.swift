@@ -2,7 +2,9 @@ import SwiftUI
 
 struct AboutView: View {
     var body: some View {
-        VStack(spacing: 16) {
+        VStack(spacing: 20) {
+            Spacer()
+
             Image(systemName: "clipboard")
                 .font(.system(size: 48))
                 .foregroundStyle(.blue)
@@ -24,13 +26,14 @@ struct AboutView: View {
 
             HStack(spacing: 20) {
                 Link("GitHub", destination: URL(string: "https://github.com/openpaste/openpaste")!)
-                Text("•").foregroundStyle(.tertiary)
+                Text("·").foregroundStyle(.tertiary)
                 Text("MIT License")
                     .foregroundStyle(.secondary)
             }
             .font(.caption)
+
+            Spacer()
         }
-        .padding(40)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }

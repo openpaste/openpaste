@@ -11,12 +11,12 @@ struct SettingsView: View {
             PrivacySettingsView(viewModel: viewModel)
                 .tabItem { Label("Privacy", systemImage: "lock.shield") }
 
-            BlacklistView(viewModel: viewModel)
-                .tabItem { Label("Blacklist", systemImage: "hand.raised") }
+            ShortcutsSettingsView(viewModel: viewModel)
+                .tabItem { Label("Shortcuts", systemImage: "keyboard") }
 
             AboutView()
                 .tabItem { Label("About", systemImage: "info.circle") }
         }
-        .frame(width: 500, height: 380)
+        .frame(width: 520, height: 460)
     }
 }
