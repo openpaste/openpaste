@@ -8,6 +8,7 @@ struct SearchFilters: Sendable {
     var pinnedOnly: Bool = false
     var starredOnly: Bool = false
     var tags: [String] = []
+    var collectionId: UUID?
 
     static let empty = SearchFilters()
 }

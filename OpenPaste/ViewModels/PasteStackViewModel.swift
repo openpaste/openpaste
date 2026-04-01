@@ -46,6 +46,31 @@ final class PasteStackViewModel {
         currentIndex = 0
     }
 
+    /// Move an item within the stack (for drag-and-drop reorder)
+    func moveItems(from source: IndexSet, to destination: Int) {
+        // Manual move implementation (Array.move is SwiftUI-specific)
+        var reordered = items
+        let movedItems = source.map { reordered[$0] }
+        // Remove from highest index first to preserve lower indices
+        for index in source.sorted().reversed() {
+            reordered.remove(at: index)
+        }
+        let insertAt = min(destination, reordered.count)
+        reordered.insert(contentsOf: movedItems, at: insertAt)
+        
+        // Adjust currentIndex if it was affected by the move
+        if let sourceIdx = source.first {
+            if sourceIdx == currentIndex {
+                currentIndex = destination > sourceIdx ? destination - 1 : destination
+            } else if sourceIdx < currentIndex && destination > currentIndex {
+                currentIndex -= 1
+            } else if sourceIdx > currentIndex && destination <= currentIndex {
+                currentIndex += 1
+            }
+        }
+        items = reordered
+    }
+
     var positionText: String {
         guard isActive else { return "" }
         return "\(currentIndex + 1)/\(items.count)"

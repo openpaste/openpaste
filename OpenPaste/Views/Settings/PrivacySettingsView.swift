@@ -23,6 +23,20 @@ struct PrivacySettingsView: View {
                 }
             }
 
+            Section("Screen Sharing") {
+                Toggle("Auto-hide when screen is shared", isOn: $viewModel.screenSharingAutoHide)
+                Text("Automatically hides the clipboard panel when screen sharing or recording is detected.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            Section("Link Previews") {
+                Toggle("Fetch URL titles and favicons", isOn: $viewModel.urlPreviewEnabled)
+                Text("Fetches page titles and favicons for copied URLs. Disabled for sensitive content.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
             Section("History") {
                 Button("Clear All History", role: .destructive) {
                     showClearConfirmation = true

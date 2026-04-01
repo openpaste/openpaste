@@ -14,6 +14,7 @@ enum TestHelpers {
     static func makeTextItem(
         text: String = "test text",
         sourceApp: AppInfo = .unknown,
+        tags: [String] = [],
         pinned: Bool = false,
         starred: Bool = false,
         isSensitive: Bool = false,
@@ -25,6 +26,7 @@ enum TestHelpers {
             content: Data(text.utf8),
             plainTextContent: text,
             sourceApp: sourceApp,
+            tags: tags,
             pinned: pinned,
             starred: starred,
             collectionId: collectionId,

@@ -7,6 +7,7 @@ final class SearchViewModel {
     var results: [ClipboardItem] = []
     var isSearching = false
     var dismissAction: (() -> Void)?
+    var availableTags: [String] = []
 
     private let searchService: SearchServiceProtocol
     private let storageService: StorageServiceProtocol
@@ -17,6 +18,7 @@ final class SearchViewModel {
         self.searchService = searchService
         self.storageService = storageService
         self.clipboardService = clipboardService
+        Task { await loadAvailableTags() }
     }
 
     func searchDebounced() {
@@ -48,9 +50,27 @@ final class SearchViewModel {
         searchDebounced()
     }
 
+    func setTagFilter(_ tags: [String]) {
+        filters.tags = tags
+        searchDebounced()
+    }
+
     func clearFilters() {
         filters = .empty
         searchDebounced()
+    }
+
+    func loadAvailableTags() async {
+        do {
+            let items = try await storageService.fetch(limit: 500, offset: 0)
+            var tagSet = Set<String>()
+            for item in items {
+                tagSet.formUnion(item.tags)
+            }
+            availableTags = tagSet.sorted()
+        } catch {
+            availableTags = []
+        }
     }
 
     // MARK: - Item Actions
@@ -86,6 +106,7 @@ extension SearchFilters: Equatable {
         lhs.dateTo == rhs.dateTo &&
         lhs.pinnedOnly == rhs.pinnedOnly &&
         lhs.starredOnly == rhs.starredOnly &&
-        lhs.tags == rhs.tags
+        lhs.tags == rhs.tags &&
+        lhs.collectionId == rhs.collectionId
     }
 }

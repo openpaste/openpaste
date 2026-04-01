@@ -104,6 +104,19 @@ final class SearchEngine: SearchServiceProtocol, @unchecked Sendable {
         if filters.starredOnly {
             result = result.filter(Column("starred") == true)
         }
+        if let collectionId = filters.collectionId {
+            result = result.filter(Column("collectionId") == collectionId.uuidString)
+        }
+        if !filters.tags.isEmpty {
+            for tag in filters.tags {
+                let escaped = tag
+                    .replacingOccurrences(of: "\\", with: "\\\\")
+                    .replacingOccurrences(of: "%", with: "\\%")
+                    .replacingOccurrences(of: "_", with: "\\_")
+                    .replacingOccurrences(of: "\"", with: "\\\"")
+                result = result.filter(Column("tags").like("%\"\(escaped)\"%"))
+            }
+        }
         return result
     }
 

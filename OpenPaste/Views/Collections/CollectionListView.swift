@@ -40,6 +40,14 @@ struct CollectionListView: View {
                                 Task { await viewModel.deleteCollection(collection.id) }
                             }
                         }
+                        // Accept drops of clipboard items into this collection
+                        .dropDestination(for: String.self) { droppedIds, _ in
+                            for idStr in droppedIds {
+                                guard let uuid = UUID(uuidString: idStr) else { continue }
+                                Task { await viewModel.assignItem(uuid, toCollection: collection.id) }
+                            }
+                            return true
+                        }
                     }
                 }
                 .listStyle(.plain)
@@ -84,6 +92,9 @@ struct CollectionListView: View {
                         .foregroundStyle(.tertiary)
                     Text("No items in this collection")
                         .foregroundStyle(.secondary)
+                    Text("Drag items here to organize")
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
@@ -96,11 +107,15 @@ struct CollectionListView: View {
                                 .lineLimit(1)
                             Spacer()
                         }
+                        .draggable(item.id.uuidString)
                         .contextMenu {
                             Button("Remove from Collection") {
                                 Task { await viewModel.removeItemFromCollection(item.id) }
                             }
                         }
+                    }
+                    .onMove { source, destination in
+                        viewModel.collectionItems.move(fromOffsets: source, toOffset: destination)
                     }
                 }
                 .listStyle(.plain)

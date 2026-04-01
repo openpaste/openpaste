@@ -13,4 +13,13 @@ enum Constants {
     static let hasCompletedOnboardingKey = "hasCompletedOnboarding"
     static let customHotkeyModifiersKey = "customHotkeyModifiers"
     static let customHotkeyKeyCodeKey = "customHotkeyKeyCode"
+
+    // Screen Sharing
+    static let screenSharingAutoHideKey = "screenSharingAutoHide"
+
+    // Paste Stack
+    static let pasteStackClearShortcutKey = "pasteStackClearShortcut"
+
+    // URL Preview
+    static let urlPreviewEnabledKey = "urlPreviewEnabled"
 }

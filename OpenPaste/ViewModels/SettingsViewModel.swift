@@ -16,6 +16,12 @@ final class SettingsViewModel {
     var sensitiveDetectionEnabled: Bool {
         didSet { UserDefaults.standard.set(sensitiveDetectionEnabled, forKey: "sensitiveDetectionEnabled") }
     }
+    var screenSharingAutoHide: Bool {
+        didSet { UserDefaults.standard.set(screenSharingAutoHide, forKey: Constants.screenSharingAutoHideKey) }
+    }
+    var urlPreviewEnabled: Bool {
+        didSet { UserDefaults.standard.set(urlPreviewEnabled, forKey: Constants.urlPreviewEnabledKey) }
+    }
     var blacklistedApps: [AppInfo] = []
     var launchAtLogin: Bool {
         didSet {
@@ -32,6 +38,8 @@ final class SettingsViewModel {
         maxItemSizeMB = defaults.integer(forKey: "maxItemSizeMB").nonZero ?? 10
         sensitiveAutoExpiry = defaults.double(forKey: "sensitiveAutoExpiry").nonZero ?? Constants.defaultSensitiveExpiry
         sensitiveDetectionEnabled = defaults.object(forKey: "sensitiveDetectionEnabled") as? Bool ?? true
+        screenSharingAutoHide = defaults.object(forKey: Constants.screenSharingAutoHideKey) as? Bool ?? true
+        urlPreviewEnabled = defaults.object(forKey: Constants.urlPreviewEnabledKey) as? Bool ?? true
         launchAtLogin = SMAppService.mainApp.status == .enabled
 
         loadBlacklist()

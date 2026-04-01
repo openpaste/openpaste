@@ -67,4 +67,23 @@ extension NSImage {
         img.unlockFocus()
         return img
     }
+
+    func resized(to targetSize: NSSize) -> NSImage {
+        let newImage = NSImage(size: targetSize)
+        newImage.lockFocus()
+        draw(
+            in: NSRect(origin: .zero, size: targetSize),
+            from: NSRect(origin: .zero, size: size),
+            operation: .copy,
+            fraction: 1.0
+        )
+        newImage.unlockFocus()
+        return newImage
+    }
+
+    func cropped(to rect: CGRect) -> NSImage? {
+        guard let cgImage = cgImage(forProposedRect: nil, context: nil, hints: nil)?
+                .cropping(to: rect) else { return nil }
+        return NSImage(cgImage: cgImage, size: rect.size)
+    }
 }

@@ -16,6 +16,8 @@ final class AppController {
     private var hotkeyManager: HotkeyManager?
     private var cleanupService: SecurityService?
     private var onboardingWindowManager: OnboardingWindowManager?
+    private var pasteInterceptor: PasteInterceptor?
+    private var screenSharingDetector: ScreenSharingDetector?
 
     init() {
         let svm = SettingsViewModel()
@@ -72,6 +74,8 @@ final class AppController {
             }
 
             setupHotkey()
+            setupPasteInterceptor()
+            setupScreenSharingDetector()
         } catch {
             initError = error.localizedDescription
         }
@@ -94,6 +98,40 @@ final class AppController {
         }
         hotkeyManager = hk
         Task { await hk.register() }
+    }
+
+    private func setupPasteInterceptor() {
+        let interceptor = PasteInterceptor()
+        pasteInterceptor = interceptor
+
+        interceptor.start { [weak self] in
+            guard let self, self.pasteStackViewModel.isActive else { return }
+            // Set reentrancy guard before pasting to avoid ⌘V feedback loop
+            interceptor.isSynthesizingPaste = true
+            Task {
+                await self.pasteStackViewModel.pasteNext()
+                interceptor.isSynthesizingPaste = false
+            }
+        }
+
+        // Sync paste stack state to enable/disable ⌘V interception
+        Task { @MainActor in
+            Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self] _ in
+                guard let self else { return }
+                self.pasteInterceptor?.isPasteStackActive = self.pasteStackViewModel.isActive
+            }
+        }
+    }
+
+    private func setupScreenSharingDetector() {
+        let detector = ScreenSharingDetector()
+        screenSharingDetector = detector
+
+        Task { @MainActor in
+            detector.startMonitoring { [weak self] in
+                self?.windowManager.hide()
+            }
+        }
     }
 
     func togglePanel() {

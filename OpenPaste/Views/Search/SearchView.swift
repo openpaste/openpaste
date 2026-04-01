@@ -7,6 +7,7 @@ struct SearchView: View {
         VStack(spacing: 0) {
             searchField
             filterBar
+            tagFilterSection
             if !viewModel.query.isEmpty || viewModel.filters != .empty {
                 resultsList
             }
@@ -55,6 +56,20 @@ struct SearchView: View {
             }
             .padding(.horizontal, 10)
             .padding(.vertical, 6)
+        }
+    }
+
+    @ViewBuilder
+    private var tagFilterSection: some View {
+        if !viewModel.availableTags.isEmpty {
+            Divider()
+            TagFilterBar(
+                availableTags: viewModel.availableTags,
+                selectedTags: Binding(
+                    get: { viewModel.filters.tags },
+                    set: { viewModel.setTagFilter($0) }
+                )
+            )
         }
     }
 
