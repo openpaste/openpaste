@@ -1,4 +1,5 @@
 import SwiftUI
+import AppKit
 
 struct GeneralSettingsView: View {
     @Bindable var viewModel: SettingsViewModel
@@ -39,10 +40,66 @@ struct GeneralSettingsView: View {
                 HStack {
                     Text("Open clipboard")
                     Spacer()
-                    Text("⇧⌘V")
-                        .font(.system(.body, design: .monospaced))
-                        .foregroundStyle(.secondary)
+
+                    Button(action: {
+                        viewModel.isRecordingHotkey.toggle()
+                    }) {
+                        HStack(spacing: 6) {
+                            if viewModel.isRecordingHotkey {
+                                Image(systemName: "record.circle")
+                                    .foregroundColor(.red)
+                                    .symbolEffect(.pulse, isActive: true)
+                                Text("Press shortcut…")
+                                    .foregroundColor(.secondary)
+                                    .font(.system(.body, design: .monospaced))
+                            } else {
+                                Text(viewModel.hotkeyDisplayString)
+                                    .font(.system(.body, design: .monospaced))
+                            }
+                        }
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 5)
+                        .background(
+                            RoundedRectangle(cornerRadius: 6)
+                                .fill(viewModel.isRecordingHotkey
+                                      ? Color.red.opacity(0.08)
+                                      : Color(nsColor: .controlBackgroundColor))
+                        )
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 6)
+                                .stroke(viewModel.isRecordingHotkey
+                                        ? Color.red.opacity(0.3)
+                                        : Color(nsColor: .separatorColor), lineWidth: 1)
+                        )
+                    }
+                    .buttonStyle(.plain)
+                    .focusable()
+                    .onKeyPress(phases: .down) { keyPress in
+                        guard viewModel.isRecordingHotkey else { return .ignored }
+                        var nsModifiers: NSEvent.ModifierFlags = []
+                        if keyPress.modifiers.contains(.command) { nsModifiers.insert(.command) }
+                        if keyPress.modifiers.contains(.shift) { nsModifiers.insert(.shift) }
+                        if keyPress.modifiers.contains(.option) { nsModifiers.insert(.option) }
+                        if keyPress.modifiers.contains(.control) { nsModifiers.insert(.control) }
+                        guard nsModifiers.contains(.command) || nsModifiers.contains(.control) else {
+                            return .ignored
+                        }
+                        viewModel.recordHotkey(modifiers: nsModifiers, characters: keyPress.characters)
+                        return .handled
+                    }
                 }
+
+                if viewModel.hotkeyDisplayString != "⇧⌘V" {
+                    Button("Reset to ⇧⌘V") {
+                        viewModel.resetHotkey()
+                    }
+                    .font(.caption)
+                    .foregroundColor(.accentColor)
+                }
+
+                Text("Must include ⌘ or ⌃ modifier")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
             }
         }
         .formStyle(.grouped)

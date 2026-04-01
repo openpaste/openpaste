@@ -17,7 +17,7 @@ struct OpenPasteApp: App {
             if let error = controller.initError {
                 Text("Error: \(error)")
             } else {
-                Button("Show Clipboard History ⇧⌘V") {
+                Button("Show Clipboard History \(HotkeyManager.currentHotkeyDisplayString())") {
                     controller.togglePanel()
                 }
                 .keyboardShortcut("v", modifiers: [.shift, .command])
@@ -41,6 +41,9 @@ struct OpenPasteApp: App {
 
         Settings {
             SettingsView(viewModel: controller.settingsViewModel)
+                .onAppear {
+                    NSApp.activate(ignoringOtherApps: true)
+                }
         }
         .defaultLaunchBehavior(.suppressed)
     }

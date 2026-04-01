@@ -30,6 +30,9 @@ final class SettingsViewModel {
         }
     }
 
+    var hotkeyDisplayString: String = HotkeyManager.currentHotkeyDisplayString()
+    var isRecordingHotkey: Bool = false
+
     var onClearAllHistory: (() async -> Void)?
 
     init() {
@@ -61,6 +64,25 @@ final class SettingsViewModel {
         guard !blacklistedApps.contains(where: { $0.bundleId == app.bundleId }) else { return }
         blacklistedApps.append(app)
         saveBlacklist()
+    }
+
+    func recordHotkey(modifiers: NSEvent.ModifierFlags, characters: String) {
+        guard isRecordingHotkey else { return }
+        guard modifiers.contains(.command) || modifiers.contains(.control) else { return }
+
+        let keyCode = HotkeyManager.mapCharacterToKeyCode(characters)
+        guard keyCode != 0xFF else { return }
+
+        HotkeyManager.saveHotkey(modifiers: modifiers, keyCode: keyCode)
+        hotkeyDisplayString = HotkeyManager.displayString(modifiers: modifiers, keyCode: keyCode)
+        isRecordingHotkey = false
+    }
+
+    func resetHotkey() {
+        let defaultMods: NSEvent.ModifierFlags = [.shift, .command]
+        let defaultKey: UInt16 = 0x09
+        HotkeyManager.saveHotkey(modifiers: defaultMods, keyCode: defaultKey)
+        hotkeyDisplayString = HotkeyManager.displayString(modifiers: defaultMods, keyCode: defaultKey)
     }
 
     func removeBlacklistedApp(_ app: AppInfo) {

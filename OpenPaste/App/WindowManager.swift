@@ -27,6 +27,14 @@ final class FloatingPanel: NSPanel {
 
     override func resignKey() {
         super.resignKey()
+        // Don't close when a child sheet/dialog (e.g. "New Collection") takes key focus
+        if let keyWindow = NSApp.keyWindow, keyWindow.isSheet || keyWindow.sheetParent === self {
+            return
+        }
+        // Don't close if one of our own sheets is being presented
+        if !sheets.isEmpty {
+            return
+        }
         close()
     }
 
