@@ -1,5 +1,6 @@
 import Foundation
 import AppKit
+import ServiceManagement
 
 @Observable
 final class SettingsViewModel {
@@ -17,8 +18,13 @@ final class SettingsViewModel {
     }
     var blacklistedApps: [AppInfo] = []
     var launchAtLogin: Bool {
-        didSet { UserDefaults.standard.set(launchAtLogin, forKey: "launchAtLogin") }
+        didSet {
+            UserDefaults.standard.set(launchAtLogin, forKey: "launchAtLogin")
+            updateLoginItem()
+        }
     }
+
+    var onClearAllHistory: (() async -> Void)?
 
     init() {
         let defaults = UserDefaults.standard
@@ -26,9 +32,21 @@ final class SettingsViewModel {
         maxItemSizeMB = defaults.integer(forKey: "maxItemSizeMB").nonZero ?? 10
         sensitiveAutoExpiry = defaults.double(forKey: "sensitiveAutoExpiry").nonZero ?? Constants.defaultSensitiveExpiry
         sensitiveDetectionEnabled = defaults.object(forKey: "sensitiveDetectionEnabled") as? Bool ?? true
-        launchAtLogin = defaults.bool(forKey: "launchAtLogin")
+        launchAtLogin = SMAppService.mainApp.status == .enabled
 
         loadBlacklist()
+    }
+
+    private func updateLoginItem() {
+        do {
+            if launchAtLogin {
+                try SMAppService.mainApp.register()
+            } else {
+                try SMAppService.mainApp.unregister()
+            }
+        } catch {
+            // Silently fail — user may not have granted permission
+        }
     }
 
     func addBlacklistedApp(_ app: AppInfo) {
@@ -76,12 +94,4 @@ final class SettingsViewModel {
             AppInfo(bundleId: "com.apple.Passwords", name: "Passwords", iconPath: nil),
         ]
     }
-}
-
-private extension Double {
-    var nonZero: Double? { self == 0 ? nil : self }
-}
-
-private extension Int {
-    var nonZero: Int? { self == 0 ? nil : self }
 }

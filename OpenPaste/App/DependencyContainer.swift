@@ -7,7 +7,7 @@ final class DependencyContainer {
     let databaseManager: DatabaseManager
     let storageService: StorageServiceProtocol
     let searchService: SearchServiceProtocol
-    let securityService: SensitiveContentDetector
+    let securityService: SecurityServiceProtocol
     let ocrService: OCRServiceProtocol
     let clipboardService: ClipboardServiceProtocol
 
@@ -18,11 +18,13 @@ final class DependencyContainer {
         let dbQueue = databaseManager.dbQueue
         storageService = StorageService(dbQueue: dbQueue)
         searchService = SearchEngine(dbQueue: dbQueue)
-        securityService = SensitiveContentDetector()
+
+        let detector = SensitiveContentDetector()
+        securityService = detector
         ocrService = OCRService()
 
         clipboardService = ClipboardService(
-            securityService: securityService,
+            securityService: detector,
             storageService: storageService,
             ocrService: ocrService,
             eventBus: eventBus

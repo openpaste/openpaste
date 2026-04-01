@@ -38,6 +38,9 @@ final class SensitiveContentDetector: SecurityServiceProtocol, @unchecked Sendab
     }
 
     nonisolated func detectSensitive(_ text: String) -> Bool {
+        let enabled = UserDefaults.standard.object(forKey: "sensitiveDetectionEnabled") as? Bool ?? true
+        guard enabled else { return false }
+
         let range = NSRange(text.startIndex..<text.endIndex, in: text)
         for (_, regex) in compiledPatterns {
             if regex.firstMatch(in: text, options: [], range: range) != nil {
@@ -49,21 +52,34 @@ final class SensitiveContentDetector: SecurityServiceProtocol, @unchecked Sendab
 
     nonisolated func suggestedExpiry(for item: ClipboardItem) -> Date? {
         guard item.isSensitive else { return nil }
-        return Date().addingTimeInterval(defaultExpiryInterval)
+        let settingsExpiry = UserDefaults.standard.double(forKey: "sensitiveAutoExpiry")
+        let interval = settingsExpiry > 0 ? settingsExpiry : defaultExpiryInterval
+        if interval == 0 { return nil }
+        return Date().addingTimeInterval(interval)
     }
 
     nonisolated func isBlacklisted(bundleId: String) -> Bool {
-        blacklistedBundleIds.contains(bundleId)
+        let userBlacklist = loadUserBlacklist()
+        return defaultBlacklist.union(userBlacklist).contains(bundleId)
     }
 
-    func updateBlacklist(_ bundleIds: Set<String>) {
-        blacklistedBundleIds = defaultBlacklist.union(bundleIds)
+    private nonisolated func loadUserBlacklist() -> Set<String> {
+        guard let data = UserDefaults.standard.data(forKey: "blacklistedApps"),
+              let apps = try? JSONDecoder().decode([AppInfo].self, from: data) else {
+            return []
+        }
+        return Set(apps.map(\.bundleId))
     }
 
     private nonisolated func hasHighEntropy(_ text: String) -> Bool {
         guard text.count >= 16 && text.count <= 256 else { return false }
         let hasSpaces = text.contains(" ")
         if hasSpaces { return false }
+
+        // Exclude URLs — they naturally have high character diversity
+        if text.hasPrefix("http://") || text.hasPrefix("https://") || text.hasPrefix("ftp://") {
+            return false
+        }
 
         var charCounts: [Character: Int] = [:]
         for char in text { charCounts[char, default: 0] += 1 }

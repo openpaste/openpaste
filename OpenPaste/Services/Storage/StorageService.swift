@@ -2,7 +2,7 @@ import Foundation
 import GRDB
 
 final class StorageService: StorageServiceProtocol, @unchecked Sendable {
-    private let dbQueue: DatabaseQueue
+    let dbQueue: DatabaseQueue
 
     init(dbQueue: DatabaseQueue) {
         self.dbQueue = dbQueue
@@ -30,6 +30,12 @@ final class StorageService: StorageServiceProtocol, @unchecked Sendable {
             try ClipboardItemRecord
                 .filter(Column("id") == id.uuidString)
                 .deleteAll(db)
+        }
+    }
+
+    func deleteAll() async throws {
+        try await dbQueue.write { db in
+            try ClipboardItemRecord.deleteAll(db)
         }
     }
 
@@ -70,6 +76,56 @@ final class StorageService: StorageServiceProtocol, @unchecked Sendable {
         let record = ClipboardItemRecord(from: item)
         try await dbQueue.write { db in
             try record.update(db)
+        }
+    }
+
+    // MARK: - Collections
+
+    func fetchCollections() async throws -> [Collection] {
+        try await dbQueue.read { db in
+            try CollectionRecord
+                .order(Column("name").asc)
+                .fetchAll(db)
+                .map { $0.toCollection() }
+        }
+    }
+
+    func saveCollection(_ collection: Collection) async throws {
+        let record = CollectionRecord(from: collection)
+        try await dbQueue.write { db in
+            try record.insert(db)
+        }
+    }
+
+    func deleteCollection(_ id: UUID) async throws {
+        try await dbQueue.write { db in
+            // Unassign items first
+            try db.execute(
+                sql: "UPDATE clipboardItems SET collectionId = NULL WHERE collectionId = ?",
+                arguments: [id.uuidString]
+            )
+            try CollectionRecord
+                .filter(Column("id") == id.uuidString)
+                .deleteAll(db)
+        }
+    }
+
+    func fetchItems(inCollection collectionId: UUID) async throws -> [ClipboardItem] {
+        try await dbQueue.read { db in
+            try ClipboardItemRecord
+                .filter(Column("collectionId") == collectionId.uuidString)
+                .order(Column("createdAt").desc)
+                .fetchAll(db)
+                .map { $0.toClipboardItem() }
+        }
+    }
+
+    func assignItemToCollection(itemId: UUID, collectionId: UUID?) async throws {
+        try await dbQueue.write { db in
+            try db.execute(
+                sql: "UPDATE clipboardItems SET collectionId = ? WHERE id = ?",
+                arguments: [collectionId?.uuidString, itemId.uuidString]
+            )
         }
     }
 }

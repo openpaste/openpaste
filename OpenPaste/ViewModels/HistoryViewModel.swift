@@ -6,6 +6,7 @@ final class HistoryViewModel {
     var items: [ClipboardItem] = []
     var isLoading = false
     var hasMore = true
+    var dismissAction: (() -> Void)?
     private var offset = 0
     private let pageSize = Constants.defaultHistoryPageSize
 
@@ -46,6 +47,7 @@ final class HistoryViewModel {
 
     func paste(_ item: ClipboardItem) async {
         await clipboardService.pasteItem(item)
+        dismissAction?()
     }
 
     func delete(_ item: ClipboardItem) async {
@@ -63,6 +65,18 @@ final class HistoryViewModel {
         guard let index = items.firstIndex(where: { $0.id == item.id }) else { return }
         items[index].starred.toggle()
         try? await storageService.update(items[index])
+    }
+
+    func quickEditAndPaste(_ item: ClipboardItem, newText: String) async {
+        var modified = item
+        modified.content = Data(newText.utf8)
+        modified.plainTextContent = newText
+        await clipboardService.pasteItem(modified)
+        dismissAction?()
+    }
+
+    func assignToCollection(_ item: ClipboardItem, collectionId: UUID) async {
+        try? await storageService.assignItemToCollection(itemId: item.id, collectionId: collectionId)
     }
 
     func observeEvents() async {

@@ -33,7 +33,7 @@ struct PrivacySettingsView: View {
                     titleVisibility: .visible
                 ) {
                     Button("Clear All", role: .destructive) {
-                        // Will be wired in integration
+                        Task { await viewModel.onClearAllHistory?() }
                     }
                     Button("Cancel", role: .cancel) {}
                 }

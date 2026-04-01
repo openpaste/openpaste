@@ -2,6 +2,7 @@ import SwiftUI
 
 struct ContentPreviewView: View {
     let item: ClipboardItem
+    var highlightQuery: String = ""
 
     var body: some View {
         Group {
@@ -21,10 +22,21 @@ struct ContentPreviewView: View {
     }
 
     private var textPreview: some View {
-        Text(item.plainTextContent?.truncated(to: 200) ?? "")
-            .font(.system(.body, design: item.type == .code ? .monospaced : .default))
-            .lineLimit(3)
-            .foregroundStyle(.primary)
+        Group {
+            if highlightQuery.isEmpty {
+                Text(item.plainTextContent?.truncated(to: 200) ?? "")
+                    .font(.system(.body, design: item.type == .code ? .monospaced : .default))
+                    .lineLimit(3)
+                    .foregroundStyle(.primary)
+            } else {
+                HighlightedText(
+                    text: item.plainTextContent?.truncated(to: 200) ?? "",
+                    highlight: highlightQuery,
+                    design: item.type == .code ? .monospaced : .default
+                )
+                .foregroundStyle(.primary)
+            }
+        }
     }
 
     private var imagePreview: some View {

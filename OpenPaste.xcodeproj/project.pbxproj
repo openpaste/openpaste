@@ -6,6 +6,10 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		D0AC71E32F7D1C2F0088575B /* GRDB in Frameworks */ = {isa = PBXBuildFile; productRef = A0AC00022F7D0D180088575B /* GRDB */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXContainerItemProxy section */
 		D0AC712D2F7D0D180088575B /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -52,6 +56,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				D0AC71E32F7D1C2F0088575B /* GRDB in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -196,13 +201,13 @@
 			);
 			mainGroup = D0AC71162F7D0D170088575B;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				A0AC00012F7D0D180088575B /* XCRemoteSwiftPackageReference "GRDB.swift" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = D0AC71202F7D0D170088575B /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
-			packageReferences = (
-				A0AC00012F7D0D180088575B /* XCRemoteSwiftPackageReference "GRDB.swift" */,
-			);
 			targets = (
 				D0AC711E2F7D0D170088575B /* OpenPaste */,
 				D0AC712B2F7D0D180088575B /* OpenPasteTests */,

@@ -6,15 +6,27 @@ struct ClipboardItemRow: View {
     let onDelete: () -> Void
     let onTogglePin: () -> Void
     let onToggleStar: () -> Void
+    var onQuickEdit: (() -> Void)? = nil
+    var onAddToStack: (() -> Void)? = nil
+    var highlightQuery: String = ""
 
     var body: some View {
         HStack(spacing: 10) {
             TypeIcon(type: item.type)
 
             VStack(alignment: .leading, spacing: 2) {
-                ContentPreviewView(item: item)
+                if highlightQuery.isEmpty {
+                    ContentPreviewView(item: item)
+                } else {
+                    ContentPreviewView(item: item, highlightQuery: highlightQuery)
+                }
 
                 HStack(spacing: 6) {
+                    if let icon = item.sourceApp.appIcon {
+                        Image(nsImage: icon)
+                            .resizable()
+                            .frame(width: 12, height: 12)
+                    }
                     if !item.sourceApp.name.isEmpty && item.sourceApp.name != "Unknown" {
                         Text(item.sourceApp.name)
                             .font(.caption2)
@@ -50,9 +62,16 @@ struct ClipboardItemRow: View {
         .onTapGesture { onPaste() }
         .contextMenu {
             Button("Paste") { onPaste() }
+            if onQuickEdit != nil {
+                Button("Quick Edit…") { onQuickEdit?() }
+            }
             Divider()
             Button(item.pinned ? "Unpin" : "Pin") { onTogglePin() }
             Button(item.starred ? "Unstar" : "Star") { onToggleStar() }
+            if let onAddToStack {
+                Divider()
+                Button("Add to Paste Stack") { onAddToStack() }
+            }
             Divider()
             Button("Delete", role: .destructive) { onDelete() }
         }

@@ -42,5 +42,13 @@ struct DatabaseMigrations: Sendable {
                 t.column("sourceAppName")
             }
         }
+
+        migrator.registerMigration("v2_createCollections") { db in
+            try db.create(table: "collections") { t in
+                t.column("id", .text).primaryKey()
+                t.column("name", .text).notNull()
+                t.column("createdAt", .datetime).notNull()
+            }
+        }
     }
 }

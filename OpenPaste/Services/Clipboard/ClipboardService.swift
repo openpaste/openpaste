@@ -22,7 +22,9 @@ final class ClipboardService: ClipboardServiceProtocol, @unchecked Sendable {
     }
 
     func startMonitoring() async {
-        let monitor = ClipboardMonitor { [weak self] pasteboard in
+        let settingsInterval = UserDefaults.standard.double(forKey: "pollingInterval")
+        let interval = settingsInterval > 0 ? settingsInterval : Constants.defaultPollingInterval
+        let monitor = ClipboardMonitor(interval: interval) { [weak self] pasteboard in
             guard let self else { return }
             Task { await self.handleClipboardChange(pasteboard) }
         }

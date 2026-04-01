@@ -13,7 +13,6 @@ final class FloatingPanel: NSPanel {
             defer: false
         )
 
-        self.contentView = contentView
         isFloatingPanel = true
         level = .floating
         isMovableByWindowBackground = true
@@ -23,13 +22,7 @@ final class FloatingPanel: NSPanel {
         isOpaque = false
         hasShadow = true
         animationBehavior = .utilityWindow
-
-        let visualEffect = NSVisualEffectView(frame: contentView.bounds)
-        visualEffect.autoresizingMask = [.width, .height]
-        visualEffect.material = .hudWindow
-        visualEffect.blendingMode = .behindWindow
-        visualEffect.state = .active
-        self.contentView?.addSubview(visualEffect, positioned: .below, relativeTo: nil)
+        self.contentView = contentView
     }
 
     override func resignKey() {

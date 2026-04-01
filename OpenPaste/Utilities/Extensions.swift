@@ -1,6 +1,27 @@
 import Foundation
 import AppKit
 
+extension Double {
+    var nonZero: Double? { self == 0 ? nil : self }
+}
+
+extension Int {
+    var nonZero: Int? { self == 0 ? nil : self }
+}
+
+extension AppInfo {
+    var appIcon: NSImage? {
+        if let path = iconPath, FileManager.default.fileExists(atPath: path) {
+            return NSImage(contentsOfFile: path)
+        }
+        if !bundleId.isEmpty,
+           let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleId) {
+            return NSWorkspace.shared.icon(forFile: url.path)
+        }
+        return nil
+    }
+}
+
 extension Date {
     var relativeFormatted: String {
         let formatter = RelativeDateTimeFormatter()

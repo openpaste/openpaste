@@ -6,12 +6,17 @@ final class SearchViewModel {
     var filters = SearchFilters.empty
     var results: [ClipboardItem] = []
     var isSearching = false
+    var dismissAction: (() -> Void)?
 
     private let searchService: SearchServiceProtocol
+    private let storageService: StorageServiceProtocol
+    private let clipboardService: ClipboardServiceProtocol
     private var searchTask: Task<Void, Never>?
 
-    init(searchService: SearchServiceProtocol) {
+    init(searchService: SearchServiceProtocol, storageService: StorageServiceProtocol, clipboardService: ClipboardServiceProtocol) {
         self.searchService = searchService
+        self.storageService = storageService
+        self.clipboardService = clipboardService
     }
 
     func searchDebounced() {
@@ -46,6 +51,30 @@ final class SearchViewModel {
     func clearFilters() {
         filters = .empty
         searchDebounced()
+    }
+
+    // MARK: - Item Actions
+
+    func paste(_ item: ClipboardItem) async {
+        await clipboardService.pasteItem(item)
+        dismissAction?()
+    }
+
+    func delete(_ item: ClipboardItem) async {
+        try? await storageService.delete(item.id)
+        results.removeAll { $0.id == item.id }
+    }
+
+    func togglePin(_ item: ClipboardItem) async {
+        guard let index = results.firstIndex(where: { $0.id == item.id }) else { return }
+        results[index].pinned.toggle()
+        try? await storageService.update(results[index])
+    }
+
+    func toggleStar(_ item: ClipboardItem) async {
+        guard let index = results.firstIndex(where: { $0.id == item.id }) else { return }
+        results[index].starred.toggle()
+        try? await storageService.update(results[index])
     }
 }
 

@@ -73,10 +73,11 @@ struct SearchView: View {
                         ForEach(viewModel.results) { item in
                             ClipboardItemRow(
                                 item: item,
-                                onPaste: {},
-                                onDelete: {},
-                                onTogglePin: {},
-                                onToggleStar: {}
+                                onPaste: { Task { await viewModel.paste(item) } },
+                                onDelete: { Task { await viewModel.delete(item) } },
+                                onTogglePin: { Task { await viewModel.togglePin(item) } },
+                                onToggleStar: { Task { await viewModel.toggleStar(item) } },
+                                highlightQuery: viewModel.query
                             )
                             Divider().padding(.leading, 46)
                         }

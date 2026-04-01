@@ -4,30 +4,38 @@ import UniformTypeIdentifiers
 
 final class ContentNormalizer: Sendable {
     private let hasher = ContentHasher()
-    private let maxItemSize: Int
 
-    init(maxItemSize: Int = 10_485_760) {
-        self.maxItemSize = maxItemSize
+    private var effectiveMaxItemSize: Int {
+        let mbFromSettings = UserDefaults.standard.integer(forKey: "maxItemSizeMB")
+        return mbFromSettings > 0 ? mbFromSettings * 1_048_576 : Constants.maxItemSize
     }
 
     nonisolated func normalize(from pasteboard: NSPasteboard) -> ClipboardItem? {
         guard let types = pasteboard.types, !types.isEmpty else { return nil }
 
-        let sourceApp = getSourceApp()
+        // Transient content detection — skip concealed/transient items
+        let concealedType = NSPasteboard.PasteboardType("org.nspasteboard.ConcealedType")
+        let transientType = NSPasteboard.PasteboardType("org.nspasteboard.TransientType")
+        if types.contains(concealedType) || types.contains(transientType) {
+            return nil
+        }
 
-        if let imageItem = extractImage(from: pasteboard, sourceApp: sourceApp) {
+        let sourceApp = getSourceApp()
+        let maxSize = effectiveMaxItemSize
+
+        if let imageItem = extractImage(from: pasteboard, sourceApp: sourceApp, maxSize: maxSize) {
             return imageItem
         }
-        if let fileItem = extractFiles(from: pasteboard, sourceApp: sourceApp) {
+        if let fileItem = extractFiles(from: pasteboard, sourceApp: sourceApp, maxSize: maxSize) {
             return fileItem
         }
-        if let urlItem = extractURL(from: pasteboard, sourceApp: sourceApp) {
+        if let urlItem = extractURL(from: pasteboard, sourceApp: sourceApp, maxSize: maxSize) {
             return urlItem
         }
-        if let richTextItem = extractRichText(from: pasteboard, sourceApp: sourceApp) {
+        if let richTextItem = extractRichText(from: pasteboard, sourceApp: sourceApp, maxSize: maxSize) {
             return richTextItem
         }
-        if let textItem = extractPlainText(from: pasteboard, sourceApp: sourceApp) {
+        if let textItem = extractPlainText(from: pasteboard, sourceApp: sourceApp, maxSize: maxSize) {
             return textItem
         }
         if let colorItem = extractColor(from: pasteboard, sourceApp: sourceApp) {
@@ -37,10 +45,10 @@ final class ContentNormalizer: Sendable {
         return nil
     }
 
-    private nonisolated func extractPlainText(from pasteboard: NSPasteboard, sourceApp: AppInfo) -> ClipboardItem? {
+    private nonisolated func extractPlainText(from pasteboard: NSPasteboard, sourceApp: AppInfo, maxSize: Int) -> ClipboardItem? {
         guard let text = pasteboard.string(forType: .string), !text.isEmpty else { return nil }
         let data = Data(text.utf8)
-        guard data.count <= maxItemSize else { return nil }
+        guard data.count <= maxSize else { return nil }
 
         return ClipboardItem(
             type: looksLikeCode(text) ? .code : .text,
@@ -51,9 +59,9 @@ final class ContentNormalizer: Sendable {
         )
     }
 
-    private nonisolated func extractRichText(from pasteboard: NSPasteboard, sourceApp: AppInfo) -> ClipboardItem? {
+    private nonisolated func extractRichText(from pasteboard: NSPasteboard, sourceApp: AppInfo, maxSize: Int) -> ClipboardItem? {
         guard let rtfData = pasteboard.data(forType: .rtf) ?? pasteboard.data(forType: .html) else { return nil }
-        guard rtfData.count <= maxItemSize else { return nil }
+        guard rtfData.count <= maxSize else { return nil }
 
         let plainText = pasteboard.string(forType: .string)
 
@@ -66,10 +74,10 @@ final class ContentNormalizer: Sendable {
         )
     }
 
-    private nonisolated func extractImage(from pasteboard: NSPasteboard, sourceApp: AppInfo) -> ClipboardItem? {
+    private nonisolated func extractImage(from pasteboard: NSPasteboard, sourceApp: AppInfo, maxSize: Int) -> ClipboardItem? {
         let imageTypes: [NSPasteboard.PasteboardType] = [.tiff, .png]
         for type in imageTypes {
-            if let imageData = pasteboard.data(forType: type), imageData.count <= maxItemSize {
+            if let imageData = pasteboard.data(forType: type), imageData.count <= maxSize {
                 return ClipboardItem(
                     type: .image,
                     content: imageData,
@@ -81,7 +89,7 @@ final class ContentNormalizer: Sendable {
         return nil
     }
 
-    private nonisolated func extractFiles(from pasteboard: NSPasteboard, sourceApp: AppInfo) -> ClipboardItem? {
+    private nonisolated func extractFiles(from pasteboard: NSPasteboard, sourceApp: AppInfo, maxSize: Int) -> ClipboardItem? {
         guard let urls = pasteboard.readObjects(forClasses: [NSURL.self], options: [
             .urlReadingFileURLsOnly: true
         ]) as? [URL], let firstURL = urls.first else { return nil }
@@ -99,7 +107,7 @@ final class ContentNormalizer: Sendable {
         )
     }
 
-    private nonisolated func extractURL(from pasteboard: NSPasteboard, sourceApp: AppInfo) -> ClipboardItem? {
+    private nonisolated func extractURL(from pasteboard: NSPasteboard, sourceApp: AppInfo, maxSize: Int) -> ClipboardItem? {
         guard let urlString = pasteboard.string(forType: .string),
               let url = URL(string: urlString),
               url.scheme == "http" || url.scheme == "https" else { return nil }
