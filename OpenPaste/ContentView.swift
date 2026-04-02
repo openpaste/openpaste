@@ -8,7 +8,6 @@ struct ContentView: View {
 
     @State private var selectedTab: Tab = .history
     @State private var appeared = false
-    @AppStorage(Constants.appearanceThemeKey) private var theme = "system"
 
     enum Tab { case history, collections }
 
@@ -49,15 +48,6 @@ struct ContentView: View {
                 appeared = true
             }
         }
-        .preferredColorScheme(colorSchemeFor(theme))
-    }
-
-    private func colorSchemeFor(_ theme: String) -> ColorScheme? {
-        switch theme {
-        case "light": .light
-        case "dark": .dark
-        default: nil
-        }
     }
 
     private var tabPicker: some View {
@@ -68,6 +58,5 @@ struct ContentView: View {
         .pickerStyle(.segmented)
         .padding(.horizontal, 12)
         .padding(.vertical, 6)
-        .glassEffect(.regular, in: .rect(cornerRadius: DS.Radius.md))
     }
 }

@@ -1,19 +1,22 @@
 import SwiftUI
 
 enum DS {
-    // MARK: - Brand Colors
+    // MARK: - Brand Colors (native adaptive)
     enum Colors {
-        static let accent = Color(red: 0.18, green: 0.77, blue: 0.71) // #2EC4B6
-        static let secondary = Color(red: 0.38, green: 0.35, blue: 0.86) // #6159DB
+        /// Uses the AccentColor defined in Asset Catalog — auto-adapts light/dark
+        static let accent = Color.accentColor
 
-        // Content-type accent colors
+        /// System semantic colors — no hardcoding needed
+        static let secondary = Color.secondary
+
+        // Content-type colors — use system semantic colors that adapt automatically
         static let text = Color.primary
-        static let richText = Color.blue
-        static let image = Color(red: 0.2, green: 0.78, blue: 0.35)
-        static let file = Color.orange
-        static let link = Color(red: 0.58, green: 0.39, blue: 0.87)
-        static let colorType = Color.pink
-        static let code = Color(red: 0.0, green: 0.75, blue: 0.83)
+        static let richText = Color(nsColor: .systemBlue)
+        static let image = Color(nsColor: .systemGreen)
+        static let file = Color(nsColor: .systemOrange)
+        static let link = Color(nsColor: .systemPurple)
+        static let colorType = Color(nsColor: .systemPink)
+        static let code = Color(nsColor: .systemTeal)
     }
 
     // MARK: - Spacing

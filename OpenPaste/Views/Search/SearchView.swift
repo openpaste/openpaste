@@ -129,11 +129,11 @@ struct FilterChip: View {
             .font(DS.Typography.filterChip)
             .padding(.horizontal, 10)
             .padding(.vertical, 5)
-            .background(isActive ? DS.Colors.accent.opacity(0.15) : Color.secondary.opacity(0.06))
-            .foregroundStyle(isActive ? DS.Colors.accent : .primary)
+            .background(isActive ? Color.accentColor.opacity(0.15) : Color(nsColor: .quaternarySystemFill))
+            .foregroundStyle(isActive ? Color.accentColor : .primary)
             .overlay(
                 Capsule()
-                    .strokeBorder(isActive ? DS.Colors.accent.opacity(0.5) : Color.secondary.opacity(0.25), lineWidth: 1)
+                    .strokeBorder(isActive ? Color.accentColor.opacity(0.5) : Color(nsColor: .separatorColor), lineWidth: 1)
             )
             .clipShape(Capsule())
         }

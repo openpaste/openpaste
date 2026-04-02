@@ -6,8 +6,8 @@ struct TypeIcon: View {
     var body: some View {
         Image(systemName: systemName)
             .foregroundStyle(iconColor)
-            .font(.system(size: 18))
-            .frame(width: 28, height: 28)
+            .font(.system(size: 14))
+            .frame(width: 24, height: 24)
     }
 
     private var systemName: String {
@@ -24,13 +24,13 @@ struct TypeIcon: View {
 
     private var iconColor: Color {
         switch type {
-        case .text: DS.Colors.text
-        case .richText: DS.Colors.richText
-        case .image: DS.Colors.image
-        case .file: DS.Colors.file
-        case .link: DS.Colors.link
-        case .color: DS.Colors.colorType
-        case .code: DS.Colors.code
+        case .text: .secondary
+        case .richText: Color(nsColor: .systemBlue)
+        case .image: Color(nsColor: .systemGreen)
+        case .file: Color(nsColor: .systemOrange)
+        case .link: Color(nsColor: .systemPurple)
+        case .color: Color(nsColor: .systemPink)
+        case .code: Color(nsColor: .systemTeal)
         }
     }
 }

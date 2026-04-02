@@ -61,7 +61,6 @@ struct PasteStackOverlay: View {
                     }
                     .buttonStyle(.borderedProminent)
                     .controlSize(.small)
-                    .glassEffect(.regular, in: .capsule)
 
                     Button {
                         viewModel.clear()
