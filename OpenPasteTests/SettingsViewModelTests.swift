@@ -16,6 +16,7 @@ struct SettingsViewModelTests {
         for key in keys {
             UserDefaults.standard.removeObject(forKey: key)
         }
+        UserDefaults.standard.synchronize()
     }
 
     // MARK: - Screen Sharing Auto-Hide
@@ -46,6 +47,7 @@ struct SettingsViewModelTests {
 
         let vm1 = SettingsViewModel()
         vm1.screenSharingAutoHide = false
+        UserDefaults.standard.synchronize()
 
         let vm2 = SettingsViewModel()
         #expect(vm2.screenSharingAutoHide == false)
@@ -79,6 +81,7 @@ struct SettingsViewModelTests {
 
         let vm1 = SettingsViewModel()
         vm1.urlPreviewEnabled = false
+        UserDefaults.standard.synchronize()
 
         let vm2 = SettingsViewModel()
         #expect(vm2.urlPreviewEnabled == false)
