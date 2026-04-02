@@ -34,7 +34,7 @@ struct AboutView: View {
             HStack(spacing: 20) {
                 Link("GitHub", destination: URL(string: "https://github.com/openpaste/openpaste") ?? URL(string: "https://github.com")!)
                 Text("·").foregroundStyle(.tertiary)
-                Text("MIT License")
+                Text("AGPL-3.0 License")
                     .foregroundStyle(.secondary)
             }
             .font(.caption)
