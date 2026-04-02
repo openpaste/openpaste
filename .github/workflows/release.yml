@@ -24,6 +24,14 @@ jobs:
       - name: Resolve packages
         run: xcodebuild -resolvePackageDependencies -scheme OpenPaste
 
+      - name: Run tests before release
+        run: |
+          xcodebuild test \
+            -scheme OpenPaste \
+            -destination 'platform=macOS' \
+            -configuration Debug \
+            CODE_SIGNING_ALLOWED=NO
+
       - name: Install signing certificate
         env:
           CERTIFICATE_BASE64: ${{ secrets.DEVELOPER_ID_CERT_BASE64 }}
