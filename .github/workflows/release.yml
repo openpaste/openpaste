@@ -68,11 +68,25 @@ jobs:
         run: |
           ditto -c -k --keepParent build/export/OpenPaste.app build/export/OpenPaste.zip
 
-          xcrun notarytool submit build/export/OpenPaste.zip \
+          SUBMIT_OUTPUT=$(xcrun notarytool submit build/export/OpenPaste.zip \
             --apple-id "$APPLE_ID" \
             --password "$APPLE_ID_PASSWORD" \
             --team-id "$APPLE_TEAM_ID" \
-            --wait --timeout 600
+            --wait --timeout 600 2>&1) || true
+
+          echo "$SUBMIT_OUTPUT"
+          SUBMISSION_ID=$(echo "$SUBMIT_OUTPUT" | grep -m1 'id:' | awk '{print $2}')
+          STATUS=$(echo "$SUBMIT_OUTPUT" | grep -m1 'status:' | awk '{print $2}')
+
+          if [ "$STATUS" != "Accepted" ]; then
+            echo "::error::Notarization failed with status: $STATUS"
+            echo "==> Fetching notarization log..."
+            xcrun notarytool log "$SUBMISSION_ID" \
+              --apple-id "$APPLE_ID" \
+              --password "$APPLE_ID_PASSWORD" \
+              --team-id "$APPLE_TEAM_ID" || true
+            exit 1
+          fi
 
           xcrun stapler staple build/export/OpenPaste.app
           echo "==> Notarization complete"
