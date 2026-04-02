@@ -23,6 +23,8 @@ final class OnboardingViewModel {
     var isRecordingHotkey: Bool = false
 
     private var permissionTimer: Timer?
+    private var accessibilityObserver: NSObjectProtocol?
+    private var activationObserver: NSObjectProtocol?
 
     var stepIndex: Int { currentStep.rawValue }
     var totalSteps: Int { OnboardingStep.allCases.count }
@@ -73,8 +75,16 @@ final class OnboardingViewModel {
     // MARK: - Permissions
 
     func openAccessibilitySettings() {
-        guard let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility") else { return }
-        NSWorkspace.shared.open(url)
+        // Register this binary in the TCC database with its current code signature
+        let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue(): true] as CFDictionary
+        let trusted = AXIsProcessTrustedWithOptions(options)
+
+        // If the system prompt was suppressed (already prompted once), open Settings directly
+        if !trusted {
+            if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility") {
+                NSWorkspace.shared.open(url)
+            }
+        }
     }
 
     func checkAccessibilityPermission() {
@@ -88,11 +98,33 @@ final class OnboardingViewModel {
                 self?.checkAccessibilityPermission()
             }
         }
+
+        // Instantly re-check when user toggles any Accessibility permission
+        accessibilityObserver = DistributedNotificationCenter.default()
+            .addObserver(forName: Notification.Name("com.apple.accessibility.api"), object: nil, queue: .main) { [weak self] _ in
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                    self?.checkAccessibilityPermission()
+                }
+            }
+
+        // Re-check when user returns to the app from System Settings
+        activationObserver = NotificationCenter.default
+            .addObserver(forName: NSApplication.didBecomeActiveNotification, object: nil, queue: .main) { [weak self] _ in
+                self?.checkAccessibilityPermission()
+            }
     }
 
     func stopPermissionPolling() {
         permissionTimer?.invalidate()
         permissionTimer = nil
+        if let observer = accessibilityObserver {
+            DistributedNotificationCenter.default().removeObserver(observer)
+            accessibilityObserver = nil
+        }
+        if let observer = activationObserver {
+            NotificationCenter.default.removeObserver(observer)
+            activationObserver = nil
+        }
     }
 
     // MARK: - Hotkey

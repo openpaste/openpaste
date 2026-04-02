@@ -9,7 +9,7 @@ Strategic roadmap for OpenPaste development phases, milestones, and feature prio
 
 ## Phase 1: Foundation – Core Clipboard Management ⚙️
 
-**Status:** In Progress (85% complete)
+**Status:** In Progress (95% complete)
 **Target Completion:** Q2 2026
 
 ### Completed Milestones ✅
@@ -77,7 +77,17 @@ Strategic roadmap for OpenPaste development phases, milestones, and feature prio
 
 ### Active Milestones 🔄
 
-6. **Advanced Search & Filtering**
+6. **Distribution & CI/CD** ✅ NEW
+   - Bundle ID: `dev.tuanle.OpenPaste` (unique, no conflicts)
+   - Developer ID Application certificate for code signing
+   - Apple notarization (notarytool + stapler) — Gatekeeper pass
+   - `scripts/create-dmg.sh` for DMG packaging
+   - GitHub Actions release workflow (tag push → build → sign → notarize → DMG → release)
+   - Homebrew Cask via `openpaste/homebrew-tap` with auto-update on release
+   - `brew tap openpaste/tap && brew install --cask openpaste` verified working
+   - See [Release Guide](release-guide.md) for full procedure
+
+7. **Advanced Search & Filtering**
    - Full-text search with Spotlight integration
    - Filtering by content type (text, image, URL)
    - Time-based filtering (today, this week, older) — ✅ partially done via SmartFilterBar
@@ -204,6 +214,9 @@ Strategic roadmap for OpenPaste development phases, milestones, and feature prio
 - [x] Window resizable within defined bounds (350×400 to 700×900)
 - [x] Cursor-positioned window mode functional
 - [x] Paste confirmation overlay with auto-dismiss
+- [x] Signed + notarized release via GitHub Actions CI/CD
+- [x] Homebrew Cask installable (`brew install --cask openpaste`)
+- [x] Automated Homebrew tap update on every release
 
 ---
 
@@ -224,6 +237,7 @@ Strategic roadmap for OpenPaste development phases, milestones, and feature prio
 ## Notes
 
 - **Q2 2026 Focus:** Complete advanced search & filtering; image metadata; performance benchmarks
+- **Distribution:** v1.0.0 released — signed, notarized, Homebrew installable. See [release-guide.md](release-guide.md)
 - **UI/UX Overhaul:** Complete — design system (`DS` enum), Liquid Glass, spring animations, vim navigation, and settings redesign shipped
 - **Onboarding Release:** Ready for initial user feedback loop
 - **Testing Strategy:** Unit tests prioritized for ViewModel logic; integration tests for permission detection

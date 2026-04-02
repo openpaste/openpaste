@@ -3,10 +3,63 @@ import SwiftUI
 struct GeneralSettingsView: View {
     @Bindable var viewModel: SettingsViewModel
     @State private var showClearConfirmation = false
+    @State private var accessibilityGranted = AXIsProcessTrusted()
     @AppStorage(Constants.historyRetentionDaysKey) private var retentionDays = 0
 
     var body: some View {
         Form {
+            Section("Permissions") {
+                HStack {
+                    Label {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Accessibility")
+                            Text(accessibilityGranted
+                                 ? "Global shortcuts and paste are working."
+                                 : "Required for global shortcuts and paste to other apps.")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    } icon: {
+                        Image(systemName: accessibilityGranted ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
+                            .foregroundStyle(accessibilityGranted ? .green : .orange)
+                    }
+
+                    Spacer()
+
+                    if !accessibilityGranted {
+                        Button("Grant Access…") {
+                            // Register this binary in TCC with its current code signature
+                            let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue(): true] as CFDictionary
+                            let trusted = AXIsProcessTrustedWithOptions(options)
+                            if trusted {
+                                accessibilityGranted = true
+                            } else {
+                                // If prompt was suppressed, open Settings directly
+                                if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility") {
+                                    NSWorkspace.shared.open(url)
+                                }
+                            }
+                        }
+                    }
+                }
+                .task {
+                    // Poll as fallback
+                    while !Task.isCancelled {
+                        accessibilityGranted = AXIsProcessTrusted()
+                        try? await Task.sleep(for: .seconds(2))
+                    }
+                }
+                .onReceive(
+                    DistributedNotificationCenter.default()
+                        .publisher(for: Notification.Name("com.apple.accessibility.api"))
+                ) { _ in
+                    // Slight delay: TCC database may not be updated instantly
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                        accessibilityGranted = AXIsProcessTrusted()
+                    }
+                }
+            }
+
             Section("Startup") {
                 Toggle("Open at login", isOn: $viewModel.launchAtLogin)
             }

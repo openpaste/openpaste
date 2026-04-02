@@ -2,6 +2,36 @@
 
 All notable changes to the OpenPaste project are documented in this file. Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [1.0.0] — 2026-04-02
+
+### Added
+
+#### Distribution & CI/CD Pipeline (April 2026)
+Full release pipeline: code signing, Apple notarization, DMG packaging, GitHub Releases, and Homebrew Cask distribution.
+
+- **Bundle ID** changed from `com.openshot.OpenPaste` to `dev.tuanle.OpenPaste` (6 locations in `project.pbxproj` + `Constants.swift`)
+- **Code signing:** Developer ID Application certificate (Team ID: `VGQU7EVXZV`)
+- **Notarization:** Apple `notarytool submit --wait` + `stapler staple` — app passes Gatekeeper
+- **DMG packaging:** `scripts/create-dmg.sh` — creates compressed DMG with /Applications symlink
+- **GitHub Actions:** `.github/workflows/release.yml` — tag push triggers: build → sign → notarize → staple → DMG → GitHub Release → Homebrew tap update
+- **Homebrew Cask:** `openpaste/homebrew-tap` repo with `Casks/openpaste.rb` — auto-updated via `repository-dispatch` on every release
+- **Installation:** `brew tap openpaste/tap && brew install --cask openpaste`
+- **Version format:** Semver `X.Y.Z` (`MARKETING_VERSION` in 6 build configs must match git tag)
+
+**New Files:**
+
+| File | Purpose |
+|------|---------|
+| `.github/workflows/release.yml` | CI/CD: build, sign, notarize, release, update Homebrew |
+| `scripts/create-dmg.sh` | DMG creation script with SHA-256 output |
+| `docs/release-guide.md` | Step-by-step release procedure document |
+| `docs/system-architecture.md` | Full architecture overview |
+
+### Fixed
+- `SettingsViewModel.onClearAllHistory` — added `@ObservationIgnored` to fix Swift 6.2 `@Observable` macro type conflict with `nonisolated(nonsending)` closure type
+
+---
+
 ## [Unreleased]
 
 ### Added
