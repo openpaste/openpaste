@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" xmlns:dc="http://purl.org/dc/elements/1.1/">
+  <channel>
+    <title>OpenPaste Updates</title>
+    <language>en</language>
+    <item>
+      <title>Version 1.0.1</title>
+      <pubDate>Wed, 02 Apr 2026 14:39:34 +0000</pubDate>
+      <sparkle:version>1.0.1</sparkle:version>
+      <sparkle:shortVersionString>1.0.1</sparkle:shortVersionString>
+      <enclosure
+        url="https://github.com/openpaste/openpaste/releases/download/v1.0.1/OpenPaste-1.0.1.dmg"
+        sparkle:edSignature="AITMx3ofdrXJHnQnFqMA5zsv9EDPDfLDbkt1QRxUWsJKXKHVi9yzaKcMZnt//CoaPRj6/Mz+2IwHVk+rg9LXAQ=="
+        length="3597741"
+        type="application/octet-stream"/>
+    </item>
+    <item>
+      <title>Version 1.0.0</title>
+      <pubDate>Wed, 02 Apr 2026 07:00:00 +0000</pubDate>
+      <sparkle:version>1.0.0</sparkle:version>
+      <sparkle:shortVersionString>1.0.0</sparkle:shortVersionString>
+      <enclosure
+        url="https://github.com/openpaste/openpaste/releases/download/v1.0.0/OpenPaste-1.0.0.dmg"
+        sparkle:edSignature="TNLXEnKn0GSy0IDWNi2a66lX6Lat4sJJaLDLWXh/4mU6osmrnfqZKPvKf5Sy4b8AgAs87ATL5QO0t1VbAd0FAg=="
+        length="3581927"
+        type="application/octet-stream"/>
+    </item>
+  </channel>
+</rss>
