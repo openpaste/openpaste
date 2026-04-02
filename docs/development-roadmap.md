@@ -87,12 +87,20 @@ Strategic roadmap for OpenPaste development phases, milestones, and feature prio
    - `brew tap openpaste/tap && brew install --cask openpaste` verified working
    - See [Release Guide](release-guide.md) for full procedure
 
-7. **Advanced Search & Filtering**
+7. **Sparkle Auto-Update Framework** ✅ NEW
+   - Sparkle 2.9.1 SPM dependency integrated
+   - `UpdaterService` (@Observable wrapper) for in-app updates
+   - EdDSA code signing pipeline in `release.yml`
+   - Appcast generation and GitHub Pages deployment
+   - MenuBar "Check for Updates…" + Settings UI toggle for auto-check
+   - See [Release Guide](release-guide.md) — EdDSA key setup section
+
+8. **Advanced Search & Filtering**
    - Full-text search with Spotlight integration
    - Filtering by content type (text, image, URL)
    - Time-based filtering (today, this week, older) — ✅ partially done via SmartFilterBar
 
-7. **Image Support & Preview**
+9. **Image Support & Preview**
    - Capture clipboard images
    - Image preview in history — ✅ partially done via ContentPreviewView improvements
    - Image metadata (dimensions, format)

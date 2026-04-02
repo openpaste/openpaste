@@ -17,12 +17,36 @@ Step-by-step guide for cutting a new release.
 | `APPLE_TEAM_ID` | Apple Developer Team ID (`VGQU7EVXZV`) |
 | `APPLE_ID` | Apple ID for notarization |
 | `APPLE_ID_PASSWORD` | App-specific password (not account password) |
-| `TAP_REPO_TOKEN` | GitHub PAT with `repo` scope for `openpaste/homebrew-tap` |
-
+| `TAP_REPO_TOKEN` | GitHub PAT with `repo` scope for `openpaste/homebrew-tap` || `SPARKLE_EDDSA_PRIVATE_KEY` | Base64-encoded Ed25519 private key for signing DMG and appcast.xml |
 ### Apple Developer Portal
 
 - **Certificate type:** Developer ID Application (NOT Apple Development)
 - **App-specific password:** Generate at [appleid.apple.com](https://appleid.apple.com) → Security → App-Specific Passwords
+
+### EdDSA Key Setup for Sparkle
+
+**Generate the keypair (one-time setup):**
+
+```bash
+# Install libsodium if not present
+brew install libsodium
+
+# Generate private key (base64 encoded)
+openssl rand -hex 32 | xxd -r -p | base64 > sparkle_private.key
+
+# Extract the key for GitHub Secrets
+cat sparkle_private.key
+```
+
+**Store in GitHub Secrets:**
+
+1. Go to repository Settings → Secrets and variables → Actions
+2. Click "New repository secret"
+3. Name: `SPARKLE_EDDSA_PRIVATE_KEY`
+4. Value: Paste the base64-encoded Ed25519 private key
+5. Click "Add secret"
+
+> **Note:** The public key is stored in `Info.plist` as `SUPublicEDKey` (committed to repo). The private key never leaves GitHub Actions — it's used only during the release workflow to sign the DMG and appcast.xml.
 
 ---
 
@@ -67,13 +91,9 @@ Tag Push → Build → Sign → Notarize → Staple → DMG → GitHub Release �
 | **Notarize** | `notarytool submit --wait` sends zip to Apple, waits up to 600s |
 | **Staple** | `stapler staple` attaches notarization ticket to .app |
 | **DMG** | `scripts/create-dmg.sh` creates `OpenPaste-X.Y.Z.dmg` |
-| **Release** | `softprops/action-gh-release` publishes DMG + auto-generated release notes |
-| **Homebrew** | `repository-dispatch` triggers `openpaste/homebrew-tap` to update cask SHA256 |
-
-### 4. Verify
-
-```bash
-# Check release was created
+| **DMG Sign (Sparkle)** | Private key from `SPARKLE_EDDSA_PRIVATE_KEY` signs the DMG for update verification |
+| **Appcast Gen** | `generate_appcast` tool creates `appcast.xml` with version, download link, delta patches, and EdDSA signatures |
+| **Pages Deploy** | Appcast + DMG pushed to `gh-pages` branch; served at `https://openpaste.github.io/openpaste/appcast.xml` |
 gh release view v1.1.0
 
 # Verify Homebrew tap updated (wait ~1min for dispatch workflow)
@@ -135,6 +155,36 @@ gh release create v1.1.0 build/OpenPaste-1.1.0.dmg --generate-notes
 **Version ↔ Tag ↔ DMG name chain:**
 ```
 MARKETING_VERSION=1.2.0 → tag v1.2.0 → OpenPaste-1.2.0.dmg → brew cask version "1.2.0"
+```
+
+---
+
+## Sparkle Update Feed
+
+### Appcast Location
+
+**Public URL:** `https://openpaste.github.io/openpaste/appcast.xml`
+
+This feed is consumed by users' `UpdaterService` instances to check for updates.
+
+### Delta Patches
+
+The `generate_appcast` tool automatically creates binary delta patches between released versions, reducing download size for incremental updates. Users on older versions only download the delta, not the full DMG.
+
+### Testing Updates Locally
+
+To manually test update flow before release:
+
+```bash
+# 1. Build and archive the current app
+xcodebuild archive -project OpenPaste.xcodeproj -scheme OpenPaste -configuration Release
+
+# 2. Set SUFeedURL in Info.plist to point to staging appcast
+# (or a local test file via file:// URL)
+
+# 3. Trigger update check in app via menu → "Check for Updates…"
+
+# 4. Verify Sparkle downloads delta and installs correctly
 ```
 
 ---

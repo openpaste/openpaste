@@ -2,6 +2,7 @@ import SwiftUI
 
 struct SettingsView: View {
     @Bindable var viewModel: SettingsViewModel
+    var updaterService: UpdaterServiceProtocol
 
     @State private var selectedSection: SettingsSection = .general
 
@@ -35,7 +36,7 @@ struct SettingsView: View {
         } detail: {
             switch selectedSection {
             case .general:
-                GeneralSettingsView(viewModel: viewModel)
+                GeneralSettingsView(viewModel: viewModel, updaterService: updaterService)
             case .privacy:
                 PrivacySettingsView(viewModel: viewModel)
             case .keyboard:
@@ -45,7 +46,7 @@ struct SettingsView: View {
             case .storage:
                 StorageSettingsView(viewModel: viewModel)
             case .about:
-                AboutView()
+                AboutView(updaterService: updaterService)
             }
         }
         .frame(width: 650, height: 480)

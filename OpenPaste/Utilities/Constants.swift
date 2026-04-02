@@ -28,4 +28,5 @@ enum Constants {
     static let historyRetentionDaysKey = "historyRetentionDays"
     static let windowPositionModeKey = "windowPositionMode"
     static let savedWindowFrameKey = "savedWindowFrame"
+
 }

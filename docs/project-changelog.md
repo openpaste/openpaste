@@ -171,6 +171,40 @@ Complete first-launch onboarding experience with step-by-step guided setup.
 
 ---
 
+#### Sparkle Auto-Update Framework (April 2026)
+In-app automatic update system powered by Sparkle 2.9.1 with EdDSA code signing.
+
+**Components:**
+- **Sparkle 2.9.1** SPM dependency — industry-standard macOS app updater
+- `UpdaterService` (@Observable wrapper) at `Services/UpdaterService.swift` — Observable facade around `SPUStandardUpdaterController`
+- `UpdaterServiceProtocol` at `Services/Protocols/UpdaterServiceProtocol.swift` — Protocol for dependency injection
+- `Info.plist` configuration — `SUFeedURL` (appcast location) + `SUPublicEDKey` (EdDSA verification key)
+- **Appcast hosting** — GitHub Pages at `https://openpaste.github.io/openpaste/appcast.xml`
+
+**UI Integration:**
+- MenuBar: "Check for Updates…" menu item in app menu (manually triggered check)
+- Settings > General: "Automatically check for updates" toggle via `@AppStorage(Constants.autoCheckUpdatesKey)`
+- Settings > About: "Check for Updates…" button with update status feedback
+- `SettingsViewModel` — Property `autoCheckUpdates` wired to Sparkle config
+
+**CI/CD Pipeline (release.yml):**
+- **EdDSA signing:** Generate ephemeral 25519 keypair during build; sign DMG + appcast.xml
+- **Appcast generation:** `generate_appcast` tool creates versioned feed with delta patches
+- **GitHub Pages deployment:** DMG + appcast.xml pushed to `gh-pages` branch via `peaceiris/actions-gh-pages@v4`
+- **Update cycle:** Tag push → build → sign → DMG → appcast gen → GitHub Pages deploy
+
+**Files:**
+- `Info.plist` — SUFeedURL, SUPublicEDKey (committed; private key in Actions secrets)
+- `.github/workflows/release.yml` — DMG signing + appcast generation steps
+- `docs/release-guide.md` — EdDSA key generation and SPARKLE_EDDSA_PRIVATE_KEY secret setup
+
+**Secrets (GitHub Actions):**
+- `SPARKLE_EDDSA_PRIVATE_KEY` — Base64-encoded Ed25519 private key (imported during build)
+
+**Breaking Changes:** None
+
+---
+
 ## Format Rules
 
 - Use `[Unreleased]` for pending changes

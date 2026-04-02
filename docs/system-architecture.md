@@ -86,12 +86,15 @@ Services/
 │   ├── DatabaseManager          — GRDB setup, migrations, schema
 │   ├── StorageService           — CRUD operations on ClipboardItem
 │   └── KeychainHelper           — macOS Keychain for encryption keys
+├── Update/
+│   └── UpdaterService           — Sparkle 2.9.1 (@Observable wrapper), in-app update checks and installation
 └── Protocols/
     ├── ClipboardServiceProtocol
     ├── StorageServiceProtocol
     ├── SearchServiceProtocol
     ├── SecurityServiceProtocol
-    └── OCRServiceProtocol
+    ├── OCRServiceProtocol
+    └── UpdaterServiceProtocol
 ```
 
 ### 4. ViewModel Layer (`ViewModels/`)

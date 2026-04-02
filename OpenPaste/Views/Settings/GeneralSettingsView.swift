@@ -2,6 +2,7 @@ import SwiftUI
 
 struct GeneralSettingsView: View {
     @Bindable var viewModel: SettingsViewModel
+    var updaterService: UpdaterServiceProtocol
     @State private var showClearConfirmation = false
     @State private var accessibilityGranted = AXIsProcessTrusted()
     @AppStorage(Constants.historyRetentionDaysKey) private var retentionDays = 0
@@ -62,6 +63,11 @@ struct GeneralSettingsView: View {
 
             Section("Startup") {
                 Toggle("Open at login", isOn: $viewModel.launchAtLogin)
+
+                Toggle("Automatically check for updates", isOn: Binding(
+                    get: { updaterService.automaticallyChecksForUpdates },
+                    set: { updaterService.automaticallyChecksForUpdates = $0 }
+                ))
             }
 
             Section("Clipboard Monitoring") {

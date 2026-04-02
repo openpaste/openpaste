@@ -30,6 +30,11 @@ struct OpenPasteApp: App {
                 }
                 .keyboardShortcut(",", modifiers: .command)
 
+                Button("Check for Updates…") {
+                    controller.updaterService.checkForUpdates()
+                }
+                .disabled(!controller.updaterService.canCheckForUpdates)
+
                 Divider()
 
                 Button("Quit OpenPaste") {
@@ -41,8 +46,11 @@ struct OpenPasteApp: App {
         .menuBarExtraStyle(.menu)
 
         Settings {
-            SettingsView(viewModel: controller.settingsViewModel)
-                .onAppear {
+            SettingsView(
+                viewModel: controller.settingsViewModel,
+                updaterService: controller.updaterService
+            )
+            .onAppear {
                     NSApp.activate(ignoringOtherApps: true)
                 }
         }

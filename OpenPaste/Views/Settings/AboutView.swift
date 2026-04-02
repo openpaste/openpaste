@@ -1,6 +1,8 @@
 import SwiftUI
 
 struct AboutView: View {
+    var updaterService: UpdaterServiceProtocol
+
     var body: some View {
         VStack(spacing: 20) {
             Spacer()
@@ -22,10 +24,15 @@ struct AboutView: View {
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
 
+            Button("Check for Updates…") {
+                updaterService.checkForUpdates()
+            }
+            .disabled(!updaterService.canCheckForUpdates)
+
             Divider()
 
             HStack(spacing: 20) {
-                Link("GitHub", destination: URL(string: "https://github.com/openpaste/openpaste")!)
+                Link("GitHub", destination: URL(string: "https://github.com/openpaste/openpaste") ?? URL(string: "https://github.com")!)
                 Text("·").foregroundStyle(.tertiary)
                 Text("MIT License")
                     .foregroundStyle(.secondary)

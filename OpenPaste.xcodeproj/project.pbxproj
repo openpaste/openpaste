@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		D0AC71E32F7D1C2F0088575B /* GRDB in Frameworks */ = {isa = PBXBuildFile; productRef = A0AC00022F7D0D180088575B /* GRDB */; };
+		D0AC71F02F7D2A000088575B /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = D0AC71EF2F7D2A000088575B /* Sparkle */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -57,6 +58,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				D0AC71E32F7D1C2F0088575B /* GRDB in Frameworks */,
+				D0AC71F02F7D2A000088575B /* Sparkle in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -118,6 +120,7 @@
 			name = OpenPaste;
 			packageProductDependencies = (
 				A0AC00022F7D0D180088575B /* GRDB */,
+				D0AC71EF2F7D2A000088575B /* Sparkle */,
 			);
 			productName = OpenPaste;
 			productReference = D0AC711F2F7D0D170088575B /* OpenPaste.app */;
@@ -203,6 +206,7 @@
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				A0AC00012F7D0D180088575B /* XCRemoteSwiftPackageReference "GRDB.swift" */,
+				D0AC71EE2F7D2A000088575B /* XCRemoteSwiftPackageReference "Sparkle" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = D0AC71202F7D0D170088575B /* Products */;
@@ -412,6 +416,7 @@
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = OpenPaste/Info.plist;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -444,6 +449,7 @@
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = OpenPaste/Info.plist;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -592,6 +598,14 @@
 				minimumVersion = 7.0.0;
 			};
 		};
+		D0AC71EE2F7D2A000088575B /* XCRemoteSwiftPackageReference "Sparkle" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/sparkle-project/Sparkle";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.0.0;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -599,6 +613,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = A0AC00012F7D0D180088575B /* XCRemoteSwiftPackageReference "GRDB.swift" */;
 			productName = GRDB;
+		};
+		D0AC71EF2F7D2A000088575B /* Sparkle */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = D0AC71EE2F7D2A000088575B /* XCRemoteSwiftPackageReference "Sparkle" */;
+			productName = Sparkle;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

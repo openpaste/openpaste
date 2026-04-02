@@ -6,6 +6,7 @@ final class AppController {
     var windowManager = WindowManager()
     var pasteStackViewModel = PasteStackViewModel()
     var settingsViewModel: SettingsViewModel
+    var updaterService: UpdaterServiceProtocol = UpdaterService()
     var historyViewModel: HistoryViewModel?
     var searchViewModel: SearchViewModel?
     var collectionViewModel: CollectionViewModel?
