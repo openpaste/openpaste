@@ -4,8 +4,8 @@ Thank you for your interest in contributing to OpenPaste! This guide will help y
 
 ## Prerequisites
 
-- **macOS 14.0+** (Sonoma or later)
-- **Xcode 15.0+** with Swift 6 toolchain
+- **macOS 15.0+** (Sequoia or later)
+- **Xcode 16.0+** with Swift 6 toolchain
 - **Git** with conventional commit knowledge
 
 ## Getting Started
