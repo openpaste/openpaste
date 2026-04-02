@@ -85,8 +85,8 @@ jobs:
           # Re-sign the framework itself
           codesign $OPTS --sign "$IDENTITY" "$SPARKLE"
 
-          # Re-sign the main app
-          codesign $OPTS --sign "$IDENTITY" --entitlements /dev/null "$APP"
+          # Re-sign the main app (preserve existing entitlements)
+          codesign $OPTS --sign "$IDENTITY" --preserve-metadata=entitlements "$APP"
 
           echo "==> All Sparkle binaries re-signed"
           codesign --verify --deep --strict "$APP" && echo "==> Deep verification passed"
