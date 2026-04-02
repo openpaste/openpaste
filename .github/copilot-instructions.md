@@ -14,6 +14,16 @@ rm -rf "$HOME/Library/Application Support/dev.tuanle.OpenPaste" "$HOME/Library/A
 ```
 This clears: UserDefaults (onboarding, hotkey, settings), database (clipboard history sqlite), caches, and window saved state. macOS Accessibility permission is NOT affected.
 
+## Git Workflow
+- **`main`** = stable/release branch. Protected — NO direct push.
+- **`develop`** = integration branch. Push daily work here.
+- **Feature branches**: Branch from `develop`, name as `feat/description`, `fix/description`, etc.
+- **To merge into `main`**: Create PR from `develop` → `main`. CI must pass.
+- **To merge features into `develop`**: Create PR or push directly (for solo dev).
+- **Hotfixes**: Branch `hotfix/description` from `main`, PR back to both `main` and `develop`.
+- **Before any code change**: Ensure you're on `develop` or a feature branch, NEVER on `main`.
+- **CI**: `.github/workflows/ci.yml` runs build + tests on PRs to `main` and pushes to `develop`.
+
 ## Build & Verify
 After code changes, always compile-check:
 ```bash
