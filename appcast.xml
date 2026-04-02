@@ -36,5 +36,16 @@
         length="4531820"
         type="application/octet-stream"/>
     </item>
+    <item>
+      <title>Version 1.1.1</title>
+      <pubDate>Thu, 02 Apr 2026 16:30:50 +0000</pubDate>
+      <sparkle:version>1.1.1</sparkle:version>
+      <sparkle:shortVersionString>1.1.1</sparkle:shortVersionString>
+      <enclosure
+        url="https://github.com/openpaste/openpaste/releases/download/v1.1.1/OpenPaste-1.1.1.dmg"
+        sparkle:edSignature="GFPQcrPpjBfVRpmw1mjmI1qmlxj7VynJ2RRA/fpBzF0ooz38LngAiOQ88SDYb4yWGcKEqQzuHu7XLZMdAEJwBg=="
+        length="4531919"
+        type="application/octet-stream"/>
+    </item>
   </channel>
 </rss>
