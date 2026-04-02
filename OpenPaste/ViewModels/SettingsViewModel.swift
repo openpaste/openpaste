@@ -39,7 +39,7 @@ final class SettingsViewModel {
     var itemCountByType: [ContentType: Int] = [:]
 
     var storageService: StorageServiceProtocol?
-    var onClearAllHistory: (() async -> Void)?
+    var onClearAllHistory: (@Sendable () async -> Void)?
 
     init() {
         let defaults = UserDefaults.standard
