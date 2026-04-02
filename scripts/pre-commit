@@ -1,0 +1,21 @@
+#!/bin/bash
+# Pre-commit hook: build check + secret scan
+# Install: git config core.hooksPath scripts
+
+set -e
+
+echo "🔍 Pre-commit: checking for secrets..."
+if git diff --cached | grep -iE "(AKIA[0-9A-Z]{16}|api[_-]?key\s*=|password\s*=|secret\s*=|private[_-]?key|-----BEGIN)" | grep -v "grep" > /dev/null 2>&1; then
+    echo "❌ Potential secrets detected in staged files!"
+    echo "   Run: git diff --cached | grep -iE 'api.key|password|secret|private.key'"
+    echo "   Remove secrets and try again."
+    exit 1
+fi
+
+echo "🔨 Pre-commit: building..."
+if ! xcodebuild -project OpenPaste.xcodeproj -scheme OpenPaste -destination 'platform=macOS' build 2>&1 | tail -3 | grep -q "BUILD SUCCEEDED"; then
+    echo "❌ Build failed. Fix errors before committing."
+    exit 1
+fi
+
+echo "✅ Pre-commit: all checks passed"

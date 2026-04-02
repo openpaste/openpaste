@@ -1,0 +1,20 @@
+#!/bin/bash
+# Pre-push hook: run tests before pushing
+# Install: git config core.hooksPath scripts
+
+set -e
+
+BRANCH=$(git rev-parse --abbrev-ref HEAD)
+
+# Skip test for gh-pages
+if [ "$BRANCH" = "gh-pages" ]; then
+    exit 0
+fi
+
+echo "🧪 Pre-push: running tests on $BRANCH..."
+if ! xcodebuild test -project OpenPaste.xcodeproj -scheme OpenPaste -destination 'platform=macOS' -configuration Debug CODE_SIGNING_ALLOWED=NO 2>&1 | tail -5 | grep -q "TEST SUCCEEDED"; then
+    echo "❌ Tests failed. Fix tests before pushing."
+    exit 1
+fi
+
+echo "✅ Pre-push: all tests passed"
