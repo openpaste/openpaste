@@ -6,6 +6,100 @@ All notable changes to the OpenPaste project are documented in this file. Format
 
 ### Added
 
+#### UI/UX Overhaul — Design System & Liquid Glass (April 2026)
+Comprehensive three-phase UI/UX overhaul delivering a centralized design system, competitive-parity features, and delight-layer polish.
+
+**Phase 1 — Essential Polish:**
+- Centralized `DS` design system enum in `Views/Shared/DesignSystem.swift` with namespaced tokens:
+  - `DS.Colors` — Brand accent (`#2EC4B6`), secondary (`#6159DB`), and per-content-type colors (text, richText, image, file, link, color, code)
+  - `DS.Spacing` — 7 steps: `xxs` (2pt) through `xxl` (24pt)
+  - `DS.Radius` — `sm` (4pt), `md` (8pt), `lg` (12pt)
+  - `DS.Animation` — `springDefault`, `springSnappy`, `springGentle`, `quick`
+  - `DS.Typography` — `rowTitle`, `rowMeta`, `codePreview`, `filterChip`, `sectionHeader`
+  - `DS.Shadow` — `card` (black 8% opacity, radius 4, y-offset 2)
+  - `DS.Glass` — `isAvailable` flag for Liquid Glass feature detection
+- Reusable `.hoverHighlight()` view modifier (`Views/Shared/HoverHighlightModifier.swift`) with configurable `cornerRadius` and `DS.Animation.quick` transitions
+- Paste confirmation overlay (`Views/Shared/PasteConfirmationOverlay.swift`) — green `checkmark.circle.fill` with bounce symbol effect, ultra-thin material background, asymmetric scale+opacity transition, auto-dismiss via structured concurrency (`Task.sleep` 800ms)
+- Redesigned filter chips using `DS` tokens with count badges
+- `TypeIcon` sizes updated from 14pt → 18pt in 28×28 frame; colors mapped through `DS.Colors`
+
+**Phase 2 — Competitive Parity:**
+- Settings migrated from `TabView` to `NavigationSplitView` with 6 sections via `SettingsSection` enum:
+  - `.general` (gear), `.privacy` (lock.shield), `.keyboard` (keyboard), `.appearance` (paintbrush), `.storage` (internaldrive), `.about` (info.circle)
+  - Fixed frame: 650×480
+- New `AppearanceSettingsView` (`Views/Settings/AppearanceSettingsView.swift`):
+  - Theme picker (System / Light / Dark) via `@AppStorage(Constants.appearanceThemeKey)`
+  - Window position mode (Center / Near cursor) via `@AppStorage(Constants.windowPositionModeKey)`
+- New `StorageSettingsView` (`Views/Settings/StorageSettingsView.swift`):
+  - Database size display, total item count, breakdown by `ContentType`
+  - "Optimize Storage…" action (calls `viewModel.optimizeStorage()`)
+  - Data loaded via `viewModel.loadStorageInfo()` in `.task`
+- Pinned items section in `HistoryView` — items with `pinned == true` render in a dedicated section with `pin.fill` icon header styled with `DS.Colors.accent`
+- Keyboard shortcut overlay (`Views/Shared/KeyboardShortcutOverlay.swift`):
+  - Two sections: Navigation (`j/k`, `gg`, `G`) and Actions (`Enter`, `Tab`, `Escape`, `/`, `?`)
+  - `@FocusState` management for immediate key capture; any key press dismisses
+  - Ultra-thick material backdrop with `DS.Shadow.card` shadow
+  - Toggled via `?` key in `HistoryView`
+- Spring-based animations replacing `easeInOut` throughout — all list mutations, transitions, and state changes use `DS.Animation.springDefault` or `DS.Animation.springSnappy`
+- Panel fade-in: `ContentView` applies `scaleEffect(0.96→1.0)` + `opacity(0→1)` on appear with `DS.Animation.springDefault`
+- Content preview improvements: larger image previews, spring-animated transitions
+
+**Phase 3 — Delight & Differentiation:**
+- Liquid Glass integration via `.glassEffect(.regular, in: .rect(cornerRadius: DS.Radius.md))` on tab picker in `ContentView`
+- Redesigned empty state in `HistoryView`: animated clipboard icon with `.symbolEffect(.pulse.byLayer)`, shortcut hint badge (`⇧⌘V`), and scale+opacity transition
+- Smart filter bar (`Views/Shared/SmartFilterBar.swift`):
+  - Time range filters: "Last 24h", "Last 7 days", "Last 30 days" via `TimeRange` enum in `SearchFilters.swift`
+  - Toggle filters: "Pinned", "Starred"
+  - Horizontal scroll with `DS.Spacing.sm` chip spacing
+- `SettingsViewModel` storage info: `databaseSize`, `totalItemCount`, `itemCountByType` properties with `loadStorageInfo()` computing counts by paginated fetch and `ByteCountFormatter`
+- Cursor-positioned window mode in `WindowManager`: `positionNearCursor()` reads `Constants.windowPositionModeKey`, centers panel at mouse location clamped to visible screen frame
+- Resizable window: `FloatingPanel` `minSize` 350×400, `maxSize` 700×900; `ContentView` frame constraints match
+
+**New Files:**
+
+| File | Purpose |
+|------|---------|
+| `Views/Shared/DesignSystem.swift` | Centralized `DS` enum with Colors, Spacing, Radius, Animation, Typography, Shadow, Glass tokens |
+| `Views/Shared/HoverHighlightModifier.swift` | Reusable `.hoverHighlight()` ViewModifier |
+| `Views/Shared/PasteConfirmationOverlay.swift` | Green checkmark flash overlay with structured concurrency auto-dismiss |
+| `Views/Shared/KeyboardShortcutOverlay.swift` | `?`-key cheatsheet with `@FocusState` and key-press dismissal |
+| `Views/Shared/SmartFilterBar.swift` | Time-range and pin/star filter chips |
+| `Views/Settings/AppearanceSettingsView.swift` | Theme and window position settings |
+| `Views/Settings/StorageSettingsView.swift` | Database size, item counts, optimize action |
+
+**Modified Files (26 total, +634 / −77 lines):**
+- `App/AppController.swift` — Wired new overlay and filter components
+- `App/WindowManager.swift` — Cursor-positioned mode, `NotificationCenter` observer leak fix, resizable panel
+- `ContentView.swift` — Panel fade-in animation, `.glassEffect` on tab picker, resizable frame constraints
+- `Models/SearchFilters.swift` — Added `TimeRange` enum, `pinnedOnly`, `starredOnly`, `timeRange` fields
+- `Utilities/Constants.swift` — Added `appearanceThemeKey`, `historyRetentionDaysKey`, `windowPositionModeKey`, `savedWindowFrameKey`
+- `ViewModels/HistoryViewModel.swift` — `showPasteConfirmation` state, `MainActor.run` for thread-safe mutations in `observeEvents()`, 600ms paste confirmation timing before dismiss
+- `ViewModels/SearchViewModel.swift` — Smart filter bar integration
+- `ViewModels/SettingsViewModel.swift` — Storage info properties (`databaseSize`, `totalItemCount`, `itemCountByType`), `loadStorageInfo()`, `optimizeStorage()`
+- `Views/Collections/CollectionListView.swift` — Brand color and DS token updates
+- `Views/History/ClipboardItemRow.swift` — Hover highlight integration
+- `Views/History/HistoryView.swift` — Pinned section, keyboard shortcut overlay, vim-style navigation (`j/k/gg/G`), empty state redesign, paste confirmation overlay
+- `Views/PasteStack/PasteStackOverlay.swift` — Brand color and spring animation updates
+- `Views/Search/SearchView.swift` — Smart filter bar integration, DS token adoption
+- `Views/Settings/AboutView.swift` — Layout adjustments for NavigationSplitView
+- `Views/Settings/GeneralSettingsView.swift` — Added retention days setting
+- `Views/Settings/SettingsView.swift` — Migrated to `NavigationSplitView` with `SettingsSection` enum
+- `Views/Shared/ContentPreviewView.swift` — Larger image previews, spring animations
+- `Views/Shared/TypeIcon.swift` — 14pt → 18pt icons, colors via `DS.Colors`
+
+### Fixed
+
+#### Code Review Fixes (April 2026)
+- **Thread safety:** `MainActor.run` wrapping for `HistoryViewModel` item mutations in `observeEvents()` async stream handler
+- **Paste confirmation timing:** 600ms `Task.sleep` delay before `dismissAction` ensures overlay is visible
+- **NotificationCenter observer leak:** `WindowManager.show()` now removes previous `closeObserver` before adding a new one
+- **Double opacity animation:** Removed conflicting animation on panel appearance
+- **Storage counts:** `StorageSettingsView` wired to `SettingsViewModel.loadStorageInfo()` with paginated type counting
+- **KeyboardShortcutOverlay focus:** `@FocusState` + `.focused()` + `.onAppear { isFocused = true }` ensures immediate key capture
+- **Structured concurrency:** `PasteConfirmationOverlay` uses `.task` + `Task.sleep` instead of `DispatchQueue.main.asyncAfter`
+
+---
+
 #### Onboarding Feature (April 2026)
 Complete first-launch onboarding experience with step-by-step guided setup.
 

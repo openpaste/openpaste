@@ -22,4 +22,10 @@ enum Constants {
 
     // URL Preview
     static let urlPreviewEnabledKey = "urlPreviewEnabled"
+
+    // Appearance
+    static let appearanceThemeKey = "appearanceTheme"
+    static let historyRetentionDaysKey = "historyRetentionDays"
+    static let windowPositionModeKey = "windowPositionMode"
+    static let savedWindowFrameKey = "savedWindowFrame"
 }

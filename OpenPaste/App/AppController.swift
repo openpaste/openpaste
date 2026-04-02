@@ -68,6 +68,7 @@ final class AppController {
                 try? await c.storageService.deleteAll()
                 await hvm?.loadInitial()
             }
+            svm.storageService = c.storageService
 
             let cleanup = SecurityService(
                 detector: c.securityService as! SensitiveContentDetector,

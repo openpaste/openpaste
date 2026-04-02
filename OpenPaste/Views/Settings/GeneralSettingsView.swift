@@ -3,6 +3,7 @@ import SwiftUI
 struct GeneralSettingsView: View {
     @Bindable var viewModel: SettingsViewModel
     @State private var showClearConfirmation = false
+    @AppStorage(Constants.historyRetentionDaysKey) private var retentionDays = 0
 
     var body: some View {
         Form {
@@ -23,6 +24,16 @@ struct GeneralSettingsView: View {
                     Text("10 MB").tag(10)
                     Text("25 MB").tag(25)
                     Text("50 MB").tag(50)
+                }
+            }
+
+            Section("History") {
+                Picker("Keep history for", selection: $retentionDays) {
+                    Text("7 days").tag(7)
+                    Text("30 days").tag(30)
+                    Text("90 days").tag(90)
+                    Text("1 year").tag(365)
+                    Text("Forever").tag(0)
                 }
             }
 

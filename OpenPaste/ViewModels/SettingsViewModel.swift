@@ -33,6 +33,12 @@ final class SettingsViewModel {
     var hotkeyDisplayString: String = HotkeyManager.currentHotkeyDisplayString()
     var isRecordingHotkey: Bool = false
 
+    // Storage info
+    var databaseSize: String = "—"
+    var totalItemCount: Int = 0
+    var itemCountByType: [ContentType: Int] = [:]
+
+    var storageService: StorageServiceProtocol?
     var onClearAllHistory: (() async -> Void)?
 
     init() {
@@ -97,6 +103,45 @@ final class SettingsViewModel {
                 try? await storageService.delete(item.id)
             }
         }
+    }
+
+    func loadStorageInfo() async {
+        let dbPath = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first?
+            .appendingPathComponent("OpenPaste")
+            .appendingPathComponent("database.sqlite")
+        if let dbPath, let attrs = try? FileManager.default.attributesOfItem(atPath: dbPath.path) {
+            let size = attrs[.size] as? Int64 ?? 0
+            let formatter = ByteCountFormatter()
+            formatter.allowedUnits = [.useKB, .useMB]
+            formatter.countStyle = .file
+            databaseSize = formatter.string(fromByteCount: size)
+        }
+
+        guard let storageService else { return }
+
+        // Populate total count
+        if let count = try? await storageService.itemCount() {
+            totalItemCount = count
+        }
+
+        // Populate count by type — fetch all items and group
+        // Use a large enough limit to cover all items
+        var offset = 0
+        let pageSize = 500
+        var typeCounts: [ContentType: Int] = [:]
+        while true {
+            guard let batch = try? await storageService.fetch(limit: pageSize, offset: offset) else { break }
+            for item in batch {
+                typeCounts[item.type, default: 0] += 1
+            }
+            if batch.count < pageSize { break }
+            offset += batch.count
+        }
+        itemCountByType = typeCounts
+    }
+
+    func optimizeStorage() async {
+        // Placeholder for VACUUM and expired item cleanup
     }
 
     private func loadBlacklist() {

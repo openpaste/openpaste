@@ -9,7 +9,7 @@ Strategic roadmap for OpenPaste development phases, milestones, and feature prio
 
 ## Phase 1: Foundation – Core Clipboard Management ⚙️
 
-**Status:** In Progress (70% complete)
+**Status:** In Progress (85% complete)
 **Target Completion:** Q2 2026
 
 ### Completed Milestones ✅
@@ -30,7 +30,7 @@ Strategic roadmap for OpenPaste development phases, milestones, and feature prio
    - Customizable hotkey binding
    - Persistence to `UserDefaults`
 
-4. **Onboarding & First-Launch Experience** ✨ NEW
+4. **Onboarding & First-Launch Experience** ✨
    - 5-step guided setup flow
    - Accessibility permission handling with system integration
    - Global hotkey customization during onboarding
@@ -38,24 +38,53 @@ Strategic roadmap for OpenPaste development phases, milestones, and feature prio
    - Live permission status polling
    - 20 unit tests validating navigation and state
 
+5. **UI/UX Overhaul — Design System & Liquid Glass** ✨ NEW
+   Comprehensive three-phase UI/UX overhaul (28 tasks including fixes):
+   
+   **Phase 1 — Essential Polish:**
+   - Centralized `DS` design system enum (Colors, Spacing, Radius, Animation, Typography, Shadows, Glass)
+   - Reusable `.hoverHighlight()` view modifier with configurable corner radius
+   - Paste confirmation overlay (green checkmark, spring animation, 800ms auto-dismiss)
+   - Redesigned filter chips with DS tokens and count badges
+   - Updated TypeIcon sizes (14→18pt) and brand colors via `DS.Colors`
+
+   **Phase 2 — Competitive Parity:**
+   - Settings migrated from `TabView` to `NavigationSplitView` with 6 sections (general, privacy, keyboard, appearance, storage, about)
+   - New `AppearanceSettingsView` (theme picker, window position mode)
+   - New `StorageSettingsView` (database size, item counts by type, optimize action)
+   - Pinned items section in history list with dedicated header
+   - Keyboard shortcut overlay (`?` key cheatsheet) with `@FocusState` management
+   - Spring-based animations replacing `easeInOut` throughout
+   - Panel fade-in animation (scale 0.96→1.0 + opacity)
+   - Content preview improvements (larger images, spring transitions)
+
+   **Phase 3 — Delight & Differentiation:**
+   - Liquid Glass integration (`.glassEffect` on filter chips, tab picker, paste button)
+   - Redesigned empty states with animated icons (`.symbolEffect(.pulse.byLayer)`) and shortcut hints
+   - Smart filter bar (Last 24h, Last 7 days, Last 30 days, Pinned, Starred)
+   - Cursor-positioned window mode (open near mouse, clamped to screen)
+   - Resizable window support (350×400 to 700×900)
+
+   **Code Quality Fixes:**
+   - Thread safety: `MainActor.run` for `HistoryViewModel` mutations
+   - Paste confirmation timing (600ms delay before dismiss)
+   - `NotificationCenter` observer leak fix in `WindowManager`
+   - Removed double opacity animation
+   - Structured concurrency (`Task.sleep` replacing `DispatchQueue.main.asyncAfter`)
+   - `@FocusState` + `.onAppear` for `KeyboardShortcutOverlay` key capture
+
+   **New files:** `DesignSystem.swift`, `HoverHighlightModifier.swift`, `PasteConfirmationOverlay.swift`, `KeyboardShortcutOverlay.swift`, `SmartFilterBar.swift`, `AppearanceSettingsView.swift`, `StorageSettingsView.swift`
+
 ### Active Milestones 🔄
 
-3. **UI/UX Foundation**
-   - Main clipboard history window (list view with previews)
-   - Quick search interface
-   - Item detail inspector
-   - Dark mode support
-
-### Planned Milestones 📋
-
-4. **Advanced Search & Filtering**
+6. **Advanced Search & Filtering**
    - Full-text search with Spotlight integration
    - Filtering by content type (text, image, URL)
-   - Time-based filtering (today, this week, older)
+   - Time-based filtering (today, this week, older) — ✅ partially done via SmartFilterBar
 
-5. **Image Support & Preview**
+7. **Image Support & Preview**
    - Capture clipboard images
-   - Image preview in history
+   - Image preview in history — ✅ partially done via ContentPreviewView improvements
    - Image metadata (dimensions, format)
 
 ---
@@ -152,10 +181,10 @@ Strategic roadmap for OpenPaste development phases, milestones, and feature prio
    - Conflict resolution
 
 3. **Advanced UI**
-   - Inline editing for clipboard items
+   - Inline editing for clipboard items ✅ (QuickEditView)
    - Drag-and-drop organization
-   - Collection/folder management
-   - Custom themes and layouts
+   - Collection/folder management ✅ (CollectionListView)
+   - Custom themes and layouts ✅ (AppearanceSettingsView theme picker)
 
 ---
 
@@ -163,10 +192,18 @@ Strategic roadmap for OpenPaste development phases, milestones, and feature prio
 
 - [ ] Clipboard history with 5,000+ items without performance degradation
 - [ ] Global hotkey response time < 100ms
-- [ ] Accessibility permission check and deep linking reliable
-- [ ] All onboarding tests passing (20/20)
-- [ ] User can customize hotkey and set launch-at-login preferences
-- [ ] Onboarding completes in < 2 minutes for typical user
+- [x] Accessibility permission check and deep linking reliable
+- [x] All onboarding tests passing (20/20)
+- [x] User can customize hotkey and set launch-at-login preferences
+- [x] Onboarding completes in < 2 minutes for typical user
+- [x] Centralized design system adopted across all views (`DS` enum)
+- [x] Spring-based animations replace all `easeInOut` transitions
+- [x] Settings organized into 6 navigable sections (NavigationSplitView)
+- [x] Keyboard shortcuts discoverable via `?` overlay
+- [x] Vim-style navigation (j/k/gg/G) operational in history list
+- [x] Window resizable within defined bounds (350×400 to 700×900)
+- [x] Cursor-positioned window mode functional
+- [x] Paste confirmation overlay with auto-dismiss
 
 ---
 
@@ -178,12 +215,17 @@ Strategic roadmap for OpenPaste development phases, milestones, and feature prio
 | macOS version targeting (11.0+) | Confirmed | Security baseline |
 | Accessibility framework stability | Validated | Onboarding Phase 1 ✅ |
 | SwiftUI animation performance | Validated | UI polish ✅ |
+| Liquid Glass API (macOS 26+) | Integrated | `.glassEffect` on filter chips & tab picker ✅ |
+| NavigationSplitView (macOS 13+) | Integrated | Settings redesign ✅ |
+| SwiftUI `symbolEffect` API | Integrated | Empty state and paste confirmation animations ✅ |
 
 ---
 
 ## Notes
 
-- **Q2 2026 Focus:** Complete foundation phases (basic history, search, image support)
+- **Q2 2026 Focus:** Complete advanced search & filtering; image metadata; performance benchmarks
+- **UI/UX Overhaul:** Complete — design system (`DS` enum), Liquid Glass, spring animations, vim navigation, and settings redesign shipped
 - **Onboarding Release:** Ready for initial user feedback loop
 - **Testing Strategy:** Unit tests prioritized for ViewModel logic; integration tests for permission detection
 - **Future:** Consider OAuth-based cloud sync if community demand exists
+- **Design System:** All new views should use `DS` tokens exclusively — avoid hardcoded colors, spacing, or animation values

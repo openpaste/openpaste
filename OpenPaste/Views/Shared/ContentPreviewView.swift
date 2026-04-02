@@ -82,7 +82,7 @@ struct ContentPreviewView: View {
                 Image(nsImage: nsImage)
                     .resizable()
                     .aspectRatio(contentMode: .fit)
-                    .frame(maxHeight: 80)
+                    .frame(maxHeight: 120)
                     .clipShape(RoundedRectangle(cornerRadius: 6))
             } else {
                 Label("Image", systemImage: "photo")
@@ -153,7 +153,7 @@ struct SensitiveContentOverlay<Content: View>: View {
                 }
             }
             .onHover { hovering in
-                withAnimation(.easeInOut(duration: 0.2)) {
+                withAnimation(DS.Animation.springDefault) {
                     isRevealed = hovering
                 }
             }

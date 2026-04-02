@@ -1,5 +1,10 @@
 import Foundation
 import AppKit
+import SwiftUI
+
+extension Color {
+    static let brandAccent = DS.Colors.accent
+}
 
 extension Double {
     var nonZero: Double? { self == 0 ? nil : self }

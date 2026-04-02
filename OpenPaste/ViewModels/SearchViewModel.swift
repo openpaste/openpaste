@@ -61,6 +61,10 @@ final class SearchViewModel {
         searchDebounced()
     }
 
+    func applySmartFilters() {
+        searchDebounced()
+    }
+
     func loadAvailableTags() async {
         do {
             let items = try await storageService.fetch(limit: 500, offset: 0)
@@ -110,6 +114,7 @@ extension SearchFilters: Equatable {
         lhs.pinnedOnly == rhs.pinnedOnly &&
         lhs.starredOnly == rhs.starredOnly &&
         lhs.tags == rhs.tags &&
-        lhs.collectionId == rhs.collectionId
+        lhs.collectionId == rhs.collectionId &&
+        lhs.timeRange == rhs.timeRange
     }
 }

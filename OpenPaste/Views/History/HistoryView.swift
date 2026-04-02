@@ -8,6 +8,7 @@ struct HistoryView: View {
     @State private var editingItem: ClipboardItem?
     @State private var showPreview = false
     @State private var pendingG = false
+    @State private var showShortcutOverlay = false
 
     var body: some View {
         Group {
@@ -26,6 +27,14 @@ struct HistoryView: View {
         }
         .task { await viewModel.loadInitial() }
         .task { await viewModel.observeEvents() }
+        .overlay {
+            PasteConfirmationOverlay(isShowing: $viewModel.showPasteConfirmation)
+        }
+        .overlay {
+            if showShortcutOverlay {
+                KeyboardShortcutOverlay(isShowing: $showShortcutOverlay)
+            }
+        }
         .sheet(isPresented: $showQuickEdit) {
             if let item = editingItem {
                 QuickEditView(
@@ -136,24 +145,31 @@ struct HistoryView: View {
 
     private var itemsList: some View {
         List(selection: $selectedId) {
-            ForEach(viewModel.items) { item in
-                ClipboardItemRow(
-                    item: item,
-                    onPaste: { Task { await viewModel.paste(item) } },
-                    onDelete: { Task { await viewModel.delete(item) } },
-                    onTogglePin: { Task { await viewModel.togglePin(item) } },
-                    onToggleStar: { Task { await viewModel.toggleStar(item) } },
-                    onQuickEdit: {
-                        editingItem = item
-                        showQuickEdit = true
-                    },
-                    onAddToStack: pasteStackViewModel != nil ? {
-                        pasteStackViewModel?.addToStack(item)
-                    } : nil
-                )
-                .tag(item.id)
-                .listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: 0, trailing: 0))
-                .listRowSeparator(.visible)
+            // Pinned section
+            let pinned = viewModel.items.filter(\.pinned)
+            if !pinned.isEmpty {
+                Section {
+                    ForEach(pinned) { item in
+                        itemRow(for: item)
+                    }
+                } header: {
+                    Label("Pinned", systemImage: "pin.fill")
+                        .font(DS.Typography.sectionHeader)
+                        .foregroundStyle(DS.Colors.accent)
+                }
+            }
+
+            // Recent section
+            Section {
+                ForEach(viewModel.items.filter { !$0.pinned }) { item in
+                    itemRow(for: item)
+                }
+            } header: {
+                if !pinned.isEmpty {
+                    Text("Recent")
+                        .font(DS.Typography.sectionHeader)
+                        .foregroundStyle(.secondary)
+                }
             }
 
             if viewModel.hasMore {
@@ -164,6 +180,7 @@ struct HistoryView: View {
             }
         }
         .listStyle(.plain)
+        .animation(DS.Animation.springDefault, value: viewModel.items.map(\.id))
         .focusable()
         // Enter to paste
         .onKeyPress(.return) {
@@ -177,7 +194,12 @@ struct HistoryView: View {
         }
         // Tab to toggle preview
         .onKeyPress(.tab) {
-            withAnimation(.easeInOut(duration: 0.2)) { showPreview.toggle() }
+            withAnimation(DS.Animation.springDefault) { showPreview.toggle() }
+            return .handled
+        }
+        // ? = show shortcuts overlay
+        .onKeyPress(characters: .init(charactersIn: "?"), phases: .down) { _ in
+            withAnimation(DS.Animation.springDefault) { showShortcutOverlay.toggle() }
             return .handled
         }
         // j = move down
@@ -211,6 +233,26 @@ struct HistoryView: View {
         }
     }
 
+    private func itemRow(for item: ClipboardItem) -> some View {
+        ClipboardItemRow(
+            item: item,
+            onPaste: { Task { await viewModel.paste(item) } },
+            onDelete: { Task { await viewModel.delete(item) } },
+            onTogglePin: { Task { await viewModel.togglePin(item) } },
+            onToggleStar: { Task { await viewModel.toggleStar(item) } },
+            onQuickEdit: {
+                editingItem = item
+                showQuickEdit = true
+            },
+            onAddToStack: pasteStackViewModel != nil ? {
+                pasteStackViewModel?.addToStack(item)
+            } : nil
+        )
+        .tag(item.id)
+        .listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: 0, trailing: 0))
+        .listRowSeparator(.visible)
+    }
+
     // MARK: - Selection Helpers
 
     private func moveSelection(by offset: Int) {
@@ -231,18 +273,35 @@ struct HistoryView: View {
     }
 
     private var emptyState: some View {
-        VStack(spacing: 12) {
+        VStack(spacing: 16) {
             Image(systemName: "clipboard")
-                .font(.system(size: 40))
-                .foregroundStyle(.tertiary)
+                .font(.system(size: 56, weight: .light))
+                .foregroundStyle(DS.Colors.accent.opacity(0.6))
+                .symbolEffect(.pulse.byLayer, options: .repeating)
+
             Text("No clipboard history")
-                .font(.headline)
-                .foregroundStyle(.secondary)
+                .font(.title3.bold())
+                .foregroundStyle(.primary)
+
             Text("Copy something to get started")
-                .font(.caption)
-                .foregroundStyle(.tertiary)
+                .font(.body)
+                .foregroundStyle(.secondary)
+
+            HStack(spacing: 4) {
+                Text("Press")
+                Text("⇧⌘V")
+                    .font(.system(.callout, design: .monospaced).bold())
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(Color.secondary.opacity(0.12))
+                    .clipShape(RoundedRectangle(cornerRadius: DS.Radius.sm))
+                Text("anytime to open")
+            }
+            .font(.callout)
+            .foregroundStyle(.tertiary)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .transition(.opacity.combined(with: .scale(scale: 0.95)))
     }
 }
 
@@ -265,7 +324,7 @@ private struct SensitiveBlurModifier: ViewModifier {
                     .foregroundStyle(.secondary)
                 }
                 .onHover { hovering in
-                    withAnimation(.easeInOut(duration: 0.2)) { isRevealed = hovering }
+                    withAnimation(DS.Animation.springDefault) { isRevealed = hovering }
                 }
         } else {
             content

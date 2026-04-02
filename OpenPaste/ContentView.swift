@@ -7,6 +7,8 @@ struct ContentView: View {
     var collectionViewModel: CollectionViewModel?
 
     @State private var selectedTab: Tab = .history
+    @State private var appeared = false
+    @AppStorage(Constants.appearanceThemeKey) private var theme = "system"
 
     enum Tab { case history, collections }
 
@@ -37,8 +39,25 @@ struct ContentView: View {
                 PasteStackOverlay(viewModel: pvm)
             }
         }
-        .frame(width: 400, height: 560)
+        .frame(minWidth: 350, idealWidth: 400, maxWidth: 700,
+               minHeight: 400, idealHeight: 560, maxHeight: 900)
         .background(.ultraThinMaterial)
+        .scaleEffect(appeared ? 1.0 : 0.96)
+        .opacity(appeared ? 1.0 : 0)
+        .onAppear {
+            withAnimation(DS.Animation.springDefault) {
+                appeared = true
+            }
+        }
+        .preferredColorScheme(colorSchemeFor(theme))
+    }
+
+    private func colorSchemeFor(_ theme: String) -> ColorScheme? {
+        switch theme {
+        case "light": .light
+        case "dark": .dark
+        default: nil
+        }
     }
 
     private var tabPicker: some View {
@@ -49,5 +68,6 @@ struct ContentView: View {
         .pickerStyle(.segmented)
         .padding(.horizontal, 12)
         .padding(.vertical, 6)
+        .glassEffect(.regular, in: .rect(cornerRadius: DS.Radius.md))
     }
 }

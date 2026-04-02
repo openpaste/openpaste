@@ -1,4 +1,5 @@
 import Foundation
+import SwiftUI
 import GRDB
 
 @Observable
@@ -6,6 +7,7 @@ final class HistoryViewModel {
     var items: [ClipboardItem] = []
     var isLoading = false
     var hasMore = true
+    var showPasteConfirmation = false
     var dismissAction: (() -> Void)?
     var reactivatePreviousApp: (() -> Void)?
     private var offset = 0
@@ -48,6 +50,8 @@ final class HistoryViewModel {
 
     func paste(_ item: ClipboardItem) async {
         await clipboardService.copyToClipboard(item)
+        showPasteConfirmation = true
+        try? await Task.sleep(for: .milliseconds(600))
         dismissAction?()
         reactivatePreviousApp?()
         await clipboardService.simulatePasteToFrontApp()
@@ -88,7 +92,11 @@ final class HistoryViewModel {
         for await event in await eventBus.stream() {
             switch event {
             case .clipboardChanged(let newItem):
-                items.insert(newItem, at: 0)
+                await MainActor.run {
+                    withAnimation(DS.Animation.springSnappy) {
+                        items.insert(newItem, at: 0)
+                    }
+                }
             default:
                 break
             }

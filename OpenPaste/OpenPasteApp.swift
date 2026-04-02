@@ -11,6 +11,7 @@ import SwiftUI
 struct OpenPasteApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     @State private var controller = AppController()
+    @AppStorage(Constants.appearanceThemeKey) private var theme = "system"
 
     var body: some Scene {
         MenuBarExtra("OpenPaste", systemImage: "clipboard") {
@@ -46,5 +47,16 @@ struct OpenPasteApp: App {
                 }
         }
         .defaultLaunchBehavior(.suppressed)
+    }
+
+    init() {
+        let saved = UserDefaults.standard.string(forKey: Constants.appearanceThemeKey) ?? "system"
+        DispatchQueue.main.async {
+            switch saved {
+            case "light": NSApp.appearance = NSAppearance(named: .aqua)
+            case "dark": NSApp.appearance = NSAppearance(named: .darkAqua)
+            default: NSApp.appearance = nil
+            }
+        }
     }
 }

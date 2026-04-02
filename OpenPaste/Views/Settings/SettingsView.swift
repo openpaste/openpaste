@@ -3,20 +3,51 @@ import SwiftUI
 struct SettingsView: View {
     @Bindable var viewModel: SettingsViewModel
 
-    var body: some View {
-        TabView {
-            GeneralSettingsView(viewModel: viewModel)
-                .tabItem { Label("General", systemImage: "gear") }
+    @State private var selectedSection: SettingsSection = .general
 
-            PrivacySettingsView(viewModel: viewModel)
-                .tabItem { Label("Privacy", systemImage: "lock.shield") }
+    enum SettingsSection: String, CaseIterable, Identifiable {
+        case general, privacy, keyboard, appearance, storage, about
 
-            ShortcutsSettingsView(viewModel: viewModel)
-                .tabItem { Label("Shortcuts", systemImage: "keyboard") }
+        var id: String { rawValue }
 
-            AboutView()
-                .tabItem { Label("About", systemImage: "info.circle") }
+        var title: String { rawValue.capitalized }
+
+        var icon: String {
+            switch self {
+            case .general: "gear"
+            case .privacy: "lock.shield"
+            case .keyboard: "keyboard"
+            case .appearance: "paintbrush"
+            case .storage: "internaldrive"
+            case .about: "info.circle"
+            }
         }
-        .frame(width: 520, height: 460)
+    }
+
+    var body: some View {
+        NavigationSplitView {
+            List(SettingsSection.allCases, selection: $selectedSection) { section in
+                Label(section.title, systemImage: section.icon)
+                    .tag(section)
+            }
+            .listStyle(.sidebar)
+            .toolbar(removing: .sidebarToggle)
+        } detail: {
+            switch selectedSection {
+            case .general:
+                GeneralSettingsView(viewModel: viewModel)
+            case .privacy:
+                PrivacySettingsView(viewModel: viewModel)
+            case .keyboard:
+                ShortcutsSettingsView(viewModel: viewModel)
+            case .appearance:
+                AppearanceSettingsView(viewModel: viewModel)
+            case .storage:
+                StorageSettingsView(viewModel: viewModel)
+            case .about:
+                AboutView()
+            }
+        }
+        .frame(width: 650, height: 480)
     }
 }

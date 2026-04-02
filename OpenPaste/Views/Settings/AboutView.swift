@@ -7,13 +7,13 @@ struct AboutView: View {
 
             Image(systemName: "clipboard")
                 .font(.system(size: 48))
-                .foregroundStyle(.blue)
+                .foregroundStyle(DS.Colors.accent)
 
             Text("OpenPaste")
                 .font(.title)
                 .fontWeight(.bold)
 
-            Text("Version 1.0.0")
+            Text("Version \(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0")")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
 

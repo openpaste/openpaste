@@ -6,6 +6,10 @@ struct SearchView: View {
     var body: some View {
         VStack(spacing: 0) {
             searchField
+            SmartFilterBar(filters: $viewModel.filters) {
+                viewModel.applySmartFilters()
+            }
+            Divider()
             filterBar
             tagFilterSection
             if !viewModel.query.isEmpty || viewModel.filters != .empty {
@@ -106,17 +110,32 @@ struct SearchView: View {
 struct FilterChip: View {
     let title: String
     let isActive: Bool
+    var count: Int? = nil
     let action: () -> Void
 
     var body: some View {
         Button(action: action) {
-            Text(title)
-                .font(.caption)
-                .padding(.horizontal, 10)
-                .padding(.vertical, 4)
-                .background(isActive ? Color.accentColor.opacity(0.2) : Color.secondary.opacity(0.1))
-                .foregroundStyle(isActive ? Color.accentColor : .secondary)
-                .clipShape(Capsule())
+            HStack(spacing: 4) {
+                Text(title)
+                if let count, count > 0 {
+                    Text("\(count)")
+                        .font(.system(size: 9, weight: .bold, design: .rounded))
+                        .padding(.horizontal, 4)
+                        .padding(.vertical, 1)
+                        .background(isActive ? Color.white.opacity(0.3) : Color.secondary.opacity(0.15))
+                        .clipShape(Capsule())
+                }
+            }
+            .font(DS.Typography.filterChip)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 5)
+            .background(isActive ? DS.Colors.accent.opacity(0.15) : Color.secondary.opacity(0.06))
+            .foregroundStyle(isActive ? DS.Colors.accent : .primary)
+            .overlay(
+                Capsule()
+                    .strokeBorder(isActive ? DS.Colors.accent.opacity(0.5) : Color.secondary.opacity(0.25), lineWidth: 1)
+            )
+            .clipShape(Capsule())
         }
         .buttonStyle(.plain)
     }

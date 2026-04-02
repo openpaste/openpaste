@@ -59,6 +59,7 @@ struct ClipboardItemRow: View {
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
         .contentShape(Rectangle())
+        .hoverHighlight()
         .draggable(item.id.uuidString)
         .onTapGesture { onPaste() }
         .contextMenu {

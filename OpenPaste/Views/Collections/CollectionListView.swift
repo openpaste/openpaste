@@ -29,12 +29,13 @@ struct CollectionListView: View {
                         } label: {
                             HStack {
                                 Image(systemName: "folder")
-                                    .foregroundStyle(.blue)
+                                    .foregroundStyle(DS.Colors.accent)
                                 Text(collection.name)
                                 Spacer()
                             }
                         }
                         .buttonStyle(.plain)
+                        .hoverHighlight()
                         .contextMenu {
                             Button("Delete", role: .destructive) {
                                 Task { await viewModel.deleteCollection(collection.id) }
@@ -124,18 +125,22 @@ struct CollectionListView: View {
     }
 
     private var emptyState: some View {
-        VStack(spacing: 12) {
+        VStack(spacing: 16) {
             Image(systemName: "folder")
-                .font(.system(size: 40))
-                .foregroundStyle(.tertiary)
+                .font(.system(size: 56, weight: .light))
+                .foregroundStyle(DS.Colors.accent.opacity(0.6))
+                .symbolEffect(.pulse.byLayer, options: .repeating)
+
             Text("No collections yet")
-                .font(.headline)
-                .foregroundStyle(.secondary)
+                .font(.title3.bold())
+                .foregroundStyle(.primary)
+
             Text("Create a collection to organize your clips")
-                .font(.caption)
-                .foregroundStyle(.tertiary)
+                .font(.body)
+                .foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .transition(.opacity.combined(with: .scale(scale: 0.95)))
     }
 
     private var addCollectionSheet: some View {

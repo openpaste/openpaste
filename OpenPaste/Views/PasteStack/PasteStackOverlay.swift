@@ -23,7 +23,7 @@ struct PasteStackOverlay: View {
                                 if item.id == viewModel.currentItem?.id {
                                     Image(systemName: "arrowtriangle.right.fill")
                                         .font(.caption2)
-                                        .foregroundStyle(.blue)
+                                        .foregroundStyle(DS.Colors.accent)
                                 }
                             }
                             .padding(.vertical, 2)
@@ -39,7 +39,7 @@ struct PasteStackOverlay: View {
                 // Action bar
                 HStack(spacing: 8) {
                     Image(systemName: "square.stack.3d.up.fill")
-                        .foregroundStyle(.blue)
+                        .foregroundStyle(DS.Colors.accent)
 
                     if let current = viewModel.currentItem {
                         Text(current.plainTextContent?.truncated(to: 30) ?? current.type.rawValue)
@@ -50,10 +50,10 @@ struct PasteStackOverlay: View {
 
                     Text(viewModel.positionText)
                         .font(.caption.bold())
-                        .foregroundStyle(.blue)
+                        .foregroundStyle(DS.Colors.accent)
                         .padding(.horizontal, 6)
                         .padding(.vertical, 2)
-                        .background(Color.blue.opacity(0.1))
+                        .background(DS.Colors.accent.opacity(0.1))
                         .clipShape(Capsule())
 
                     Button("Paste Next") {
@@ -61,6 +61,7 @@ struct PasteStackOverlay: View {
                     }
                     .buttonStyle(.borderedProminent)
                     .controlSize(.small)
+                    .glassEffect(.regular, in: .capsule)
 
                     Button {
                         viewModel.clear()

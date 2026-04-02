@@ -8,7 +8,7 @@ final class FloatingPanel: NSPanel {
     init(contentView: NSView) {
         super.init(
             contentRect: NSRect(x: 0, y: 0, width: 400, height: 600),
-            styleMask: [.nonactivatingPanel, .titled, .closable, .fullSizeContentView],
+            styleMask: [.nonactivatingPanel, .titled, .closable, .resizable, .fullSizeContentView],
             backing: .buffered,
             defer: false
         )
@@ -22,6 +22,8 @@ final class FloatingPanel: NSPanel {
         isOpaque = false
         hasShadow = true
         animationBehavior = .utilityWindow
+        minSize = NSSize(width: 350, height: 400)
+        maxSize = NSSize(width: 700, height: 900)
         self.contentView = contentView
     }
 
@@ -46,6 +48,7 @@ final class FloatingPanel: NSPanel {
 @Observable
 final class WindowManager {
     private var panel: FloatingPanel?
+    private var closeObserver: NSObjectProtocol?
     var isVisible: Bool = false
     /// App đang active trước khi panel hiện lên
     private(set) var previousApp: NSRunningApplication?
@@ -59,20 +62,31 @@ final class WindowManager {
     }
 
     func show<Content: View>(content: @escaping () -> Content) {
-        // Lưu app đang active TRƯỚC KHI hiện panel
+        if let obs = closeObserver {
+            NotificationCenter.default.removeObserver(obs)
+        }
+
         previousApp = NSWorkspace.shared.frontmostApplication
 
         let hostingView = NSHostingView(rootView: content())
         hostingView.frame = NSRect(x: 0, y: 0, width: 400, height: 600)
 
         let newPanel = FloatingPanel(contentView: hostingView)
-        newPanel.center()
+
+        // Position based on user preference
+        let mode = UserDefaults.standard.string(forKey: Constants.windowPositionModeKey) ?? "center"
+        if mode == "cursor" {
+            positionNearCursor(newPanel)
+        } else {
+            newPanel.center()
+        }
+
         newPanel.makeKeyAndOrderFront(nil)
 
         panel = newPanel
         isVisible = true
 
-        NotificationCenter.default.addObserver(
+        closeObserver = NotificationCenter.default.addObserver(
             forName: NSWindow.willCloseNotification,
             object: newPanel,
             queue: .main
@@ -91,5 +105,22 @@ final class WindowManager {
     /// Trả focus về app trước đó
     func reactivatePreviousApp() {
         previousApp?.activate()
+    }
+
+    private func positionNearCursor(_ panel: NSPanel) {
+        let mouseLocation = NSEvent.mouseLocation
+        guard let screen = NSScreen.screens.first(where: { $0.frame.contains(mouseLocation) }) else {
+            panel.center()
+            return
+        }
+        var origin = mouseLocation
+        origin.x -= panel.frame.width / 2
+        origin.y -= panel.frame.height / 2
+
+        let screenFrame = screen.visibleFrame
+        origin.x = max(screenFrame.minX, min(origin.x, screenFrame.maxX - panel.frame.width))
+        origin.y = max(screenFrame.minY, min(origin.y, screenFrame.maxY - panel.frame.height))
+
+        panel.setFrameOrigin(origin)
     }
 }
