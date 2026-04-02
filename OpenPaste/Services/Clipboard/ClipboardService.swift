@@ -37,7 +37,14 @@ final class ClipboardService: ClipboardServiceProtocol, @unchecked Sendable {
         monitor = nil
     }
 
+    /// Legacy method used by PasteInterceptor — copies and immediately simulates paste.
     func pasteItem(_ item: ClipboardItem) async {
+        await copyToClipboard(item)
+        simulatePaste()
+    }
+
+    /// Copy item content to the system clipboard without simulating paste.
+    func copyToClipboard(_ item: ClipboardItem) async {
         let pasteboard = NSPasteboard.general
         pasteboard.clearContents()
 
@@ -62,9 +69,33 @@ final class ClipboardService: ClipboardServiceProtocol, @unchecked Sendable {
 
         try? await storageService.updateAccessCount(item.id)
         await eventBus.emit(.itemPasted(item))
+    }
+
+    /// Simulate ⌘V to paste into the frontmost application.
+    /// Waits for the target app to become active, checks Accessibility permission,
+    /// and shows an alert if not granted.
+    func simulatePasteToFrontApp() async {
+        // Chờ app đích active (timeout 500ms)
+        let deadline = Date().addingTimeInterval(0.5)
+        while Date() < deadline {
+            if let frontApp = NSWorkspace.shared.frontmostApplication,
+               frontApp.isActive,
+               frontApp.bundleIdentifier != Bundle.main.bundleIdentifier {
+                break
+            }
+            try? await Task.sleep(for: .milliseconds(50))
+        }
+
+        // Kiểm tra Accessibility permission
+        guard AXIsProcessTrusted() else {
+            await showAccessibilityAlert()
+            return
+        }
 
         simulatePaste()
     }
+
+    // MARK: - Private
 
     @MainActor
     private func handleClipboardChange(_ pasteboard: NSPasteboard) async {
@@ -109,5 +140,22 @@ final class ClipboardService: ClipboardServiceProtocol, @unchecked Sendable {
         keyUp?.flags = .maskCommand
         keyDown?.post(tap: .cghidEventTap)
         keyUp?.post(tap: .cghidEventTap)
+    }
+
+    @MainActor
+    private func showAccessibilityAlert() {
+        let alert = NSAlert()
+        alert.messageText = "Cần cấp quyền Accessibility"
+        alert.informativeText = "OpenPaste cần quyền Accessibility để paste trực tiếp vào ứng dụng khác.\n\nVào System Settings → Privacy & Security → Accessibility → Bật OpenPaste."
+        alert.alertStyle = .warning
+        alert.addButton(withTitle: "Mở System Settings")
+        alert.addButton(withTitle: "Để sau")
+
+        let response = alert.runModal()
+        if response == .alertFirstButtonReturn {
+            if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility") {
+                NSWorkspace.shared.open(url)
+            }
+        }
     }
 }

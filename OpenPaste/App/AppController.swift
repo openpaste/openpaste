@@ -36,6 +36,9 @@ final class AppController {
             hvm.dismissAction = { [weak self] in
                 self?.windowManager.hide()
             }
+            hvm.reactivatePreviousApp = { [weak self] in
+                self?.windowManager.reactivatePreviousApp()
+            }
             historyViewModel = hvm
 
             let searchVm = SearchViewModel(
@@ -46,6 +49,9 @@ final class AppController {
             searchVm.dismissAction = { [weak self] in
                 self?.windowManager.hide()
             }
+            searchVm.reactivatePreviousApp = { [weak self] in
+                self?.windowManager.reactivatePreviousApp()
+            }
             searchViewModel = searchVm
 
             collectionViewModel = CollectionViewModel(storageService: c.storageService)
@@ -53,6 +59,9 @@ final class AppController {
             pasteStackViewModel.configure(clipboardService: c.clipboardService)
             pasteStackViewModel.dismissAction = { [weak self] in
                 self?.windowManager.hide()
+            }
+            pasteStackViewModel.reactivatePreviousApp = { [weak self] in
+                self?.windowManager.reactivatePreviousApp()
             }
 
             svm.onClearAllHistory = { [weak hvm] in

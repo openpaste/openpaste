@@ -7,6 +7,7 @@ final class SearchViewModel {
     var results: [ClipboardItem] = []
     var isSearching = false
     var dismissAction: (() -> Void)?
+    var reactivatePreviousApp: (() -> Void)?
     var availableTags: [String] = []
 
     private let searchService: SearchServiceProtocol
@@ -76,8 +77,10 @@ final class SearchViewModel {
     // MARK: - Item Actions
 
     func paste(_ item: ClipboardItem) async {
-        await clipboardService.pasteItem(item)
+        await clipboardService.copyToClipboard(item)
         dismissAction?()
+        reactivatePreviousApp?()
+        await clipboardService.simulatePasteToFrontApp()
     }
 
     func delete(_ item: ClipboardItem) async {

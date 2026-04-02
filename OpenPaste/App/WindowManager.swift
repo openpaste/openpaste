@@ -47,6 +47,8 @@ final class FloatingPanel: NSPanel {
 final class WindowManager {
     private var panel: FloatingPanel?
     var isVisible: Bool = false
+    /// App đang active trước khi panel hiện lên
+    private(set) var previousApp: NSRunningApplication?
 
     func toggle<Content: View>(content: @escaping () -> Content) {
         if isVisible {
@@ -57,6 +59,9 @@ final class WindowManager {
     }
 
     func show<Content: View>(content: @escaping () -> Content) {
+        // Lưu app đang active TRƯỚC KHI hiện panel
+        previousApp = NSWorkspace.shared.frontmostApplication
+
         let hostingView = NSHostingView(rootView: content())
         hostingView.frame = NSRect(x: 0, y: 0, width: 400, height: 600)
 
@@ -81,5 +86,10 @@ final class WindowManager {
         panel?.close()
         panel = nil
         isVisible = false
+    }
+
+    /// Trả focus về app trước đó
+    func reactivatePreviousApp() {
+        previousApp?.activate()
     }
 }

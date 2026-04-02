@@ -8,6 +8,7 @@ final class PasteStackViewModel {
 
     private var clipboardService: ClipboardServiceProtocol?
     var dismissAction: (() -> Void)?
+    var reactivatePreviousApp: (() -> Void)?
 
     func configure(clipboardService: ClipboardServiceProtocol) {
         self.clipboardService = clipboardService
@@ -32,13 +33,15 @@ final class PasteStackViewModel {
 
     func pasteNext() async {
         guard let item = currentItem else { return }
-        await clipboardService?.pasteItem(item)
+        await clipboardService?.copyToClipboard(item)
         if currentIndex < items.count - 1 {
             currentIndex += 1
         } else {
             clear()
         }
         dismissAction?()
+        reactivatePreviousApp?()
+        await clipboardService?.simulatePasteToFrontApp()
     }
 
     func clear() {

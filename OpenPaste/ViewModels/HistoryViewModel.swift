@@ -7,6 +7,7 @@ final class HistoryViewModel {
     var isLoading = false
     var hasMore = true
     var dismissAction: (() -> Void)?
+    var reactivatePreviousApp: (() -> Void)?
     private var offset = 0
     private let pageSize = Constants.defaultHistoryPageSize
 
@@ -46,8 +47,10 @@ final class HistoryViewModel {
     }
 
     func paste(_ item: ClipboardItem) async {
-        await clipboardService.pasteItem(item)
+        await clipboardService.copyToClipboard(item)
         dismissAction?()
+        reactivatePreviousApp?()
+        await clipboardService.simulatePasteToFrontApp()
     }
 
     func delete(_ item: ClipboardItem) async {
@@ -71,8 +74,10 @@ final class HistoryViewModel {
         var modified = item
         modified.content = Data(newText.utf8)
         modified.plainTextContent = newText
-        await clipboardService.pasteItem(modified)
+        await clipboardService.copyToClipboard(modified)
         dismissAction?()
+        reactivatePreviousApp?()
+        await clipboardService.simulatePasteToFrontApp()
     }
 
     func assignToCollection(_ item: ClipboardItem, collectionId: UUID) async {
