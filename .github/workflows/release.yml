@@ -60,6 +60,37 @@ jobs:
           mkdir -p build/export
           cp -R build/OpenPaste.xcarchive/Products/Applications/OpenPaste.app build/export/
 
+      - name: Re-sign Sparkle binaries
+        env:
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          APP="build/export/OpenPaste.app"
+          SPARKLE="$APP/Contents/Frameworks/Sparkle.framework"
+          IDENTITY="Developer ID Application"
+          KEYCHAIN="$RUNNER_TEMP/app-signing.keychain-db"
+          OPTS="--force --options runtime --timestamp --keychain $KEYCHAIN"
+
+          # Sign XPC services first (innermost)
+          for XPC in "$SPARKLE/Versions/B/XPCServices/"*.xpc; do
+            echo "Signing: $XPC"
+            codesign $OPTS --sign "$IDENTITY" "$XPC"
+          done
+
+          # Sign Autoupdate helper
+          codesign $OPTS --sign "$IDENTITY" "$SPARKLE/Versions/B/Autoupdate"
+
+          # Sign Updater.app
+          codesign $OPTS --sign "$IDENTITY" "$SPARKLE/Versions/B/Updater.app"
+
+          # Re-sign the framework itself
+          codesign $OPTS --sign "$IDENTITY" "$SPARKLE"
+
+          # Re-sign the main app
+          codesign $OPTS --sign "$IDENTITY" --entitlements /dev/null "$APP"
+
+          echo "==> All Sparkle binaries re-signed"
+          codesign --verify --deep --strict "$APP" && echo "==> Deep verification passed"
+
       - name: Notarize app
         env:
           APPLE_ID: ${{ secrets.APPLE_ID }}
