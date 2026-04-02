@@ -106,8 +106,8 @@ jobs:
             --wait --timeout 600 2>&1) || true
 
           echo "$SUBMIT_OUTPUT"
-          SUBMISSION_ID=$(echo "$SUBMIT_OUTPUT" | grep -m1 'id:' | awk '{print $2}')
-          STATUS=$(echo "$SUBMIT_OUTPUT" | grep -m1 'status:' | awk '{print $2}')
+          SUBMISSION_ID=$(echo "$SUBMIT_OUTPUT" | grep -m1 '  id:' | awk '{print $2}')
+          STATUS=$(echo "$SUBMIT_OUTPUT" | grep '  status:' | tail -1 | awk '{print $2}')
 
           if [ "$STATUS" != "Accepted" ]; then
             echo "::error::Notarization failed with status: $STATUS"
