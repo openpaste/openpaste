@@ -100,7 +100,7 @@ jobs:
         run: |
           DMG_PATH=$(ls build/export/OpenPaste-*.dmg)
           echo "Signing: $DMG_PATH"
-          SIGNATURE=$(echo -n "$SPARKLE_EDDSA_KEY" | /tmp/sparkle/bin/sign_update "$DMG_PATH" --ed-key-file -)
+          SIGNATURE=$(echo "$SPARKLE_EDDSA_KEY" | /tmp/sparkle/bin/sign_update "$DMG_PATH" --ed-key-file - -p)
           echo "eddsa_signature=${SIGNATURE}" >> "$GITHUB_OUTPUT"
 
       - name: Get version from tag

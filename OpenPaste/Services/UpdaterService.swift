@@ -14,8 +14,15 @@ final class UpdaterService: UpdaterServiceProtocol {
     private var observation: NSKeyValueObservation?
 
     init() {
+        // Don't start updater in DEBUG builds to avoid EdDSA key validation errors
+        #if DEBUG
+        let shouldStart = false
+        #else
+        let shouldStart = true
+        #endif
+
         updaterController = SPUStandardUpdaterController(
-            startingUpdater: true,
+            startingUpdater: shouldStart,
             updaterDelegate: nil,
             userDriverDelegate: nil
         )
