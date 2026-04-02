@@ -6,12 +6,29 @@ struct ContentView: View {
     var pasteStackViewModel: PasteStackViewModel?
     var collectionViewModel: CollectionViewModel?
 
+    @AppStorage(Constants.windowPositionModeKey) private var windowMode = Constants.windowPositionModeBottomShelf
+
     @State private var selectedTab: Tab = .history
     @State private var appeared = false
 
     enum Tab { case history, collections }
 
     var body: some View {
+        Group {
+            if windowMode == Constants.windowPositionModeBottomShelf {
+                BottomShelfView(
+                    historyViewModel: historyViewModel,
+                    searchViewModel: searchViewModel,
+                    pasteStackViewModel: pasteStackViewModel,
+                    collectionViewModel: collectionViewModel
+                )
+            } else {
+                verticalLayout
+            }
+        }
+    }
+
+    private var verticalLayout: some View {
         VStack(spacing: 0) {
             SearchView(viewModel: searchViewModel)
 

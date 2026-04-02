@@ -68,6 +68,23 @@ final class HistoryViewModel {
         await clipboardService.simulatePasteToFrontApp()
     }
 
+    func pasteAsPlainText(_ item: ClipboardItem) async {
+        guard let text = item.plainTextContent else {
+            await paste(item)
+            return
+        }
+        var plainItem = item
+        plainItem.type = .text
+        plainItem.content = Data(text.utf8)
+        plainItem.plainTextContent = text
+        await paste(plainItem)
+    }
+
+    func pasteByIndex(_ index: Int) async {
+        guard index >= 0, index < items.count else { return }
+        await paste(items[index])
+    }
+
     func delete(_ item: ClipboardItem) async {
         try? await storageService.delete(item.id)
         items.removeAll { $0.id == item.id }

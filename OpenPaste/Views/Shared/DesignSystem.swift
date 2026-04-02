@@ -37,6 +37,28 @@ enum DS {
         static let lg: CGFloat = 12
     }
 
+    // MARK: - Card (Bottom Shelf)
+    enum Card {
+        static let width: CGFloat = 160
+        static let height: CGFloat = 120
+        static let spacing: CGFloat = 8
+        static let cornerRadius: CGFloat = 10
+        static let borderWidth: CGFloat = 2
+        static let hoverScale: CGFloat = 1.03
+        static let selectedBorderOpacity: Double = 0.8
+    }
+
+    // MARK: - Bottom Shelf
+    enum Shelf {
+        static let defaultHeight: CGFloat = 200
+        static let minHeight: CGFloat = 160
+        static let maxHeight: CGFloat = 350
+        static let searchBarHeight: CGFloat = 36
+        static let tabBarHeight: CGFloat = 32
+        static let hintBarHeight: CGFloat = 24
+        static let horizontalPadding: CGFloat = 16
+    }
+
     // MARK: - Animation
     enum Animation {
         static let springDefault = SwiftUI.Animation.spring(response: 0.35, dampingFraction: 0.8)

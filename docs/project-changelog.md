@@ -117,6 +117,14 @@ Comprehensive three-phase UI/UX overhaul delivering a centralized design system,
 - `Views/Shared/ContentPreviewView.swift` — Larger image previews, spring animations
 - `Views/Shared/TypeIcon.swift` — 14pt → 18pt icons, colors via `DS.Colors`
 
+#### Bottom Shelf (Paste-style) window mode (April 2026)
+- New window mode option in Settings > Appearance
+- Slide-up bottom panel with a horizontal card grid
+- Preview pane toggle (`Tab` / `Space`)
+- Shortcut hint bar
+- Keyboard shortcuts: `Enter` (paste), `Shift+Enter` (paste as plain text), `⌘1`–`⌘9` (select), `d` (delete), `p` (pin), `s` (star)
+- Pinboard tabs now show collection color; existing pinboard items migrated automatically
+
 ### Fixed
 
 #### Code Review Fixes (April 2026)

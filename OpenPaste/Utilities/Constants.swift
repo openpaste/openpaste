@@ -27,6 +27,7 @@ enum Constants {
     static let appearanceThemeKey = "appearanceTheme"
     static let historyRetentionDaysKey = "historyRetentionDays"
     static let windowPositionModeKey = "windowPositionMode"
+    static let windowPositionModeBottomShelf = "bottomShelf"
     static let savedWindowFrameKey = "savedWindowFrame"
 
 }

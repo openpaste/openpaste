@@ -10,6 +10,7 @@ final class CollectionViewModel {
 
     init(storageService: StorageServiceProtocol) {
         self.storageService = storageService
+        Task { await loadCollections() }
     }
 
     func loadCollections() async {

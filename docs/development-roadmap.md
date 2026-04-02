@@ -63,6 +63,7 @@ Strategic roadmap for OpenPaste development phases, milestones, and feature prio
    - Redesigned empty states with animated icons (`.symbolEffect(.pulse.byLayer)`) and shortcut hints
    - Smart filter bar (Last 24h, Last 7 days, Last 30 days, Pinned, Starred)
    - Cursor-positioned window mode (open near mouse, clamped to screen)
+   - Bottom Shelf (Paste-style) window mode (Appearance setting)
    - Resizable window support (350×400 to 700×900)
 
    **Code Quality Fixes:**

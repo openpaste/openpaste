@@ -50,5 +50,11 @@ struct DatabaseMigrations: Sendable {
                 t.column("createdAt", .datetime).notNull()
             }
         }
+
+        migrator.registerMigration("v3_addCollectionColor") { db in
+            try db.alter(table: "collections") { t in
+                t.add(column: "color", .text).notNull().defaults(to: "#007AFF")
+            }
+        }
     }
 }
