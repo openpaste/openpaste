@@ -144,92 +144,112 @@ struct HistoryView: View {
     // MARK: - Items List with Vim Keys
 
     private var itemsList: some View {
-        List(selection: $selectedId) {
-            // Pinned section
-            let pinned = viewModel.items.filter(\.pinned)
-            if !pinned.isEmpty {
+        ScrollViewReader { proxy in
+            List(selection: $selectedId) {
+                // Pinned section
+                let pinned = viewModel.items.filter(\.pinned)
+                if !pinned.isEmpty {
+                    Section {
+                        ForEach(pinned) { item in
+                            itemRow(for: item)
+                        }
+                    } header: {
+                        Label("Pinned", systemImage: "pin.fill")
+                            .font(DS.Typography.sectionHeader)
+                            .foregroundStyle(DS.Colors.accent)
+                    }
+                }
+
+                // Recent section
                 Section {
-                    ForEach(pinned) { item in
+                    ForEach(viewModel.items.filter { !$0.pinned }) { item in
                         itemRow(for: item)
                     }
                 } header: {
-                    Label("Pinned", systemImage: "pin.fill")
-                        .font(DS.Typography.sectionHeader)
-                        .foregroundStyle(DS.Colors.accent)
+                    if !pinned.isEmpty {
+                        Text("Recent")
+                            .font(DS.Typography.sectionHeader)
+                            .foregroundStyle(.secondary)
+                    }
                 }
-            }
 
-            // Recent section
-            Section {
-                ForEach(viewModel.items.filter { !$0.pinned }) { item in
-                    itemRow(for: item)
-                }
-            } header: {
-                if !pinned.isEmpty {
-                    Text("Recent")
-                        .font(DS.Typography.sectionHeader)
-                        .foregroundStyle(.secondary)
+                if viewModel.hasMore {
+                    ProgressView()
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                        .task { await viewModel.loadMore() }
                 }
             }
-
-            if viewModel.hasMore {
-                ProgressView()
-                    .frame(maxWidth: .infinity)
-                    .padding()
-                    .task { await viewModel.loadMore() }
+            .listStyle(.plain)
+            .animation(DS.Animation.springDefault, value: viewModel.items.map(\.id))
+            .onAppear {
+                if let anchorId = viewModel.scrollAnchorId,
+                   viewModel.shouldRestoreScroll,
+                   viewModel.items.contains(where: { $0.id == anchorId }) {
+                    viewModel.isRestoringScroll = true
+                    selectedId = anchorId
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                        withAnimation {
+                            proxy.scrollTo(anchorId, anchor: .center)
+                        }
+                        viewModel.isRestoringScroll = false
+                    }
+                }
+                viewModel.clearScrollState()
             }
-        }
-        .listStyle(.plain)
-        .animation(DS.Animation.springDefault, value: viewModel.items.map(\.id))
-        .focusable()
-        // Enter to paste
-        .onKeyPress(.return) {
-            pasteSelected()
-            return .handled
-        }
-        // Escape to dismiss
-        .onKeyPress(.escape) {
-            viewModel.dismissAction?()
-            return .handled
-        }
-        // Tab to toggle preview
-        .onKeyPress(.tab) {
-            withAnimation(DS.Animation.springDefault) { showPreview.toggle() }
-            return .handled
-        }
-        // ? = show shortcuts overlay
-        .onKeyPress(characters: .init(charactersIn: "?"), phases: .down) { _ in
-            withAnimation(DS.Animation.springDefault) { showShortcutOverlay.toggle() }
-            return .handled
-        }
-        // j = move down
-        .onKeyPress(characters: .init(charactersIn: "j"), phases: .down) { _ in
-            moveSelection(by: 1)
-            return .handled
-        }
-        // k = move up
-        .onKeyPress(characters: .init(charactersIn: "k"), phases: .down) { _ in
-            moveSelection(by: -1)
-            return .handled
-        }
-        // G (shift+g) = go to bottom
-        .onKeyPress(characters: .init(charactersIn: "G"), phases: .down) { _ in
-            selectedId = viewModel.items.last?.id
-            return .handled
-        }
-        // g = first tap starts timer, second tap within 400ms goes to top
-        .onKeyPress(characters: .init(charactersIn: "g"), phases: .down) { _ in
-            if pendingG {
-                selectedId = viewModel.items.first?.id
-                pendingG = false
-            } else {
-                pendingG = true
-                Task {
-                    try? await Task.sleep(for: .milliseconds(400))
+            .onDisappear {
+                viewModel.recordPanelClose(visibleItemId: selectedId ?? viewModel.items.first?.id)
+            }
+            .focusable()
+            // Enter to paste
+            .onKeyPress(.return) {
+                pasteSelected()
+                return .handled
+            }
+            // Escape to dismiss
+            .onKeyPress(.escape) {
+                viewModel.dismissAction?()
+                return .handled
+            }
+            // Tab to toggle preview
+            .onKeyPress(.tab) {
+                withAnimation(DS.Animation.springDefault) { showPreview.toggle() }
+                return .handled
+            }
+            // ? = show shortcuts overlay
+            .onKeyPress(characters: .init(charactersIn: "?"), phases: .down) { _ in
+                withAnimation(DS.Animation.springDefault) { showShortcutOverlay.toggle() }
+                return .handled
+            }
+            // j = move down
+            .onKeyPress(characters: .init(charactersIn: "j"), phases: .down) { _ in
+                moveSelection(by: 1)
+                return .handled
+            }
+            // k = move up
+            .onKeyPress(characters: .init(charactersIn: "k"), phases: .down) { _ in
+                moveSelection(by: -1)
+                return .handled
+            }
+            // G (shift+g) = go to bottom
+            .onKeyPress(characters: .init(charactersIn: "G"), phases: .down) { _ in
+                selectedId = viewModel.items.last?.id
+                return .handled
+            }
+            // g = first tap starts timer, second tap within 400ms goes to top
+            .onKeyPress(characters: .init(charactersIn: "g"), phases: .down) { _ in
+                if pendingG {
+                    selectedId = viewModel.items.first?.id
                     pendingG = false
+                } else {
+                    pendingG = true
+                    Task {
+                        try? await Task.sleep(for: .milliseconds(400))
+                        pendingG = false
+                    }
                 }
+                return .handled
             }
-            return .handled
         }
     }
 

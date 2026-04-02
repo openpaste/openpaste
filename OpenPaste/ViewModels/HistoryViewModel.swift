@@ -10,6 +10,14 @@ final class HistoryViewModel {
     var showPasteConfirmation = false
     var dismissAction: (() -> Void)?
     var reactivatePreviousApp: (() -> Void)?
+
+    // Scroll restoration state
+    var scrollAnchorId: UUID?
+    private(set) var panelClosedAt: Date?
+    private var hadNewItemSinceClose = false
+    var isRestoringScroll = false
+    private let scrollRestorationThreshold: TimeInterval = 30
+
     private var offset = 0
     private let pageSize = Constants.defaultHistoryPageSize
 
@@ -24,6 +32,9 @@ final class HistoryViewModel {
     }
 
     func loadInitial() async {
+        // Skip reload if restoring scroll position — data is still fresh
+        if isRestoringScroll { return }
+
         isLoading = true
         offset = 0
         do {
@@ -88,11 +99,33 @@ final class HistoryViewModel {
         try? await storageService.assignItemToCollection(itemId: item.id, collectionId: collectionId)
     }
 
+    // MARK: - Scroll Restoration
+
+    var shouldRestoreScroll: Bool {
+        guard let closedAt = panelClosedAt,
+              scrollAnchorId != nil,
+              !hadNewItemSinceClose else { return false }
+        return Date().timeIntervalSince(closedAt) < scrollRestorationThreshold
+    }
+
+    func recordPanelClose(visibleItemId: UUID?) {
+        scrollAnchorId = visibleItemId
+        panelClosedAt = Date()
+        hadNewItemSinceClose = false
+    }
+
+    func clearScrollState() {
+        scrollAnchorId = nil
+        panelClosedAt = nil
+        hadNewItemSinceClose = false
+    }
+
     func observeEvents() async {
         for await event in await eventBus.stream() {
             switch event {
             case .clipboardChanged(let newItem):
                 await MainActor.run {
+                    hadNewItemSinceClose = true
                     withAnimation(DS.Animation.springSnappy) {
                         items.insert(newItem, at: 0)
                     }
