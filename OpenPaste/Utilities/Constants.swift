@@ -7,7 +7,7 @@ enum Constants {
     static let defaultHistoryPageSize: Int = 50
     static let searchDebounceInterval: TimeInterval = 0.15
     static let appName = "OpenPaste"
-    static let bundleIdentifier = "com.openshot.OpenPaste"
+    static let bundleIdentifier = "dev.tuanle.OpenPaste"
 
     // Onboarding
     static let hasCompletedOnboardingKey = "hasCompletedOnboarding"

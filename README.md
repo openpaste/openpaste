@@ -37,9 +37,10 @@ OpenPaste is an open-source clipboard manager built natively for macOS with Swif
 
 ## Install
 
-### Homebrew (coming soon)
+### Homebrew
 
 ```bash
+brew tap openpaste/tap
 brew install --cask openpaste
 ```
 

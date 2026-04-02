@@ -71,3 +71,10 @@ fastlane/test_output
 AGENTS.md
 CLAUDE.md
 prd.mode1v3
+plans/
+# Homebrew tap (separate repo)
+homebrew-tap/
+
+# Certificates
+*.p12
+*.cer
