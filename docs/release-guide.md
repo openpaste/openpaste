@@ -54,18 +54,19 @@ cat sparkle_private.key
 
 ### 1. Bump Version
 
-Update `MARKETING_VERSION` in **all 6** build configurations in `project.pbxproj`:
+Update `MARKETING_VERSION` and `CURRENT_PROJECT_VERSION` in **all 6** build configurations in `project.pbxproj`:
 
 ```bash
-# Check current version
-grep -c 'MARKETING_VERSION' OpenPaste.xcodeproj/project.pbxproj
-# Should show 6
-
-# Find & replace (or use Xcode: target → Build Settings → Marketing Version)
+# Find & replace both version numbers (e.g., from 1.0.0 to 1.1.0)
 sed -i '' 's/MARKETING_VERSION = 1.0.0/MARKETING_VERSION = 1.1.0/g' OpenPaste.xcodeproj/project.pbxproj
+sed -i '' 's/CURRENT_PROJECT_VERSION = 1.0.0/CURRENT_PROJECT_VERSION = 1.1.0/g' OpenPaste.xcodeproj/project.pbxproj
+
+# Verify both updated (should show 6 each)
+grep -c 'MARKETING_VERSION = 1.1.0' OpenPaste.xcodeproj/project.pbxproj
+grep -c 'CURRENT_PROJECT_VERSION = 1.1.0' OpenPaste.xcodeproj/project.pbxproj
 ```
 
-> **CRITICAL:** Version must be semver (`X.Y.Z`). The tag `v1.0.0` produces DMG `OpenPaste-1.0.0.dmg`. A mismatch causes Homebrew 404.
+> **CRITICAL:** `MARKETING_VERSION` and `CURRENT_PROJECT_VERSION` must be the same semver (`X.Y.Z`). Sparkle compares `sparkle:version` (appcast) against `CFBundleVersion` (`CURRENT_PROJECT_VERSION`). A mismatch causes false update prompts.
 
 ### 2. Commit & Tag
 
