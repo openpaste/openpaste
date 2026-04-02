@@ -5,7 +5,7 @@
 **Product name:** OpenPaste
 **Platform:** macOS (native – SwiftUI + AppKit)
 **Positioning:** Open-source, developer-first, privacy-first clipboard manager with AI-native capabilities
-**License:** MIT
+**License:** AGPLv3 (open-core model — see LICENSE and CLA.md)
 
 ### Problem
 
