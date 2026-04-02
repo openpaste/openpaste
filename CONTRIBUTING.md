@@ -77,7 +77,7 @@ refactor/what-changed
 
 ## Pull Request Process
 
-1. Create a feature branch from `main`
+1. Create a feature branch from `develop` (not `main`)
 2. Make your changes with clear, focused commits
 3. Write or update tests for your changes
 4. Ensure all tests pass (⌘U in Xcode)
