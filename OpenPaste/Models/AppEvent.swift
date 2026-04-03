@@ -2,6 +2,7 @@ import Foundation
 
 enum AppEvent: Sendable {
     case clipboardChanged(ClipboardItem)
+    case duplicateCopied(ClipboardItem)
     case itemStored(ClipboardItem)
     case itemPasted(ClipboardItem)
     case searchRequested(query: String)

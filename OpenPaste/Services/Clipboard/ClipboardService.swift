@@ -104,7 +104,11 @@ final class ClipboardService: ClipboardServiceProtocol, @unchecked Sendable {
         if securityService.isBlacklisted(bundleId: item.sourceApp.bundleId) { return }
 
         if let existing = try? await storageService.fetchByHash(item.contentHash) {
+            var updated = existing
+            updated.createdAt = Date()
+            try? await storageService.update(updated)
             try? await storageService.updateAccessCount(existing.id)
+            await eventBus.emit(.duplicateCopied(updated))
             return
         }
 

@@ -163,7 +163,21 @@ final class HistoryViewModel {
                 await MainActor.run {
                     hadNewItemSinceClose = true
                     withAnimation(DS.Animation.springSnappy) {
-                        items.insert(newItem, at: 0)
+                        let insertIndex = items.firstIndex(where: { !$0.pinned }) ?? items.count
+                        items.insert(newItem, at: insertIndex)
+                    }
+                }
+            case .duplicateCopied(let updatedItem):
+                await MainActor.run {
+                    hadNewItemSinceClose = true
+                    withAnimation(DS.Animation.springSnappy) {
+                        items.removeAll { $0.id == updatedItem.id }
+                        if updatedItem.pinned {
+                            items.insert(updatedItem, at: 0)
+                        } else {
+                            let insertIndex = items.firstIndex(where: { !$0.pinned }) ?? items.count
+                            items.insert(updatedItem, at: insertIndex)
+                        }
                     }
                 }
             default:
