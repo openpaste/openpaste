@@ -71,6 +71,15 @@ final class AppController {
             }
             svm.storageService = c.storageService
             svm.syncService = c.syncService
+            svm.eventBus = c.eventBus
+            svm.startSyncObserver()
+
+            if AppDelegate.consumePendingRemoteNotification() {
+                Task {
+                    await c.syncService.triggerManualSync()
+                    await svm.refreshSyncInfo()
+                }
+            }
 
             Task {
                 await c.syncService.start()
@@ -105,6 +114,19 @@ final class AppController {
         ) { [weak self] _ in
             Task { @MainActor in
                 self?.showOnboardingIfNeeded()
+            }
+        }
+
+        NotificationCenter.default.addObserver(
+            forName: AppDelegate.didReceiveRemoteNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            _ = AppDelegate.consumePendingRemoteNotification()
+            guard let self, let c = self.container else { return }
+            Task {
+                await c.syncService.triggerManualSync()
+                await self.settingsViewModel.refreshSyncInfo()
             }
         }
     }
