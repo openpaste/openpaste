@@ -16,6 +16,11 @@ struct SyncSettingsView: View {
                 HStack {
                     Text("Status")
                     Spacer()
+                    if viewModel.isSyncing {
+                        ProgressView()
+                            .controlSize(.small)
+                            .padding(.trailing, 4)
+                    }
                     Text(statusText)
                         .foregroundStyle(.secondary)
                 }
@@ -24,6 +29,13 @@ struct SyncSettingsView: View {
                     Text("Pending")
                     Spacer()
                     Text("\(viewModel.syncPendingChangesCount)")
+                        .foregroundStyle(.secondary)
+                }
+
+                HStack {
+                    Text("Synced")
+                    Spacer()
+                    Text("\(viewModel.syncSyncedCount)")
                         .foregroundStyle(.secondary)
                 }
 
@@ -38,12 +50,12 @@ struct SyncSettingsView: View {
                     Button("Sync Now") {
                         Task { await viewModel.syncNow() }
                     }
-                    .disabled(!viewModel.iCloudSyncEnabled)
+                    .disabled(!viewModel.iCloudSyncEnabled || viewModel.isSyncing)
 
                     Button("Reset Sync Data") {
                         Task { await viewModel.resetSync() }
                     }
-                    .disabled(!viewModel.iCloudSyncEnabled)
+                    .disabled(!viewModel.iCloudSyncEnabled || viewModel.isSyncing)
                 }
             }
 
@@ -56,6 +68,9 @@ struct SyncSettingsView: View {
         .formStyle(.grouped)
         .padding()
         .task {
+            if viewModel.iCloudSyncEnabled {
+                await viewModel.syncService?.start()
+            }
             await viewModel.refreshSyncInfo()
         }
     }
@@ -64,7 +79,7 @@ struct SyncSettingsView: View {
         switch viewModel.syncStatus {
         case .disabled: "Disabled"
         case .idle: "Idle"
-        case .syncing: "Syncing"
+        case .syncing: "Syncing…"
         case .error(let message): "Error: \(message)"
         case .notPremium: "Premium required"
         }

@@ -57,8 +57,12 @@ final class SettingsViewModel {
     var syncStatus: SyncStatus = .disabled
     var syncLastSyncDate: Date?
     var syncPendingChangesCount: Int = 0
+    var syncSyncedCount: Int = 0
+    var isSyncing: Bool = false
 
     var syncService: SyncServiceProtocol?
+    var eventBus: EventBus?
+    @ObservationIgnored var syncObserverTask: Task<Void, Never>?
 
     // Storage info
     var databaseSize: String = "—"

@@ -17,4 +17,5 @@ protocol SyncServiceProtocol: Sendable {
     func getStatus() async -> SyncStatus
     func getLastSyncDate() async -> Date?
     func getPendingChangesCount() async -> Int
+    func getSyncedCount() async -> Int
 }
