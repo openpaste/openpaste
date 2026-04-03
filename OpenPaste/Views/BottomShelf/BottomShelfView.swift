@@ -1,4 +1,5 @@
 import SwiftUI
+import UniformTypeIdentifiers
 
 struct BottomShelfView: View {
     @Bindable var historyViewModel: HistoryViewModel
@@ -11,6 +12,7 @@ struct BottomShelfView: View {
     @State var showPreview = false
     @State private var showNewCollectionSheet = false
     @State private var newCollectionName = ""
+    @State private var draggedItemId: UUID?
     @FocusState var searchFocused: Bool
 
     @AppStorage(Constants.showShortcutHintsKey) private var showShortcutHints = true
@@ -68,6 +70,11 @@ struct BottomShelfView: View {
         .onAppear {
             selectedId = displayItems.first?.id
             selectedCollectionId = searchViewModel.filters.collectionId
+            // Delay focus until panel slide-up animation settles,
+            // otherwise .focusable() on the VStack steals first-responder.
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                searchFocused = true
+            }
         }
         .task { await historyViewModel.loadInitial() }
         .task { await historyViewModel.observeEvents() }
@@ -124,9 +131,6 @@ struct BottomShelfView: View {
         }
         .padding(.horizontal, DS.Shelf.horizontalPadding)
         .padding(.vertical, 8)
-        .onAppear {
-            searchFocused = true
-        }
         .onChange(of: selectedCollectionId) { _, newValue in
             applyCollectionFilter(newValue)
         }
@@ -183,6 +187,17 @@ struct BottomShelfView: View {
                             }
                         )
                         .id(item.id)
+                        .opacity(draggedItemId == item.id ? 0.4 : 1.0)
+                        .animation(.easeInOut(duration: 0.2), value: draggedItemId)
+                        .onDrag {
+                            draggedItemId = item.id
+                            return NSItemProvider(object: item.id.uuidString as NSString)
+                        }
+                        .onDrop(of: [.text], delegate: CardDropDelegate(
+                            targetId: item.id,
+                            draggedItemId: $draggedItemId,
+                            historyViewModel: historyViewModel
+                        ))
                     }
 
                     if shouldShowLoadingMore {
@@ -193,6 +208,11 @@ struct BottomShelfView: View {
                 }
                 .padding(.horizontal, DS.Shelf.horizontalPadding)
                 .padding(.vertical, DS.Spacing.lg)
+            }
+            .onDrop(of: [.text], isTargeted: nil) { providers in
+                // Catch-all: reset drag state when dropped on empty area
+                draggedItemId = nil
+                return false
             }
             .onChange(of: selectedId) { _, newId in
                 guard let newId else { return }

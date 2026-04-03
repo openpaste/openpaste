@@ -83,6 +83,10 @@ final class SearchViewModel {
     func paste(_ item: ClipboardItem) async {
         await clipboardService.copyToClipboard(item)
         dismissAction?()
+
+        let shouldPasteDirectly = UserDefaults.standard.object(forKey: Constants.pasteDirectlyKey) as? Bool ?? true
+        guard shouldPasteDirectly else { return }
+
         reactivatePreviousApp?()
         await clipboardService.simulatePasteToFrontApp()
     }

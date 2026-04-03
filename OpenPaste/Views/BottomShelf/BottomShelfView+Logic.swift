@@ -1,4 +1,5 @@
 import SwiftUI
+import UniformTypeIdentifiers
 
 extension BottomShelfView {
     var displayItems: [ClipboardItem] {
@@ -157,5 +158,39 @@ extension BottomShelfView {
         } else {
             await historyViewModel.pasteAsPlainText(item)
         }
+    }
+}
+
+// MARK: - Drag & Drop Delegate for horizontal card reordering
+
+struct CardDropDelegate: DropDelegate {
+    let targetId: UUID
+    @Binding var draggedItemId: UUID?
+    let historyViewModel: HistoryViewModel
+
+    func performDrop(info: DropInfo) -> Bool {
+        defer { draggedItemId = nil }
+        guard let draggedId = draggedItemId, draggedId != targetId else { return false }
+        historyViewModel.moveItem(draggedId, before: targetId)
+        return true
+    }
+
+    func dropEntered(info: DropInfo) {
+        guard let draggedId = draggedItemId, draggedId != targetId else { return }
+        withAnimation(DS.Animation.springSnappy) {
+            historyViewModel.moveItem(draggedId, before: targetId)
+        }
+    }
+
+    func dropUpdated(info: DropInfo) -> DropProposal? {
+        DropProposal(operation: .move)
+    }
+
+    func dropExited(info: DropInfo) {
+        // Reset if drag leaves all targets (cancelled/dropped outside)
+    }
+
+    func validateDrop(info: DropInfo) -> Bool {
+        draggedItemId != nil
     }
 }

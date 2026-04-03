@@ -62,8 +62,11 @@ final class HistoryViewModel {
     func paste(_ item: ClipboardItem) async {
         await clipboardService.copyToClipboard(item)
         showPasteConfirmation = true
-        try? await Task.sleep(for: .milliseconds(600))
         dismissAction?()
+
+        let shouldPasteDirectly = UserDefaults.standard.object(forKey: Constants.pasteDirectlyKey) as? Bool ?? true
+        guard shouldPasteDirectly else { return }
+
         reactivatePreviousApp?()
         await clipboardService.simulatePasteToFrontApp()
     }
@@ -88,6 +91,16 @@ final class HistoryViewModel {
     func delete(_ item: ClipboardItem) async {
         try? await storageService.delete(item.id)
         items.removeAll { $0.id == item.id }
+    }
+
+    /// Move an item before another item in the displayed list (in-memory reorder).
+    func moveItem(_ sourceId: UUID, before targetId: UUID) {
+        guard let sourceIdx = items.firstIndex(where: { $0.id == sourceId }),
+              let targetIdx = items.firstIndex(where: { $0.id == targetId }),
+              sourceIdx != targetIdx else { return }
+        let item = items.remove(at: sourceIdx)
+        let insertIdx = sourceIdx < targetIdx ? targetIdx - 1 : targetIdx
+        items.insert(item, at: insertIdx)
     }
 
     func togglePin(_ item: ClipboardItem) async {

@@ -35,4 +35,7 @@ enum Constants {
     static let savedWindowFrameKey = "savedWindowFrame"
     static let showShortcutHintsKey = "showShortcutHints"
 
+    // Paste Behavior
+    static let pasteDirectlyKey = "pasteDirectly"
+
 }
