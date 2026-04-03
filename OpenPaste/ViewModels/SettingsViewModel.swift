@@ -136,10 +136,28 @@ final class SettingsViewModel {
     }
 
     func loadStorageInfo() async {
-        let dbPath = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first?
-            .appendingPathComponent("OpenPaste")
-            .appendingPathComponent("database.sqlite")
-        if let dbPath, let attrs = try? FileManager.default.attributesOfItem(atPath: dbPath.path) {
+        let fileManager = FileManager.default
+        let bundleId = Bundle.main.bundleIdentifier ?? "dev.tuanle.OpenPaste"
+
+        let containerDB = fileManager.homeDirectoryForCurrentUser
+            .appendingPathComponent("Library", isDirectory: true)
+            .appendingPathComponent("Containers", isDirectory: true)
+            .appendingPathComponent(bundleId, isDirectory: true)
+            .appendingPathComponent("Data", isDirectory: true)
+            .appendingPathComponent("Library", isDirectory: true)
+            .appendingPathComponent("Application Support", isDirectory: true)
+            .appendingPathComponent("OpenPaste", isDirectory: true)
+            .appendingPathComponent("clipboard.sqlite")
+
+        let legacyDB = fileManager.homeDirectoryForCurrentUser
+            .appendingPathComponent("Library", isDirectory: true)
+            .appendingPathComponent("Application Support", isDirectory: true)
+            .appendingPathComponent("OpenPaste", isDirectory: true)
+            .appendingPathComponent("clipboard.sqlite")
+
+        let dbPath = fileManager.fileExists(atPath: containerDB.path) ? containerDB : legacyDB
+
+        if let attrs = try? fileManager.attributesOfItem(atPath: dbPath.path) {
             let size = attrs[.size] as? Int64 ?? 0
             let formatter = ByteCountFormatter()
             formatter.allowedUnits = [.useKB, .useMB]
