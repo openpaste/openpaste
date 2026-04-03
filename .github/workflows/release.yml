@@ -67,10 +67,7 @@ jobs:
             -configuration Release \
             -archivePath build/OpenPaste.xcarchive \
             -destination 'generic/platform=macOS' \
-            CODE_SIGN_IDENTITY="Developer ID Application" \
-            CODE_SIGN_STYLE=Manual \
             DEVELOPMENT_TEAM=${{ secrets.APPLE_TEAM_ID }} \
-            PROVISIONING_PROFILE_SPECIFIER="d692d56c-c888-405f-a40f-8be349b0fb83" \
             OTHER_CODE_SIGN_FLAGS="--keychain $RUNNER_TEMP/app-signing.keychain-db"
 
       - name: Export app
