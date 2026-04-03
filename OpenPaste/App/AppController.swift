@@ -7,6 +7,7 @@ final class AppController {
     var pasteStackViewModel = PasteStackViewModel()
     var settingsViewModel: SettingsViewModel
     var updaterService: UpdaterServiceProtocol = UpdaterService()
+    var feedbackRouter: FeedbackRouterProtocol = FeedbackRouter()
     var historyViewModel: HistoryViewModel?
     var searchViewModel: SearchViewModel?
     var collectionViewModel: CollectionViewModel?
@@ -28,6 +29,7 @@ final class AppController {
         do {
             let c = try DependencyContainer()
             container = c
+            feedbackRouter = c.feedbackRouter
 
             let hvm = HistoryViewModel(
                 storageService: c.storageService,

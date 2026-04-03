@@ -27,6 +27,11 @@ enum Constants {
     // URL Preview
     static let urlPreviewEnabledKey = "urlPreviewEnabled"
 
+    // Support
+    static let repositoryURLString = "https://github.com/openpaste/openpaste"
+    static let issueTrackerURLString = "https://github.com/openpaste/openpaste/issues/new"
+    static let supportEmail = "tuanle.works@gmail.com"
+
     // Appearance
     static let appearanceThemeKey = "appearanceTheme"
     static let historyRetentionDaysKey = "historyRetentionDays"

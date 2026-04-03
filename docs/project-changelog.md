@@ -86,6 +86,13 @@ Foundation for real-time clipboard sync across devices using CloudKit.
 
 ### Added
 
+#### In-App Feedback Handoff (April 2026)
+- `feat(settings)`: Added `Send Feedback…` entry point in Settings > About
+- `feat(feedback)`: Added a local-first feedback form that pre-fills app version, macOS version, and likely install method
+- `feat(feedback)`: Routes workflow feedback, bug reports, and feature requests to GitHub’s structured feedback form with pre-filled fields
+- `feat(feedback)`: Routes praise / other feedback to a pre-filled Mail draft for private follow-up
+- `test(feedback)`: Added route-generation and view-model tests for validation, metadata defaults, and reset behavior
+
 #### First-Users Launch Surfaces (April 2026)
 - `docs/positioning.md` — frozen 6-week positioning statement, public-message variants, and messaging guardrails
 - `docs/launch-faq.md` — honest FAQ covering privacy, sync, encryption, and roadmap status

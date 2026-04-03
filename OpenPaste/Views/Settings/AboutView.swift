@@ -2,6 +2,9 @@ import SwiftUI
 
 struct AboutView: View {
     var updaterService: UpdaterServiceProtocol
+    var feedbackRouter: FeedbackRouterProtocol
+
+    @State private var showFeedbackForm = false
 
     var body: some View {
         VStack(spacing: 20) {
@@ -29,10 +32,16 @@ struct AboutView: View {
             }
             .disabled(!updaterService.canCheckForUpdates)
 
+            Button("Send Feedback…") {
+                showFeedbackForm = true
+            }
+
             Divider()
 
             HStack(spacing: 20) {
-                Link("GitHub", destination: URL(string: "https://github.com/openpaste/openpaste") ?? URL(string: "https://github.com")!)
+                if let repositoryURL = URL(string: Constants.repositoryURLString) {
+                    Link("GitHub", destination: repositoryURL)
+                }
                 Text("·").foregroundStyle(.tertiary)
                 Text("AGPL-3.0 License")
                     .foregroundStyle(.secondary)
@@ -42,5 +51,8 @@ struct AboutView: View {
             Spacer()
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .sheet(isPresented: $showFeedbackForm) {
+            FeedbackFormView(router: feedbackRouter)
+        }
     }
 }

@@ -219,6 +219,7 @@ Strategic roadmap for OpenPaste development phases, milestones, and feature prio
    - Align README, docs, and in-app copy with shipped reality
    - Add explicit shipped / maturing / roadmap framing
    - Establish feedback intake and weekly dashboard
+   - In-app feedback handoff shipped in Settings > About with local-first GitHub/Mail draft routing ✅
 
 2. **Sticky Recall Pack**
    - Snippets/templates MVP

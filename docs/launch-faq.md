@@ -49,6 +49,7 @@ Because developer trust is easier to lose than to earn back. OpenPaste would rat
 
 ## How do I give feedback?
 
+- Open `Settings` → `About` → `Send Feedback…` to open a pre-filled draft in GitHub or Mail
 - Use the GitHub issue form in `.github/ISSUE_TEMPLATE/feedback.yml`
 - Or copy the template from `docs/feedback-template.md`
 - Best feedback includes: install method, macOS version, what you copied, what you expected, and what broke or felt slow

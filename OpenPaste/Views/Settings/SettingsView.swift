@@ -3,6 +3,7 @@ import SwiftUI
 struct SettingsView: View {
     @Bindable var viewModel: SettingsViewModel
     var updaterService: UpdaterServiceProtocol
+    var feedbackRouter: FeedbackRouterProtocol
 
     @State private var selectedSection: SettingsSection = .general
 
@@ -59,7 +60,7 @@ struct SettingsView: View {
             case .storage:
                 StorageSettingsView(viewModel: viewModel)
             case .about:
-                AboutView(updaterService: updaterService)
+                AboutView(updaterService: updaterService, feedbackRouter: feedbackRouter)
             }
         }
         .frame(width: 650, height: 480)
