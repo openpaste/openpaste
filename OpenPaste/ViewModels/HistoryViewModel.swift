@@ -107,6 +107,12 @@ final class HistoryViewModel {
         guard let index = items.firstIndex(where: { $0.id == item.id }) else { return }
         items[index].pinned.toggle()
         try? await storageService.update(items[index])
+        withAnimation(DS.Animation.springSnappy) {
+            items.sort { lhs, rhs in
+                if lhs.pinned != rhs.pinned { return lhs.pinned }
+                return lhs.createdAt > rhs.createdAt
+            }
+        }
     }
 
     func toggleStar(_ item: ClipboardItem) async {

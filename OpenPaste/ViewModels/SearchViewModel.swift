@@ -1,4 +1,5 @@
 import Foundation
+import SwiftUI
 
 @Observable
 final class SearchViewModel {
@@ -117,6 +118,12 @@ final class SearchViewModel {
         guard let index = results.firstIndex(where: { $0.id == item.id }) else { return }
         results[index].pinned.toggle()
         try? await storageService.update(results[index])
+        withAnimation(DS.Animation.springSnappy) {
+            results.sort { lhs, rhs in
+                if lhs.pinned != rhs.pinned { return lhs.pinned }
+                return lhs.createdAt > rhs.createdAt
+            }
+        }
     }
 
     func toggleStar(_ item: ClipboardItem) async {
