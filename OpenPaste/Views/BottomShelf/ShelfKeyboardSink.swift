@@ -16,6 +16,8 @@ import SwiftUI
 struct ShelfKeyboardSink: NSViewRepresentable {
     /// Mirrors SwiftUI's `searchFocused` state — true when user is actively editing search.
     var searchFocused: Bool
+    /// Suspends global key interception while a child sheet/dialog owns keyboard input.
+    var isSuspended: Bool
     /// True when at least one item is selected (so Delete has a target).
     var hasSelection: Bool
 
@@ -31,6 +33,7 @@ struct ShelfKeyboardSink: NSViewRepresentable {
     func updateNSView(_ nsView: NSView, context: Context) {
         let c = context.coordinator
         c.searchFocused = searchFocused
+        c.isSuspended = isSuspended
         c.hasSelection = hasSelection
         c.onDelete = onDelete
         c.onMoveLeft = onMoveLeft
@@ -47,6 +50,7 @@ struct ShelfKeyboardSink: NSViewRepresentable {
 
     final class Coordinator {
         var searchFocused = false
+        var isSuspended = false
         var hasSelection = false
         var onDelete: (() -> Void)?
         var onMoveLeft: (() -> Void)?
@@ -57,7 +61,7 @@ struct ShelfKeyboardSink: NSViewRepresentable {
         func register() {
             guard token == nil else { return }
             token = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
-                guard let self, !self.searchFocused, self.hasSelection else { return event }
+                guard let self, self.shouldInterceptKeyEvent else { return event }
                 switch event.keyCode {
                 case 51, 117:   // Delete / Forward Delete
                     self.onDelete?()
@@ -72,6 +76,22 @@ struct ShelfKeyboardSink: NSViewRepresentable {
                     return event
                 }
             }
+        }
+
+        private var shouldInterceptKeyEvent: Bool {
+            guard !isSuspended, !searchFocused, hasSelection else { return false }
+
+            guard let keyWindow = NSApp.keyWindow else { return false }
+            if keyWindow.isSheet || keyWindow.sheetParent != nil || keyWindow.attachedSheet != nil {
+                return false
+            }
+
+            if let textResponder = keyWindow.firstResponder as? NSTextView,
+               textResponder.isEditable || textResponder.isSelectable {
+                return false
+            }
+
+            return true
         }
 
         func unregister() {

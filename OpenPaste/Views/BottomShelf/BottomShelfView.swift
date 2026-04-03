@@ -79,6 +79,7 @@ struct BottomShelfView: View {
         .background(
             ShelfKeyboardSink(
                 searchFocused: searchFocused,
+                isSuspended: showNewCollectionSheet,
                 hasSelection: selectedItem != nil,
                 onDelete: deleteSelected,
                 onMoveLeft: { moveSelection(by: -1) },
@@ -182,6 +183,7 @@ struct BottomShelfView: View {
                             },
                             onSelect: {
                                 selectedId = item.id
+                                searchFocused = false
                                 // Resign text field at AppKit level so Delete/arrows reach
                                 // the ShelfKeyboardSink monitor instead of the TextField.
                                 NSApp.keyWindow?.makeFirstResponder(nil)
