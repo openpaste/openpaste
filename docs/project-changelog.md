@@ -32,6 +32,47 @@ Full release pipeline: code signing, Apple notarization, DMG packaging, GitHub R
 
 ---
 
+## [1.2.0] — 2026-04-03
+
+### Added
+
+#### iCloud Sync via CKSyncEngine (April 2026)
+Foundation for real-time clipboard sync across devices using CloudKit.
+
+- `feat(sync)`: Introduced iCloud sync foundation with CKSyncEngine integration
+- `feat(sync)`: Added lifecycle management with start/stop coordination
+- `feat(sync)`: Added outbox callback to notify CKSyncEngine of new changes
+- `feat(sync)`: Handle CloudKit push notifications for real-time sync
+- `feat(sync)`: Added synced item count, sync observer, and UI indicators in Settings
+- APNs entitlements added for push notification delivery (`chore(push)`)
+- Database + iCloud sync architecture documented (`docs`)
+
+#### Clipboard Enhancements (April 2026)
+- `feat(clipboard)`: Duplicate copied items are deduplicated — existing item moves to top of history instead of creating a new entry
+- `feat(clipboard)`: Enhanced paste functionality with target app awareness and structured logging
+- `feat(viewmodels)`: Pinned items are now sorted consistently in History and Search view models
+
+#### Direct Paste & Drag-Drop (April 2026)
+- `feat(settings)`: New toggle for direct pasting behavior (paste immediately without panel interaction)
+- `feat(history)`: Direct paste logic wired into paste function
+- `feat(bottomShelf)`: Drag-and-drop reordering for clipboard items in Bottom Shelf mode
+
+#### Release Infrastructure (April 2026)
+- `feat(release)`: Dynamic release body generation from commit history; structured release notes in GitHub Releases
+
+### Fixed
+
+- `fix(ui)`: Use `maskImage` for reliable panel corner rounding across macOS versions
+- `fix(settings)`: Correct database size calculation path
+- `fix(ci)`: Skip UI tests in pre-push hook to unblock local developer workflows
+- `fix(test)`: Add `UserDefaults.synchronize()` to prevent flaky CI test failures
+
+### Performance
+
+- `perf`: Optimized Bottom Shelf window positioning and rendering performance
+
+---
+
 ## [Unreleased]
 
 ### Added
