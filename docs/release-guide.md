@@ -68,28 +68,21 @@ grep -c 'CURRENT_PROJECT_VERSION = 1.1.0' OpenPaste.xcodeproj/project.pbxproj
 
 > **CRITICAL:** `MARKETING_VERSION` and `CURRENT_PROJECT_VERSION` must be the same semver (`X.Y.Z`). Sparkle compares `sparkle:version` (appcast) against `CFBundleVersion` (`CURRENT_PROJECT_VERSION`). A mismatch causes false update prompts.
 
-### 2. Merge to Main & Tag
+### 2. Tag from Develop
 
-Since `main` is protected, merge from `develop` via PR:
+All changes accumulate on `develop`. Create a PR to `main` — the PR diff is used to analyze changes and determine version bump:
 
 ```bash
-# Ensure changes are on develop first
-git checkout develop
-git pull origin develop
+# Create release PR (analyze its diff to determine version)
+gh pr create --base main --head develop --title "chore: release vX.Y.Z"
 
-# Create PR: develop → main (CI must pass)
-gh pr create --base main --head develop --title "chore: release v1.1.0"
+# After version bump committed to develop and PR updated, merge:
+gh pr merge --merge --subject "chore: release vX.Y.Z"
 
-# After PR merged and CI passes:
-git checkout main
-git pull origin main
-git tag v1.1.0
+# Tag on main after merge
+git checkout main && git pull origin main
+git tag vX.Y.Z
 git push origin main --tags
-
-# Sync tag back to develop
-git checkout develop
-git merge main
-git push origin develop
 ```
 
 ### 3. Automated Pipeline (triggered by tag push)
