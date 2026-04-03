@@ -75,7 +75,24 @@ Foundation for real-time clipboard sync across devices using CloudKit.
 
 ## [Unreleased]
 
+### Changed
+
+#### Trust Reset & Positioning Alignment (April 2026)
+- `README.md`: repositioned OpenPaste as a native, local-first clipboard manager for developers instead of leading with unshipped AI claims
+- `README.md`: added explicit `Shipped Today`, `Still Maturing`, and `Planned Later` sections to reduce promise/product drift
+- `prd.md`: added a status note clarifying the PRD is long-term product vision, not a claim that every feature is shipped today
+- `Views/Settings/AboutView.swift`: updated in-app About messaging to match the current product story
+- `docs/development-roadmap.md`: added the active first-users validation track and linked the 6-week roadmap
+
 ### Added
+
+#### First-Users Launch Surfaces (April 2026)
+- `docs/positioning.md` — frozen 6-week positioning statement, public-message variants, and messaging guardrails
+- `docs/launch-faq.md` — honest FAQ covering privacy, sync, encryption, and roadmap status
+- `docs/feedback-template.md` — copy/paste template for bugs, workflow feedback, and testimonial capture
+- `docs/first-users-dashboard.md` — privacy-safe weekly acquisition and retention dashboard template
+- `docs/design-partner-outreach.md` — design-partner invite script and short interview plan
+- `.github/ISSUE_TEMPLATE/feedback.yml` — structured workflow feedback intake form
 
 #### UI/UX Overhaul — Design System & Liquid Glass (April 2026)
 Comprehensive three-phase UI/UX overhaul delivering a centralized design system, competitive-parity features, and delight-layer polish.
@@ -95,8 +112,8 @@ Comprehensive three-phase UI/UX overhaul delivering a centralized design system,
 - `TypeIcon` sizes updated from 14pt → 18pt in 28×28 frame; colors mapped through `DS.Colors`
 
 **Phase 2 — Competitive Parity:**
-- Settings migrated from `TabView` to `NavigationSplitView` with 6 sections via `SettingsSection` enum:
-  - `.general` (gear), `.privacy` (lock.shield), `.keyboard` (keyboard), `.appearance` (paintbrush), `.storage` (internaldrive), `.about` (info.circle)
+- Settings migrated from `TabView` to `NavigationSplitView` with 7 sections via `SettingsSection` enum:
+  - `.general` (gear), `.privacy` (lock.shield), `.keyboard` (keyboard), `.appearance` (paintbrush), `.sync` (icloud), `.storage` (internaldrive), `.about` (info.circle)
   - Fixed frame: 650×480
 - New `AppearanceSettingsView` (`Views/Settings/AppearanceSettingsView.swift`):
   - Theme picker (System / Light / Dark) via `@AppStorage(Constants.appearanceThemeKey)`

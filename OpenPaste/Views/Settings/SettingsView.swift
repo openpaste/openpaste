@@ -11,7 +11,17 @@ struct SettingsView: View {
 
         var id: String { rawValue }
 
-        var title: String { rawValue.capitalized }
+        var title: String {
+            switch self {
+            case .general: "General"
+            case .privacy: "Privacy"
+            case .keyboard: "Keyboard"
+            case .appearance: "Appearance"
+            case .sync: "Sync (Premium Beta)"
+            case .storage: "Storage"
+            case .about: "About"
+            }
+        }
 
         var icon: String {
             switch self {

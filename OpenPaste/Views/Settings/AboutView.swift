@@ -19,7 +19,7 @@ struct AboutView: View {
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
 
-            Text("Open-source, privacy-first clipboard manager for macOS")
+            Text("Open-source, local-first clipboard manager for developers")
                 .font(.body)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)

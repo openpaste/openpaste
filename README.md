@@ -5,7 +5,7 @@
 <h1 align="center">OpenPaste</h1>
 
 <p align="center">
-  <strong>Privacy-first, AI-native clipboard manager for macOS</strong>
+  <strong>Native, local-first clipboard manager for developers on macOS</strong>
 </p>
 
 <p align="center">
@@ -18,22 +18,44 @@
 
 ## About
 
-OpenPaste is an open-source clipboard manager built natively for macOS with SwiftUI and AppKit. It's designed for developers and power users who need fast recall, smart organization, and privacy by default.
+OpenPaste is an open-source clipboard manager built natively for macOS with SwiftUI and AppKit. It is designed for developers and power users who copy code, JSON, URLs, prompts, files, and images all day and need fast recall without handing over control of their data.
 
-**No telemetry. No cloud dependency. Encryption at rest.**
+**Local-first by default. No telemetry. Homebrew + notarized DMG.**
 
-## Features
+## Shipped Today
 
 - **Infinite Clipboard History** — Never lose anything you copy
-- **Blazing Fast Search** — Sub-50ms fuzzy search across all content types
+- **Fast Local Search** — FTS5-backed search across text, OCR text, tags, and source app metadata
 - **Paste Stack** — Queue multiple items and paste them in sequence (FIFO)
 - **Collections** — Organize clips by project, topic, or workflow
-- **Privacy-First** — Encryption at rest (SQLCipher), sensitive content auto-detection
+- **Quick Edit** — Edit text before paste, preview markdown, and review code-friendly content
+- **Privacy Guards** — Sensitive content detection, app blacklist, and screen-sharing protection
+- **OCR for Images** — Extract text from copied screenshots and images for recall later
 - **Screen Sharing Protection** — Automatically pauses capture during screen sharing
-- **AI-Native** — Semantic search, auto-tagging, smart content actions *(coming soon)*
 - **Keyboard-First** — Global hotkey (⌘⇧V) with full keyboard navigation
 - **Content Types** — Text, images, files, URLs, code with syntax highlighting
 - **Source App Tracking** — Know where each clip came from
+
+## Still Maturing
+
+- **iCloud Sync Foundation** — CloudKit sync exists in the codebase, is premium-gated in current builds, and is still being hardened for real-world rollout
+- **Privacy Hardening Across Builds** — SQLCipher support exists in the codebase and is being standardized across build variants
+- **Distribution Polish** — Sparkle auto-update and release plumbing are in place and still being validated in public use
+
+## Planned Later
+
+- **Semantic Search and AI Actions**
+- **Snippets, Templates, and Text Expansion**
+- **Content Transformations**
+- **Plugin SDK and Extensibility**
+
+## Privacy at a Glance
+
+- **Local-first by default** — OpenPaste works without a cloud account
+- **No telemetry** — No analytics, tracking pixels, or usage reporting
+- **Sensitive-aware capture** — Built-in detection plus app blacklist support
+- **Screen-sharing pause** — Capture can be suspended during screen sharing
+- **Honest build/privacy notes** — See the [Launch FAQ](docs/launch-faq.md) for current sync, encryption, and roadmap status
 
 ## Install
 
@@ -59,14 +81,17 @@ open OpenPaste.xcodeproj
 
 **Requirements:** macOS 14+, Xcode 15+, Swift 6
 
+## Docs for Evaluating OpenPaste
+
+- [Launch FAQ](docs/launch-faq.md)
+- [Positioning Snapshot](docs/positioning.md)
+- [Feedback Template](docs/feedback-template.md)
+
 ## Support Development
 
-OpenPaste uses an **open-core model**:
+OpenPaste is free and open source for the core clipboard workflow.
 
-| Edition | License | Features |
-|---------|---------|----------|
-| **Community** | AGPLv3 (free forever) | Full-featured clipboard manager |
-| **Pro** | Commercial | Premium features — coming soon |
+Commercial options may evolve later for advanced sync or support, but the first-user phase is focused on making the local-first product genuinely useful and trustworthy.
 
 Visit **[tuanle.dev](https://tuanle.dev)** for Pro license information.
 
@@ -89,6 +114,7 @@ By contributing, you agree to our [Contributor License Agreement](CLA.md).
 ## Community
 
 - [Code of Conduct](CODE_OF_CONDUCT.md)
+- [Use the feedback template](docs/feedback-template.md)
 - [Report Issues](https://github.com/openpaste/openpaste/issues)
 
 ## License
