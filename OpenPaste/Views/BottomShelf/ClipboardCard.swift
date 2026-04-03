@@ -15,6 +15,21 @@ struct ClipboardCard: View {
     @State private var isHovered = false
 
     var body: some View {
+        Button(action: handlePrimaryClick) {
+            cardBody
+        }
+        .buttonStyle(.plain)
+        .contextMenu {
+            Button("Paste") { onPaste() }
+            Divider()
+            Button(item.pinned ? "Unpin" : "Pin") { onTogglePin() }
+            Button(item.starred ? "Unstar" : "Star") { onToggleStar() }
+            Divider()
+            Button("Delete", role: .destructive) { onDelete() }
+        }
+    }
+
+    private var cardBody: some View {
         VStack(alignment: .leading, spacing: 0) {
             // Type badge header
             typeBadge
@@ -53,21 +68,18 @@ struct ClipboardCard: View {
         .animation(DS.Animation.springSnappy, value: isSelected)
         .contentShape(Rectangle())
         .onHover { isHovered = $0 }
-        .onTapGesture(count: 2) {
-            onSelect()
-            onPaste()
+    }
+
+    private func handlePrimaryClick() {
+        onSelect()
+
+        guard let event = NSApp.currentEvent,
+              event.type == .leftMouseUp,
+              event.clickCount == 2 else {
+            return
         }
-        .onTapGesture(count: 1) {
-            onSelect()
-        }
-        .contextMenu {
-            Button("Paste") { onPaste() }
-            Divider()
-            Button(item.pinned ? "Unpin" : "Pin") { onTogglePin() }
-            Button(item.starred ? "Unstar" : "Star") { onToggleStar() }
-            Divider()
-            Button("Delete", role: .destructive) { onDelete() }
-        }
+
+        onPaste()
     }
 
     // MARK: - Card Background
