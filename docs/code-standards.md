@@ -12,8 +12,8 @@ Coding conventions and patterns for the OpenPaste macOS app.
 |------|-------|
 | **Language** | Swift 6 |
 | **UI Framework** | SwiftUI + AppKit (hybrid) |
-| **Min Deployment** | macOS 14+ (Sonoma) |
-| **IDE** | Xcode 15+ |
+| **Min Deployment** | macOS 15+ (Sequoia) |
+| **IDE** | Xcode 16+ |
 | **Package Manager** | Swift Package Manager (SPM) |
 
 ---

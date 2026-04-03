@@ -10,7 +10,7 @@
 
 <p align="center">
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-AGPLv3-blue.svg" alt="License: AGPLv3" /></a>
-  <img src="https://img.shields.io/badge/Platform-macOS%2014%2B-brightgreen.svg" alt="Platform: macOS 14+" />
+  <img src="https://img.shields.io/badge/Platform-macOS%2015%2B-brightgreen.svg" alt="Platform: macOS 15+" />
   <img src="https://img.shields.io/badge/Swift-6-orange.svg" alt="Swift 6" />
 </p>
 
@@ -79,7 +79,7 @@ open OpenPaste.xcodeproj
 # Build and run in Xcode (⌘R)
 ```
 
-**Requirements:** macOS 14+, Xcode 15+, Swift 6
+**Requirements:** macOS 15+ (Sequoia), Xcode 16+, Swift 6
 
 ## Docs for Evaluating OpenPaste
 
