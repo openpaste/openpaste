@@ -191,6 +191,8 @@ The `generate_appcast` tool automatically creates binary delta patches between r
 
 To manually test update flow before release:
 
+> **Important (Sandbox + Sparkle):** Test with a properly signed build installed in `/Applications` (not an Xcode/DerivedData run). Sparkle may fail to install updates when the app is running from a non-standard or non-writable location.
+
 ```bash
 # 1. Build and archive the current app
 xcodebuild archive -project OpenPaste.xcodeproj -scheme OpenPaste -configuration Release
@@ -198,9 +200,11 @@ xcodebuild archive -project OpenPaste.xcodeproj -scheme OpenPaste -configuration
 # 2. Set SUFeedURL in Info.plist to point to staging appcast
 # (or a local test file via file:// URL)
 
-# 3. Trigger update check in app via menu → "Check for Updates…"
+# 3. Install the app into /Applications, then launch it
 
-# 4. Verify Sparkle downloads delta and installs correctly
+# 4. Trigger update check in app via menu → "Check for Updates…"
+
+# 5. Verify Sparkle downloads delta and installs correctly
 ```
 
 ---

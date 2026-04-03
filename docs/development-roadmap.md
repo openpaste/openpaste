@@ -194,10 +194,10 @@ Strategic roadmap for OpenPaste development phases, milestones, and feature prio
    - Database query optimization
    - Memory footprint reduction for large histories
 
-2. **Cloud Sync** (Optional)
-   - iCloud integration for multi-device sync
-   - End-to-end encryption for synced data
-   - Conflict resolution
+2. **Cloud Sync (iCloud / CloudKit)**
+   - Implemented using CloudKit `CKSyncEngine` (macOS 14+), syncing clipboard items + collections
+   - Encrypted payload assets (AES-GCM) with keys stored in Keychain (synchronizable)
+   - User controls for excluding sensitive items from upload
 
 3. **Advanced UI**
    - Inline editing for clipboard items ✅ (QuickEditView)

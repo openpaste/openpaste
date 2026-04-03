@@ -199,9 +199,16 @@ for await event in await eventBus.stream() {
 ### Database
 
 - **Engine:** SQLite via GRDB.swift 7.10.0
-- **Location:** `~/Library/Containers/dev.tuanle.OpenPaste/Data/Library/Application Support/OpenPaste/` (sandbox-compatible)
-  - Legacy path (pre-sandbox): `~/Library/Application Support/OpenPaste/`
-  - On first launch, the legacy DB is copied forward if present (including WAL/SHM).
+- **Primary file:** `clipboard.sqlite` (WAL mode may also create `clipboard.sqlite-wal` and `clipboard.sqlite-shm`)
+- **Location (preferred, sandbox-compatible):**
+  - `~/Library/Containers/<bundleId>/Data/Library/Application Support/OpenPaste/`
+  - Example (current bundle id): `~/Library/Containers/dev.tuanle.OpenPaste/Data/Library/Application Support/OpenPaste/`
+- **Legacy location (pre-sandbox builds):** `~/Library/Application Support/OpenPaste/`
+- **One-time legacy copy behavior:**
+  - On startup, if `~/Library/Application Support/OpenPaste/clipboard.sqlite` exists **and** the target DB does **not**, the app **copies** the legacy DB forward (including `-wal` / `-shm` if present) into the sandbox-compatible directory.
+  - The legacy database is **not deleted**.
+  - If the legacy directory contains the `.encrypted` marker, it is also copied.
+  - This read requires the sandbox temporary exception entitlement for `Library/Application Support/OpenPaste/`.
 - **Search:** FTS5 full-text index on `plainTextContent` + `ocrText`
 - **Thread safety:** `DatabaseQueue` serializes all access
 - **Encryption:** Optional SQLCipher (`#if GRDBCIPHER`)
@@ -213,6 +220,21 @@ for await event in await eventBus.stream() {
 - **Storage:** `UserDefaults` via `@AppStorage`
 - **Keys:** Defined in `Utilities/Constants.swift`
 - **Settings:** Hotkey, theme, window position, retention, screen sharing behavior
+
+---
+
+## CloudKit Sync (iCloud)
+
+> Implemented in `Services/Sync/` and available on **macOS 14+**.
+
+- **API:** CloudKit `CKSyncEngine` (private database)
+- **Container:** `iCloud.dev.tuanle.OpenPaste`
+- **Zone:** `OpenPasteZone`
+- **Synced record types:** `ClipboardItem`, `Collection`
+- **Payload:** Records store an encrypted payload as a `CKAsset` (staged under `FileManager.default.temporaryDirectory/OpenPaste-Sync/` and cleaned up after send).
+- **Encryption:** AES-GCM with per-version symmetric keys stored in Keychain (synchronizable items).
+- **Privacy control:** If `iCloudSyncIncludeSensitive` is disabled, items marked `isSensitive` are not uploaded.
+- **Persistence:** Sync engine state/outbox metadata is stored in the same SQLite database (`sync_engine_state`, `sync_metadata`), and per-row CloudKit system fields are persisted in `ckSystemFields` columns.
 
 ---
 
