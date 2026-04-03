@@ -91,6 +91,10 @@ actor DatabaseManager {
         return try await operation()
     }
 
+    nonisolated func setSyncOutboxCallback(_ callback: @escaping (_ recordNames: [String]) -> Void) {
+        syncChangeTracker.onOutboxEnqueued = callback
+    }
+
     private static func copyLegacyDatabaseIfNeeded(
         legacyDirectory: URL,
         targetDirectory: URL,

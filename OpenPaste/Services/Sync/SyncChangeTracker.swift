@@ -1,5 +1,8 @@
 import Foundation
 import GRDB
+import os.log
+
+private let syncLog = Logger(subsystem: "dev.tuanle.OpenPaste", category: "SyncTracker")
 
 final class SyncChangeTracker: TransactionObserver {
     private let lock = NSLock()
@@ -7,6 +10,10 @@ final class SyncChangeTracker: TransactionObserver {
     private var pendingEvents: [DatabaseEvent] = []
 
     private let includeSensitiveProvider: @Sendable () -> Bool
+
+    /// Called after new record names are enqueued to the outbox.
+    /// The SyncService sets this to notify CKSyncEngine about pending changes.
+    var onOutboxEnqueued: ((_ recordNames: [String]) -> Void)?
 
     init(includeSensitiveProvider: @escaping @Sendable () -> Bool = {
         UserDefaults.standard.bool(forKey: Constants.iCloudSyncIncludeSensitiveKey)
@@ -73,6 +80,7 @@ final class SyncChangeTracker: TransactionObserver {
 
         let now = Date()
         let includeSensitive = includeSensitiveProvider()
+        var enqueuedNames: [String] = []
 
         let clipboardRowIDs = Set(events.filter { $0.tableName == "clipboardItems" }.map { $0.rowID })
         let collectionRowIDs = Set(events.filter { $0.tableName == "collections" }.map { $0.rowID })
@@ -92,6 +100,7 @@ final class SyncChangeTracker: TransactionObserver {
                 let recordName = "item_" + id
                 let operation: SyncOutboxOperation = isDeleted ? .delete : .upsert
                 Self.enqueueOutbox(db, recordName: recordName, tableName: "clipboardItems", localId: id, operation: operation, updatedAt: now)
+                enqueuedNames.append(recordName)
             }
         }
 
@@ -107,7 +116,13 @@ final class SyncChangeTracker: TransactionObserver {
                 let recordName = "collection_" + id
                 let operation: SyncOutboxOperation = isDeleted ? .delete : .upsert
                 Self.enqueueOutbox(db, recordName: recordName, tableName: "collections", localId: id, operation: operation, updatedAt: now)
+                enqueuedNames.append(recordName)
             }
+        }
+
+        if !enqueuedNames.isEmpty {
+            syncLog.info("SyncChangeTracker: enqueued \(enqueuedNames.count) records to outbox")
+            onOutboxEnqueued?(enqueuedNames)
         }
     }
 
