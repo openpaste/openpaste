@@ -42,7 +42,6 @@ struct ClipboardCard: View {
         .clipShape(RoundedRectangle(cornerRadius: DS.Card.cornerRadius))
         .overlay(selectionBorder)
         .overlay(alignment: .topTrailing) { quickIndexBadge }
-        .compositingGroup()
         .scaleEffect(isHovered ? DS.Card.hoverScale : 1.0)
         .shadow(
             color: isSelected ? DS.Colors.accent.opacity(0.3) : DS.Shadow.card.color,
@@ -75,7 +74,11 @@ struct ClipboardCard: View {
 
     private var cardBackground: some View {
         RoundedRectangle(cornerRadius: DS.Card.cornerRadius)
-            .fill(Color(nsColor: .controlBackgroundColor).opacity(0.55))
+            .fill(
+                isSelected
+                    ? Color(nsColor: .controlBackgroundColor).opacity(0.82)
+                    : Color(nsColor: .controlBackgroundColor).opacity(0.72)
+            )
     }
 
     // MARK: - Selection Border
@@ -93,18 +96,22 @@ struct ClipboardCard: View {
     // MARK: - Type Badge (Paste-style: filled color + white text)
 
     private var typeBadge: some View {
-        HStack(spacing: 0) {
-            Text(typeName)
-                .font(.system(size: 9, weight: .bold, design: .rounded))
-                .foregroundStyle(.white)
-                .padding(.horizontal, 7)
-                .padding(.vertical, 3)
-                .background(typeColor)
-                .clipShape(RoundedRectangle(cornerRadius: 4))
-
-            Spacer()
+        HStack(spacing: 6) {
+            HStack(spacing: 4) {
+                Image(systemName: typeIcon)
+                    .font(.system(size: 8, weight: .bold))
+                Text(typeName)
+                    .font(.system(size: 11, weight: .bold, design: .rounded))
+            }
+            .foregroundStyle(.white)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 3)
+            .background(typeColor)
+            .clipShape(RoundedRectangle(cornerRadius: 5))
 
             statusBadges
+
+            Spacer(minLength: 0)
         }
     }
 
@@ -133,25 +140,27 @@ struct ClipboardCard: View {
         switch item.type {
         case .text, .richText:
             sensitiveWrapper {
-                Text(item.plainTextContent?.truncated(to: 160) ?? "")
-                    .font(.system(size: 11))
-                    .lineLimit(5)
+                Text(item.plainTextContent?.truncated(to: 200) ?? "")
+                    .font(.system(size: 12))
+                    .lineLimit(6)
                     .foregroundStyle(.primary)
             }
         case .code:
             sensitiveWrapper {
-                SyntaxHighlightedCode(code: item.plainTextContent ?? "", maxLines: 5)
-                    .font(.system(size: 10, design: .monospaced))
+                SyntaxHighlightedCode(code: item.plainTextContent ?? "", maxLines: 6)
+                    .font(.system(size: 11, design: .monospaced))
             }
         case .image:
             sensitiveWrapper {
                 if let nsImage = ThumbnailCache.shared.thumbnail(for: item.id, data: item.content) {
-                    Image(nsImage: nsImage)
-                        .resizable()
-                        .aspectRatio(contentMode: .fill)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                        .clipShape(RoundedRectangle(cornerRadius: 6))
-                        .clipped()
+                    GeometryReader { geo in
+                        Image(nsImage: nsImage)
+                            .resizable()
+                            .aspectRatio(contentMode: .fill)
+                            .frame(width: geo.size.width, height: geo.size.height)
+                            .clipShape(RoundedRectangle(cornerRadius: 6))
+                            .clipped()
+                    }
                 } else {
                     Label("Image", systemImage: "photo")
                         .font(.caption)
@@ -174,9 +183,9 @@ struct ClipboardCard: View {
                                 .lineLimit(1)
                         }
                     }
-                    Text(item.plainTextContent?.truncated(to: 120) ?? "")
-                        .font(.system(size: 10))
-                        .lineLimit(3)
+                    Text(item.plainTextContent?.truncated(to: 140) ?? "")
+                        .font(.system(size: 11))
+                        .lineLimit(4)
                         .foregroundStyle(.blue.opacity(0.8))
                 }
             }
@@ -186,7 +195,7 @@ struct ClipboardCard: View {
                     .foregroundStyle(.orange)
                     .font(.system(size: 16))
                 Text(item.metadata["fileName"] ?? "File")
-                    .font(.system(size: 11))
+                    .font(.system(size: 12))
                     .lineLimit(2)
                     .foregroundStyle(.primary)
             }
@@ -219,14 +228,14 @@ struct ClipboardCard: View {
             }
 
             RelativeTimestamp(date: item.createdAt)
-                .font(.system(size: 9))
+                .font(.system(size: 10))
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
 
             Spacer(minLength: 2)
 
             metadataText
-                .font(.system(size: 9))
+                .font(.system(size: 10))
                 .foregroundStyle(.tertiary)
                 .lineLimit(1)
         }
@@ -301,6 +310,18 @@ struct ClipboardCard: View {
         case .code: "Code"
         case .file: "File"
         case .color: "Color"
+        }
+    }
+
+    private var typeIcon: String {
+        switch item.type {
+        case .text: "text.alignleft"
+        case .richText: "text.alignleft"
+        case .image: "photo"
+        case .link: "link"
+        case .code: "chevron.left.forwardslash.chevron.right"
+        case .file: "doc.fill"
+        case .color: "paintpalette.fill"
         }
     }
 

@@ -115,7 +115,7 @@ struct BottomShelfView: View {
             .padding(.vertical, 6)
             .background(Color(nsColor: .separatorColor).opacity(0.12))
             .clipShape(RoundedRectangle(cornerRadius: DS.Radius.md))
-            .frame(maxWidth: 240)
+            .frame(maxWidth: 200)
 
             // Tab bar (fills center)
             PinboardTabBar(
@@ -207,7 +207,7 @@ struct BottomShelfView: View {
                     }
                 }
                 .padding(.horizontal, DS.Shelf.horizontalPadding)
-                .padding(.vertical, DS.Spacing.lg)
+                .padding(.vertical, DS.Spacing.xl)
             }
             .onDrop(of: [.text], isTargeted: nil) { providers in
                 // Catch-all: reset drag state when dropped on empty area

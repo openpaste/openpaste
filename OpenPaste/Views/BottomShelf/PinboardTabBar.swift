@@ -59,9 +59,9 @@ private struct PinboardTab: View {
             HStack(spacing: 5) {
                 Circle()
                     .fill(color)
-                    .frame(width: 7, height: 7)
+                    .frame(width: 8, height: 8)
                 Text(name)
-                    .font(.system(size: 11, weight: isSelected ? .semibold : .regular))
+                    .font(.system(size: 12, weight: isSelected ? .semibold : .regular))
                     .foregroundStyle(isSelected ? .primary : .secondary)
             }
             .padding(.horizontal, 12)

@@ -16,7 +16,7 @@ enum DS {
         static let file = Color(nsColor: .systemOrange)
         static let link = Color(nsColor: .systemPurple)
         static let colorType = Color(nsColor: .systemPink)
-        static let code = Color(nsColor: .systemTeal)
+        static let code = Color(nsColor: .systemCyan)
     }
 
     // MARK: - Spacing
@@ -39,14 +39,14 @@ enum DS {
 
     // MARK: - Card (Bottom Shelf)
     enum Card {
-        static let width: CGFloat = 180
-        static let height: CGFloat = 150
-        static let spacing: CGFloat = 10
+        static let width: CGFloat = 200
+        static let height: CGFloat = 180
+        static let spacing: CGFloat = 12
         static let cornerRadius: CGFloat = 12
         static let borderWidth: CGFloat = 2
-        static let hoverScale: CGFloat = 1.03
-        static let selectedBorderOpacity: Double = 0.8
-        static let typeBadgeHeight: CGFloat = 22
+        static let hoverScale: CGFloat = 1.05
+        static let selectedBorderOpacity: Double = 0.85
+        static let typeBadgeHeight: CGFloat = 24
     }
 
     // MARK: - Bottom Shelf
@@ -58,7 +58,7 @@ enum DS {
         static let tabBarHeight: CGFloat = 32
         static let hintBarHeight: CGFloat = 24
         static let horizontalPadding: CGFloat = 16
-        static let edgeInset: CGFloat = 6
+        static let edgeInset: CGFloat = 12
         static let cornerRadius: CGFloat = 14
     }
 

@@ -10,7 +10,7 @@ struct ShortcutHintBar: View {
             Spacer()
         }
         .padding(.horizontal, DS.Shelf.horizontalPadding)
-        .padding(.vertical, 4)
+        .padding(.vertical, 5)
         .frame(height: DS.Shelf.hintBarHeight)
         // Blur handled by NSVisualEffectView at panel level — no extra material needed
     }
@@ -18,10 +18,10 @@ struct ShortcutHintBar: View {
     private func hintItem(_ key: String, _ action: String) -> some View {
         HStack(spacing: 3) {
             Text(key)
-                .font(.system(size: 9, weight: .bold, design: .monospaced))
+                .font(.system(size: 10, weight: .bold, design: .monospaced))
                 .foregroundStyle(DS.Colors.accent)
             Text(action)
-                .font(.system(size: 9))
+                .font(.system(size: 10))
                 .foregroundStyle(.tertiary)
         }
     }
