@@ -6,6 +6,7 @@ struct GeneralSettingsView: View {
     @State private var showClearConfirmation = false
     @State private var accessibilityGranted = AXIsProcessTrusted()
     @AppStorage(Constants.historyRetentionDaysKey) private var retentionDays = 0
+    @AppStorage(Constants.pasteDirectlyKey) private var pasteDirectly = true
 
     var body: some View {
         Form {
@@ -83,6 +84,17 @@ struct GeneralSettingsView: View {
                     Text("10 MB").tag(10)
                     Text("25 MB").tag(25)
                     Text("50 MB").tag(50)
+                }
+            }
+
+            Section("Paste Behavior") {
+                Toggle(isOn: $pasteDirectly) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Paste directly to active app")
+                        Text("When enabled, selecting an item pastes it directly into the previously active app. When disabled, items are only copied to the clipboard.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
                 }
             }
 

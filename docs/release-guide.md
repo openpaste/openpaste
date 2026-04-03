@@ -68,12 +68,20 @@ grep -c 'CURRENT_PROJECT_VERSION = 1.1.0' OpenPaste.xcodeproj/project.pbxproj
 
 > **CRITICAL:** `MARKETING_VERSION` and `CURRENT_PROJECT_VERSION` must be the same semver (`X.Y.Z`). Sparkle compares `sparkle:version` (appcast) against `CFBundleVersion` (`CURRENT_PROJECT_VERSION`). A mismatch causes false update prompts.
 
-### 2. Commit & Tag
+### 2. Tag from Develop
+
+All changes accumulate on `develop`. Create a PR to `main` — the PR diff is used to analyze changes and determine version bump:
 
 ```bash
-git add -A
-git commit -m "chore(build): bump version to 1.1.0"
-git tag v1.1.0
+# Create release PR (analyze its diff to determine version)
+gh pr create --base main --head develop --title "chore: release vX.Y.Z"
+
+# After version bump committed to develop and PR updated, merge:
+gh pr merge --merge --subject "chore: release vX.Y.Z"
+
+# Tag on main after merge
+git checkout main && git pull origin main
+git tag vX.Y.Z
 git push origin main --tags
 ```
 
@@ -176,6 +184,8 @@ The `generate_appcast` tool automatically creates binary delta patches between r
 
 To manually test update flow before release:
 
+> **Important (Sandbox + Sparkle):** Test with a properly signed build installed in `/Applications` (not an Xcode/DerivedData run). Sparkle may fail to install updates when the app is running from a non-standard or non-writable location.
+
 ```bash
 # 1. Build and archive the current app
 xcodebuild archive -project OpenPaste.xcodeproj -scheme OpenPaste -configuration Release
@@ -183,9 +193,11 @@ xcodebuild archive -project OpenPaste.xcodeproj -scheme OpenPaste -configuration
 # 2. Set SUFeedURL in Info.plist to point to staging appcast
 # (or a local test file via file:// URL)
 
-# 3. Trigger update check in app via menu → "Check for Updates…"
+# 3. Install the app into /Applications, then launch it
 
-# 4. Verify Sparkle downloads delta and installs correctly
+# 4. Trigger update check in app via menu → "Check for Updates…"
+
+# 5. Verify Sparkle downloads delta and installs correctly
 ```
 
 ---

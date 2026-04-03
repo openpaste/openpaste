@@ -1,4 +1,5 @@
 import Foundation
+import SwiftUI
 
 @Observable
 final class SearchViewModel {
@@ -8,6 +9,7 @@ final class SearchViewModel {
     var isSearching = false
     var dismissAction: (() -> Void)?
     var reactivatePreviousApp: (() -> Void)?
+    var previousAppBundleId: (() -> String?)?
     var availableTags: [String] = []
 
     private let searchService: SearchServiceProtocol
@@ -82,9 +84,34 @@ final class SearchViewModel {
 
     func paste(_ item: ClipboardItem) async {
         await clipboardService.copyToClipboard(item)
-        dismissAction?()
+
+        let shouldPasteDirectly = UserDefaults.standard.object(forKey: Constants.pasteDirectlyKey) as? Bool ?? true
+        guard shouldPasteDirectly else {
+            dismissAction?()
+            return
+        }
+
+        let targetBundleId = previousAppBundleId?()
         reactivatePreviousApp?()
-        await clipboardService.simulatePasteToFrontApp()
+        dismissAction?()
+        await clipboardService.simulatePasteToFrontApp(targetBundleId: targetBundleId)
+    }
+
+    func pasteAsPlainText(_ item: ClipboardItem) async {
+        guard let text = item.plainTextContent else {
+            await paste(item)
+            return
+        }
+        var plainItem = item
+        plainItem.type = .text
+        plainItem.content = Data(text.utf8)
+        plainItem.plainTextContent = text
+        await paste(plainItem)
+    }
+
+    func pasteByIndex(_ index: Int) async {
+        guard index >= 0, index < results.count else { return }
+        await paste(results[index])
     }
 
     func delete(_ item: ClipboardItem) async {
@@ -96,6 +123,12 @@ final class SearchViewModel {
         guard let index = results.firstIndex(where: { $0.id == item.id }) else { return }
         results[index].pinned.toggle()
         try? await storageService.update(results[index])
+        withAnimation(DS.Animation.springSnappy) {
+            results.sort { lhs, rhs in
+                if lhs.pinned != rhs.pinned { return lhs.pinned }
+                return lhs.createdAt > rhs.createdAt
+            }
+        }
     }
 
     func toggleStar(_ item: ClipboardItem) async {

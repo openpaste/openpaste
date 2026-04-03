@@ -9,6 +9,7 @@ final class PasteStackViewModel {
     private var clipboardService: ClipboardServiceProtocol?
     var dismissAction: (() -> Void)?
     var reactivatePreviousApp: (() -> Void)?
+    var previousAppBundleId: (() -> String?)?
 
     func configure(clipboardService: ClipboardServiceProtocol) {
         self.clipboardService = clipboardService
@@ -39,9 +40,10 @@ final class PasteStackViewModel {
         } else {
             clear()
         }
-        dismissAction?()
+        let targetBundleId = previousAppBundleId?()
         reactivatePreviousApp?()
-        await clipboardService?.simulatePasteToFrontApp()
+        dismissAction?()
+        await clipboardService?.simulatePasteToFrontApp(targetBundleId: targetBundleId)
     }
 
     func clear() {

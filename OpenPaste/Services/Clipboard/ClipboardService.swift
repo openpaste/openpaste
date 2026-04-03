@@ -74,24 +74,50 @@ final class ClipboardService: ClipboardServiceProtocol, @unchecked Sendable {
     /// Simulate ⌘V to paste into the frontmost application.
     /// Waits for the target app to become active, checks Accessibility permission,
     /// and shows an alert if not granted.
-    func simulatePasteToFrontApp() async {
+    /// - Parameter targetBundleId: If provided, waits for this specific app to become active.
+    func simulatePasteToFrontApp(targetBundleId: String? = nil) async {
+        print("[SimulatePaste] Starting, targetBundleId = \(targetBundleId ?? "nil")")
         // Chờ app đích active (timeout 500ms)
         let deadline = Date().addingTimeInterval(0.5)
+        var found = false
         while Date() < deadline {
             if let frontApp = NSWorkspace.shared.frontmostApplication,
                frontApp.isActive,
                frontApp.bundleIdentifier != Bundle.main.bundleIdentifier {
-                break
+                // Nếu có target cụ thể, chờ ĐÚNG app đó
+                if let target = targetBundleId {
+                    if frontApp.bundleIdentifier == target {
+                        print("[SimulatePaste] Target app matched: \(target)")
+                        found = true
+                        break
+                    } else {
+                        print("[SimulatePaste] Polling... front=\(frontApp.bundleIdentifier ?? "?"), waiting for \(target)")
+                    }
+                } else {
+                    print("[SimulatePaste] Non-OpenPaste app active: \(frontApp.bundleIdentifier ?? "?")")
+                    found = true
+                    break
+                }
+            } else {
+                let bid = NSWorkspace.shared.frontmostApplication?.bundleIdentifier ?? "nil"
+                let active = NSWorkspace.shared.frontmostApplication?.isActive ?? false
+                print("[SimulatePaste] Polling... front=\(bid), isActive=\(active)")
             }
             try? await Task.sleep(for: .milliseconds(50))
         }
 
+        if !found {
+            print("[SimulatePaste] ⚠️ Timeout! Target app never became active")
+        }
+
         // Kiểm tra Accessibility permission
         guard AXIsProcessTrusted() else {
+            print("[SimulatePaste] ❌ AXIsProcessTrusted = false")
             await showAccessibilityAlert()
             return
         }
 
+        print("[SimulatePaste] ✅ Dispatching CGEvent ⌘V")
         simulatePaste()
     }
 
@@ -104,7 +130,11 @@ final class ClipboardService: ClipboardServiceProtocol, @unchecked Sendable {
         if securityService.isBlacklisted(bundleId: item.sourceApp.bundleId) { return }
 
         if let existing = try? await storageService.fetchByHash(item.contentHash) {
+            var updated = existing
+            updated.createdAt = Date()
+            try? await storageService.update(updated)
             try? await storageService.updateAccessCount(existing.id)
+            await eventBus.emit(.duplicateCopied(updated))
             return
         }
 
@@ -133,13 +163,36 @@ final class ClipboardService: ClipboardServiceProtocol, @unchecked Sendable {
     }
 
     private nonisolated func simulatePaste() {
+        // Proven approach used by Maccy (popular macOS clipboard manager):
+        // - .combinedSessionState captures current session keyboard state
+        // - setLocalEventsFilterDuringSuppressionState suppresses local keyboard
+        //   events from our own app during paste, preventing interference
+        // - .cgAnnotatedSessionEventTap posts at the session level where events
+        //   are annotated for delivery to the correct target application
         let source = CGEventSource(stateID: .combinedSessionState)
-        let keyDown = CGEvent(keyboardEventSource: source, virtualKey: 0x09, keyDown: true) // V key
-        let keyUp = CGEvent(keyboardEventSource: source, virtualKey: 0x09, keyDown: false)
-        keyDown?.flags = .maskCommand
-        keyUp?.flags = .maskCommand
-        keyDown?.post(tap: .cghidEventTap)
-        keyUp?.post(tap: .cghidEventTap)
+
+        // Suppress local keyboard events during the paste operation
+        // to prevent our own key handling from interfering
+        source?.setLocalEventsFilterDuringSuppressionState(
+            [.permitLocalMouseEvents, .permitSystemDefinedEvents],
+            state: .eventSuppressionStateSuppressionInterval
+        )
+
+        guard let keyDown = CGEvent(keyboardEventSource: source, virtualKey: 0x09, keyDown: true),
+              let keyUp = CGEvent(keyboardEventSource: source, virtualKey: 0x09, keyDown: false) else {
+            print("[SimulatePaste] ❌ Failed to create CGEvent")
+            return
+        }
+
+        // Explicitly set ONLY Command flag
+        keyDown.flags = .maskCommand
+        keyUp.flags = .maskCommand
+
+        // Post to annotated session tap (not HID tap) — this ensures
+        // the event is routed to the correct application at session level
+        keyDown.post(tap: .cgAnnotatedSessionEventTap)
+        usleep(20_000) // 20ms delay for target app to process keyDown
+        keyUp.post(tap: .cgAnnotatedSessionEventTap)
     }
 
     @MainActor

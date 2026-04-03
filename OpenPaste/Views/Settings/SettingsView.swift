@@ -7,7 +7,7 @@ struct SettingsView: View {
     @State private var selectedSection: SettingsSection = .general
 
     enum SettingsSection: String, CaseIterable, Identifiable {
-        case general, privacy, keyboard, appearance, storage, about
+        case general, privacy, keyboard, appearance, sync, storage, about
 
         var id: String { rawValue }
 
@@ -19,6 +19,7 @@ struct SettingsView: View {
             case .privacy: "lock.shield"
             case .keyboard: "keyboard"
             case .appearance: "paintbrush"
+            case .sync: "icloud"
             case .storage: "internaldrive"
             case .about: "info.circle"
             }
@@ -43,6 +44,8 @@ struct SettingsView: View {
                 ShortcutsSettingsView(viewModel: viewModel)
             case .appearance:
                 AppearanceSettingsView(viewModel: viewModel)
+            case .sync:
+                SyncSettingsView(viewModel: viewModel)
             case .storage:
                 StorageSettingsView(viewModel: viewModel)
             case .about:

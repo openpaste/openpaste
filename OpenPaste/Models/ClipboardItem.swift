@@ -9,6 +9,10 @@ struct ClipboardItem: Identifiable, Sendable, Hashable {
     var sourceApp: AppInfo
     var sourceURL: URL?
     var createdAt: Date
+    var modifiedAt: Date
+    var deviceId: String
+    var isDeleted: Bool
+    var syncVersion: Int
     var accessedAt: Date
     var accessCount: Int
     var tags: [String]
@@ -29,6 +33,10 @@ struct ClipboardItem: Identifiable, Sendable, Hashable {
         sourceApp: AppInfo = .unknown,
         sourceURL: URL? = nil,
         createdAt: Date = Date(),
+        modifiedAt: Date = Date(),
+        deviceId: String = "",
+        isDeleted: Bool = false,
+        syncVersion: Int = 0,
         accessedAt: Date = Date(),
         accessCount: Int = 0,
         tags: [String] = [],
@@ -48,6 +56,10 @@ struct ClipboardItem: Identifiable, Sendable, Hashable {
         self.sourceApp = sourceApp
         self.sourceURL = sourceURL
         self.createdAt = createdAt
+        self.modifiedAt = modifiedAt
+        self.deviceId = deviceId
+        self.isDeleted = isDeleted
+        self.syncVersion = syncVersion
         self.accessedAt = accessedAt
         self.accessCount = accessCount
         self.tags = tags

@@ -40,6 +40,9 @@ final class AppController {
             hvm.reactivatePreviousApp = { [weak self] in
                 self?.windowManager.reactivatePreviousApp()
             }
+            hvm.previousAppBundleId = { [weak self] in
+                self?.windowManager.previousApp?.bundleIdentifier
+            }
             historyViewModel = hvm
 
             let searchVm = SearchViewModel(
@@ -53,6 +56,9 @@ final class AppController {
             searchVm.reactivatePreviousApp = { [weak self] in
                 self?.windowManager.reactivatePreviousApp()
             }
+            searchVm.previousAppBundleId = { [weak self] in
+                self?.windowManager.previousApp?.bundleIdentifier
+            }
             searchViewModel = searchVm
 
             collectionViewModel = CollectionViewModel(storageService: c.storageService)
@@ -64,12 +70,30 @@ final class AppController {
             pasteStackViewModel.reactivatePreviousApp = { [weak self] in
                 self?.windowManager.reactivatePreviousApp()
             }
+            pasteStackViewModel.previousAppBundleId = { [weak self] in
+                self?.windowManager.previousApp?.bundleIdentifier
+            }
 
             svm.onClearAllHistory = { [weak hvm] in
                 try? await c.storageService.deleteAll()
                 await hvm?.loadInitial()
             }
             svm.storageService = c.storageService
+            svm.syncService = c.syncService
+            svm.eventBus = c.eventBus
+            svm.startSyncObserver()
+
+            if AppDelegate.consumePendingRemoteNotification() {
+                Task {
+                    await c.syncService.triggerManualSync()
+                    await svm.refreshSyncInfo()
+                }
+            }
+
+            Task {
+                await c.syncService.start()
+                await svm.refreshSyncInfo()
+            }
 
             let cleanup = SecurityService(
                 detector: c.securityService as! SensitiveContentDetector,
@@ -99,6 +123,19 @@ final class AppController {
         ) { [weak self] _ in
             Task { @MainActor in
                 self?.showOnboardingIfNeeded()
+            }
+        }
+
+        NotificationCenter.default.addObserver(
+            forName: AppDelegate.didReceiveRemoteNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            _ = AppDelegate.consumePendingRemoteNotification()
+            guard let self, let c = self.container else { return }
+            Task {
+                await c.syncService.triggerManualSync()
+                await self.settingsViewModel.refreshSyncInfo()
             }
         }
     }

@@ -2,6 +2,7 @@ import SwiftUI
 
 struct SearchView: View {
     @Bindable var viewModel: SearchViewModel
+    @FocusState private var isSearchFocused: Bool
 
     var body: some View {
         VStack(spacing: 0) {
@@ -24,8 +25,12 @@ struct SearchView: View {
                 .foregroundStyle(.secondary)
             TextField("Search clipboard history…", text: $viewModel.query)
                 .textFieldStyle(.plain)
+                .focused($isSearchFocused)
                 .onChange(of: viewModel.query) { _, _ in
                     viewModel.searchDebounced()
+                }
+                .onAppear {
+                    isSearchFocused = true
                 }
             if !viewModel.query.isEmpty {
                 Button {

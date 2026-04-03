@@ -4,7 +4,7 @@ struct AppearanceSettingsView: View {
     @Bindable var viewModel: SettingsViewModel
 
     @AppStorage(Constants.appearanceThemeKey) private var theme = "system"
-    @AppStorage(Constants.windowPositionModeKey) private var windowPosition = "center"
+    @AppStorage(Constants.windowPositionModeKey) private var windowPosition = Constants.windowPositionModeBottomShelf
 
     var body: some View {
         Form {
@@ -19,6 +19,7 @@ struct AppearanceSettingsView: View {
 
             Section("Window") {
                 Picker("Open window", selection: $windowPosition) {
+                    Text("Bottom Shelf (Paste-style)").tag(Constants.windowPositionModeBottomShelf)
                     Text("Center of screen").tag("center")
                     Text("Near cursor").tag("cursor")
                 }

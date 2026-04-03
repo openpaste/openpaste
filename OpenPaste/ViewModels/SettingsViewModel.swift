@@ -33,6 +33,37 @@ final class SettingsViewModel {
     var hotkeyDisplayString: String = HotkeyManager.currentHotkeyDisplayString()
     var isRecordingHotkey: Bool = false
 
+    // Sync
+    var iCloudSyncEnabled: Bool {
+        didSet {
+            UserDefaults.standard.set(iCloudSyncEnabled, forKey: Constants.iCloudSyncEnabledKey)
+            Task {
+                if iCloudSyncEnabled {
+                    await syncService?.start()
+                } else {
+                    await syncService?.stop()
+                }
+                await refreshSyncInfo()
+            }
+        }
+    }
+
+    var iCloudSyncIncludeSensitive: Bool {
+        didSet {
+            UserDefaults.standard.set(iCloudSyncIncludeSensitive, forKey: Constants.iCloudSyncIncludeSensitiveKey)
+        }
+    }
+
+    var syncStatus: SyncStatus = .disabled
+    var syncLastSyncDate: Date?
+    var syncPendingChangesCount: Int = 0
+    var syncSyncedCount: Int = 0
+    var isSyncing: Bool = false
+
+    var syncService: SyncServiceProtocol?
+    var eventBus: EventBus?
+    @ObservationIgnored var syncObserverTask: Task<Void, Never>?
+
     // Storage info
     var databaseSize: String = "—"
     var totalItemCount: Int = 0
@@ -50,6 +81,9 @@ final class SettingsViewModel {
         screenSharingAutoHide = defaults.object(forKey: Constants.screenSharingAutoHideKey) as? Bool ?? true
         urlPreviewEnabled = defaults.object(forKey: Constants.urlPreviewEnabledKey) as? Bool ?? true
         launchAtLogin = SMAppService.mainApp.status == .enabled
+
+        iCloudSyncEnabled = defaults.object(forKey: Constants.iCloudSyncEnabledKey) as? Bool ?? false
+        iCloudSyncIncludeSensitive = defaults.object(forKey: Constants.iCloudSyncIncludeSensitiveKey) as? Bool ?? false
 
         loadBlacklist()
     }
@@ -106,10 +140,28 @@ final class SettingsViewModel {
     }
 
     func loadStorageInfo() async {
-        let dbPath = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first?
-            .appendingPathComponent("OpenPaste")
-            .appendingPathComponent("database.sqlite")
-        if let dbPath, let attrs = try? FileManager.default.attributesOfItem(atPath: dbPath.path) {
+        let fileManager = FileManager.default
+        let bundleId = Bundle.main.bundleIdentifier ?? "dev.tuanle.OpenPaste"
+
+        let containerDB = fileManager.homeDirectoryForCurrentUser
+            .appendingPathComponent("Library", isDirectory: true)
+            .appendingPathComponent("Containers", isDirectory: true)
+            .appendingPathComponent(bundleId, isDirectory: true)
+            .appendingPathComponent("Data", isDirectory: true)
+            .appendingPathComponent("Library", isDirectory: true)
+            .appendingPathComponent("Application Support", isDirectory: true)
+            .appendingPathComponent("OpenPaste", isDirectory: true)
+            .appendingPathComponent("clipboard.sqlite")
+
+        let legacyDB = fileManager.homeDirectoryForCurrentUser
+            .appendingPathComponent("Library", isDirectory: true)
+            .appendingPathComponent("Application Support", isDirectory: true)
+            .appendingPathComponent("OpenPaste", isDirectory: true)
+            .appendingPathComponent("clipboard.sqlite")
+
+        let dbPath = fileManager.fileExists(atPath: containerDB.path) ? containerDB : legacyDB
+
+        if let attrs = try? fileManager.attributesOfItem(atPath: dbPath.path) {
             let size = attrs[.size] as? Int64 ?? 0
             let formatter = ByteCountFormatter()
             formatter.allowedUnits = [.useKB, .useMB]
@@ -142,31 +194,5 @@ final class SettingsViewModel {
 
     func optimizeStorage() async {
         // Placeholder for VACUUM and expired item cleanup
-    }
-
-    private func loadBlacklist() {
-        guard let data = UserDefaults.standard.data(forKey: "blacklistedApps"),
-              let decoded = try? JSONDecoder().decode([AppInfo].self, from: data) else {
-            blacklistedApps = defaultBlacklistApps
-            return
-        }
-        blacklistedApps = decoded
-    }
-
-    private func saveBlacklist() {
-        if let data = try? JSONEncoder().encode(blacklistedApps) {
-            UserDefaults.standard.set(data, forKey: "blacklistedApps")
-        }
-    }
-
-    private var defaultBlacklistApps: [AppInfo] {
-        [
-            AppInfo(bundleId: "com.apple.keychainaccess", name: "Keychain Access", iconPath: nil),
-            AppInfo(bundleId: "com.agilebits.onepassword7", name: "1Password 7", iconPath: nil),
-            AppInfo(bundleId: "com.agilebits.onepassword-osx", name: "1Password", iconPath: nil),
-            AppInfo(bundleId: "com.bitwarden.desktop", name: "Bitwarden", iconPath: nil),
-            AppInfo(bundleId: "com.lastpass.LastPass", name: "LastPass", iconPath: nil),
-            AppInfo(bundleId: "com.apple.Passwords", name: "Passwords", iconPath: nil),
-        ]
     }
 }

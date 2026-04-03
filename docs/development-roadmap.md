@@ -63,6 +63,7 @@ Strategic roadmap for OpenPaste development phases, milestones, and feature prio
    - Redesigned empty states with animated icons (`.symbolEffect(.pulse.byLayer)`) and shortcut hints
    - Smart filter bar (Last 24h, Last 7 days, Last 30 days, Pinned, Starred)
    - Cursor-positioned window mode (open near mouse, clamped to screen)
+   - Bottom Shelf (Paste-style) window mode (Appearance setting)
    - Resizable window support (350×400 to 700×900)
 
    **Code Quality Fixes:**
@@ -193,10 +194,10 @@ Strategic roadmap for OpenPaste development phases, milestones, and feature prio
    - Database query optimization
    - Memory footprint reduction for large histories
 
-2. **Cloud Sync** (Optional)
-   - iCloud integration for multi-device sync
-   - End-to-end encryption for synced data
-   - Conflict resolution
+2. **Cloud Sync (iCloud / CloudKit)**
+   - Implemented using CloudKit `CKSyncEngine` (macOS 14+), syncing clipboard items + collections
+   - Encrypted payload assets (AES-GCM) with keys stored in Keychain (synchronizable)
+   - User controls for excluding sensitive items from upload
 
 3. **Advanced UI**
    - Inline editing for clipboard items ✅ (QuickEditView)

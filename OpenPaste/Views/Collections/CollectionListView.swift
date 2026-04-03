@@ -13,7 +13,6 @@ struct CollectionListView: View {
                 collectionsListView
             }
         }
-        .task { await viewModel.loadCollections() }
         .sheet(isPresented: $showingAddSheet) { addCollectionSheet }
     }
 

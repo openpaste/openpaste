@@ -4,8 +4,8 @@ Thank you for your interest in contributing to OpenPaste! This guide will help y
 
 ## Prerequisites
 
-- **macOS 14.0+** (Sonoma or later)
-- **Xcode 15.0+** with Swift 6 toolchain
+- **macOS 15.0+** (Sequoia or later)
+- **Xcode 16.0+** with Swift 6 toolchain
 - **Git** with conventional commit knowledge
 
 ## Getting Started
@@ -16,11 +16,15 @@ Thank you for your interest in contributing to OpenPaste! This guide will help y
    git clone https://github.com/<your-username>/openpaste.git
    cd openpaste
    ```
-3. **Open** the project in Xcode:
+3. **Install git hooks** (build check on commit, tests on push):
+   ```bash
+   git config core.hooksPath scripts
+   ```
+4. **Open** the project in Xcode:
    ```bash
    open OpenPaste.xcodeproj
    ```
-4. **Build** and run (⌘R) to verify everything works
+5. **Build** and run (⌘R) to verify everything works
 
 ## Project Structure
 

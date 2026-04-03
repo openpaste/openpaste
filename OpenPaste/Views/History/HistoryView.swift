@@ -201,10 +201,17 @@ struct HistoryView: View {
                 viewModel.recordPanelClose(visibleItemId: selectedId ?? viewModel.items.first?.id)
             }
             .focusable()
-            // Enter to paste
-            .onKeyPress(.return) {
-                pasteSelected()
-                return .handled
+            // Enter / Shift+Enter
+            .onKeyPress(phases: .down) { keyPress in
+                if keyPress.characters == "\r" || keyPress.characters == "\n" {
+                    if keyPress.modifiers.contains(.shift) {
+                        pasteSelectedAsPlainText()
+                    } else {
+                        pasteSelected()
+                    }
+                    return .handled
+                }
+                return .ignored
             }
             // Escape to dismiss
             .onKeyPress(.escape) {
@@ -214,6 +221,30 @@ struct HistoryView: View {
             // Tab to toggle preview
             .onKeyPress(.tab) {
                 withAnimation(DS.Animation.springDefault) { showPreview.toggle() }
+                return .handled
+            }
+            // Space to toggle preview
+            .onKeyPress(characters: .init(charactersIn: " "), phases: .down) { _ in
+                withAnimation(DS.Animation.springDefault) { showPreview.toggle() }
+                return .handled
+            }
+            // d/p/s actions
+            .onKeyPress(characters: .init(charactersIn: "d"), phases: .down) { _ in
+                deleteSelected()
+                return .handled
+            }
+            .onKeyPress(characters: .init(charactersIn: "p"), phases: .down) { _ in
+                togglePinSelected()
+                return .handled
+            }
+            .onKeyPress(characters: .init(charactersIn: "s"), phases: .down) { _ in
+                toggleStarSelected()
+                return .handled
+            }
+            // ⌘1-⌘9 quick paste
+            .onKeyPress(characters: .init(charactersIn: "123456789"), phases: .down) { keyPress in
+                guard keyPress.modifiers.contains(.command), let n = Int(keyPress.characters) else { return .ignored }
+                Task { await viewModel.pasteByIndex(n - 1) }
                 return .handled
             }
             // ? = show shortcuts overlay
@@ -287,9 +318,28 @@ struct HistoryView: View {
     }
 
     private func pasteSelected() {
-        guard let id = selectedId,
-              let item = viewModel.items.first(where: { $0.id == id }) else { return }
+        guard let item = selectedItem else { return }
         Task { await viewModel.paste(item) }
+    }
+
+    private func pasteSelectedAsPlainText() {
+        guard let item = selectedItem else { return }
+        Task { await viewModel.pasteAsPlainText(item) }
+    }
+
+    private func deleteSelected() {
+        guard let item = selectedItem else { return }
+        Task { await viewModel.delete(item) }
+    }
+
+    private func togglePinSelected() {
+        guard let item = selectedItem else { return }
+        Task { await viewModel.togglePin(item) }
+    }
+
+    private func toggleStarSelected() {
+        guard let item = selectedItem else { return }
+        Task { await viewModel.toggleStar(item) }
     }
 
     private var emptyState: some View {

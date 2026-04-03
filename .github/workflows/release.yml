@@ -24,6 +24,14 @@ jobs:
       - name: Resolve packages
         run: xcodebuild -resolvePackageDependencies -scheme OpenPaste
 
+      - name: Run tests before release
+        run: |
+          xcodebuild test \
+            -scheme OpenPaste \
+            -destination 'platform=macOS' \
+            -configuration Debug \
+            CODE_SIGNING_ALLOWED=NO
+
       - name: Install signing certificate
         env:
           CERTIFICATE_BASE64: ${{ secrets.DEVELOPER_ID_CERT_BASE64 }}
@@ -158,25 +166,23 @@ jobs:
           SHA=$(shasum -a 256 build/export/OpenPaste-*.dmg | awk '{print $1}')
           echo "sha256=${SHA}" >> "$GITHUB_OUTPUT"
 
+      - name: Build release body
+        id: body
+        run: |
+          BODY_FILE=$RUNNER_TEMP/release_body.md
+          if [ -f RELEASE_NOTES.md ]; then
+            cp RELEASE_NOTES.md "$BODY_FILE"
+          else
+            echo "See assets below for the full download." > "$BODY_FILE"
+          fi
+          printf '\n---\n**SHA-256:** `%s`\n' "${{ steps.sha.outputs.sha256 }}" >> "$BODY_FILE"
+          echo "path=$BODY_FILE" >> "$GITHUB_OUTPUT"
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           files: build/export/OpenPaste-*.dmg
-          generate_release_notes: true
-          body: |
-            ## Install
-
-            ### Homebrew
-            ```bash
-            brew tap openpaste/tap
-            brew install --cask openpaste
-            ```
-
-            ### Manual
-            Download `OpenPaste-${{ steps.version.outputs.version }}.dmg` below.
-
-            ---
-            **SHA-256:** `${{ steps.sha.outputs.sha256 }}`
+          body_path: ${{ steps.body.outputs.path }}
 
       - name: Update Homebrew tap
         if: success()

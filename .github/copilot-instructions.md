@@ -10,7 +10,7 @@
 When asked to reset, fresh install, or clear all app data, run:
 ```bash
 defaults delete dev.tuanle.OpenPaste
-rm -rf "$HOME/Library/Application Support/dev.tuanle.OpenPaste" "$HOME/Library/Application Support/OpenPaste" "$HOME/Library/Caches/dev.tuanle.OpenPaste" "$HOME/Library/Saved Application State/dev.tuanle.OpenPaste.savedState"
+rm -rf "$HOME/Library/Containers/dev.tuanle.OpenPaste" "$HOME/Library/Application Support/dev.tuanle.OpenPaste" "$HOME/Library/Application Support/OpenPaste" "$HOME/Library/Caches/dev.tuanle.OpenPaste" "$HOME/Library/Saved Application State/dev.tuanle.OpenPaste.savedState"
 ```
 This clears: UserDefaults (onboarding, hotkey, settings), database (clipboard history sqlite), caches, and window saved state. macOS Accessibility permission is NOT affected.
 

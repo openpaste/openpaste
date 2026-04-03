@@ -9,6 +9,10 @@ enum Constants {
     static let appName = "OpenPaste"
     static let bundleIdentifier = "dev.tuanle.OpenPaste"
 
+    // iCloud Sync
+    static let iCloudSyncEnabledKey = "iCloudSyncEnabled"
+    static let iCloudSyncIncludeSensitiveKey = "iCloudSyncIncludeSensitive"
+
     // Onboarding
     static let hasCompletedOnboardingKey = "hasCompletedOnboarding"
     static let customHotkeyModifiersKey = "customHotkeyModifiers"
@@ -27,6 +31,11 @@ enum Constants {
     static let appearanceThemeKey = "appearanceTheme"
     static let historyRetentionDaysKey = "historyRetentionDays"
     static let windowPositionModeKey = "windowPositionMode"
+    static let windowPositionModeBottomShelf = "bottomShelf"
     static let savedWindowFrameKey = "savedWindowFrame"
+    static let showShortcutHintsKey = "showShortcutHints"
+
+    // Paste Behavior
+    static let pasteDirectlyKey = "pasteDirectly"
 
 }

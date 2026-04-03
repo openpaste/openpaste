@@ -7,5 +7,6 @@ protocol ClipboardServiceProtocol: Sendable {
     /// Copy item content to the system clipboard without simulating paste.
     func copyToClipboard(_ item: ClipboardItem) async
     /// Simulate ⌘V to paste into the frontmost application.
-    func simulatePasteToFrontApp() async
+    /// - Parameter targetBundleId: If provided, waits for this specific app to become active before pasting.
+    func simulatePasteToFrontApp(targetBundleId: String?) async
 }
