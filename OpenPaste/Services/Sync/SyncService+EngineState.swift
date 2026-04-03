@@ -1,12 +1,18 @@
 import Foundation
 @preconcurrency import CloudKit
 import GRDB
+import os.log
+
+private let syncLog = Logger(subsystem: "dev.tuanle.OpenPaste", category: "SyncEngine")
 
 @available(macOS 14.0, *)
 extension SyncService {
     func ensureZoneExists(container: CKContainer) async throws {
+        let zoneName = CloudKitMapper.zoneID.zoneName
+        syncLog.info("Ensuring zone exists: \(zoneName)")
         let zone = CKRecordZone(zoneID: CloudKitMapper.zoneID)
         _ = try await container.privateCloudDatabase.modifyRecordZones(saving: [zone], deleting: [])
+        syncLog.info("Zone verified/created successfully")
     }
 
     func loadEngineStateSerialization() async throws -> CKSyncEngine.State.Serialization? {

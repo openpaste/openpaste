@@ -1,6 +1,9 @@
 import Foundation
 @preconcurrency import CloudKit
 import GRDB
+import os.log
+
+private let syncLog = Logger(subsystem: "dev.tuanle.OpenPaste", category: "SyncSend")
 
 @available(macOS 14.0, *)
 extension SyncService {
@@ -94,5 +97,6 @@ extension SyncService {
         }
 
         touchLastSyncDate()
+        await eventBus.emit(.syncCompleted)
     }
 }
