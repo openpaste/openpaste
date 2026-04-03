@@ -51,15 +51,10 @@ final class BottomShelfPanel: NSPanel {
 
     var onRequestClose: (() -> Void)?
 
-    // Return full content area — prevent safe area insets from shrinking usable space
-    override var contentLayoutRect: NSRect {
-        NSRect(origin: .zero, size: contentView?.frame.size ?? .zero)
-    }
-
     init(contentView hostingView: NSView, frame: NSRect) {
         super.init(
             contentRect: frame,
-            styleMask: [.nonactivatingPanel, .fullSizeContentView],
+            styleMask: [.borderless, .nonactivatingPanel],
             backing: .buffered,
             defer: false
         )
@@ -67,8 +62,6 @@ final class BottomShelfPanel: NSPanel {
         isFloatingPanel = true
         level = .floating
         isMovableByWindowBackground = false
-        titlebarAppearsTransparent = true
-        titleVisibility = .hidden
         backgroundColor = .clear
         isOpaque = false
         hasShadow = true
@@ -79,26 +72,21 @@ final class BottomShelfPanel: NSPanel {
         blurView.blendingMode = .behindWindow
         blurView.material = .hudWindow
         blurView.state = .active
-        blurView.wantsLayer = true
-        blurView.layer?.cornerRadius = DS.Shelf.cornerRadius
-        blurView.layer?.maskedCorners = [.layerMinXMaxYCorner, .layerMaxXMaxYCorner]
-        blurView.layer?.masksToBounds = true
+
+        // Use maskImage for reliable rounded corners on NSVisualEffectView.
+        // layer?.cornerRadius does NOT clip the internal blur layers properly.
+        blurView.maskImage = Self.roundedRectMask(radius: DS.Shelf.cornerRadius)
+
         blurView.translatesAutoresizingMaskIntoConstraints = false
 
+        hostingView.wantsLayer = true
+        hostingView.layer?.cornerRadius = DS.Shelf.cornerRadius
+        hostingView.layer?.masksToBounds = true
         hostingView.translatesAutoresizingMaskIntoConstraints = false
         blurView.addSubview(hostingView)
 
         self.contentView = blurView
 
-        // Pin blurView to fill panel's contentView using constraints
-        if let cv = self.contentView {
-            NSLayoutConstraint.activate([
-                blurView.leadingAnchor.constraint(equalTo: cv.leadingAnchor),
-                blurView.trailingAnchor.constraint(equalTo: cv.trailingAnchor),
-                blurView.topAnchor.constraint(equalTo: cv.topAnchor),
-                blurView.bottomAnchor.constraint(equalTo: cv.bottomAnchor),
-            ])
-        }
         // Pin hostingView within blurView
         NSLayoutConstraint.activate([
             hostingView.leadingAnchor.constraint(equalTo: blurView.leadingAnchor),
@@ -106,6 +94,22 @@ final class BottomShelfPanel: NSPanel {
             hostingView.topAnchor.constraint(equalTo: blurView.topAnchor),
             hostingView.bottomAnchor.constraint(equalTo: blurView.bottomAnchor),
         ])
+    }
+
+    /// Creates a stretchable mask image with rounded corners for NSVisualEffectView.
+    private static func roundedRectMask(radius: CGFloat) -> NSImage {
+        let diameter = radius * 2 + 1
+        let size = NSSize(width: diameter, height: diameter)
+        let image = NSImage(size: size, flipped: false) { rect in
+            NSColor.black.setFill()
+            NSBezierPath(roundedRect: rect, xRadius: radius, yRadius: radius).fill()
+            return true
+        }
+        image.capInsets = NSEdgeInsets(
+            top: radius, left: radius, bottom: radius, right: radius
+        )
+        image.resizingMode = .stretch
+        return image
     }
 
     override func resignKey() {

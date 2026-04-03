@@ -12,7 +12,7 @@ struct ShortcutHintBar: View {
         .padding(.horizontal, DS.Shelf.horizontalPadding)
         .padding(.vertical, 4)
         .frame(height: DS.Shelf.hintBarHeight)
-        .background(.ultraThinMaterial)
+        // Blur handled by NSVisualEffectView at panel level — no extra material needed
     }
 
     private func hintItem(_ key: String, _ action: String) -> some View {
