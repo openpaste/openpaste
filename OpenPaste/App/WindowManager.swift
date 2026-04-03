@@ -51,10 +51,15 @@ final class BottomShelfPanel: NSPanel {
 
     var onRequestClose: (() -> Void)?
 
-    init(contentView: NSView, frame: NSRect) {
+    // Return full content area — prevent safe area insets from shrinking usable space
+    override var contentLayoutRect: NSRect {
+        NSRect(origin: .zero, size: contentView?.frame.size ?? .zero)
+    }
+
+    init(contentView hostingView: NSView, frame: NSRect) {
         super.init(
             contentRect: frame,
-            styleMask: [.nonactivatingPanel, .fullSizeContentView, .resizable],
+            styleMask: [.nonactivatingPanel, .fullSizeContentView],
             backing: .buffered,
             defer: false
         )
@@ -69,26 +74,38 @@ final class BottomShelfPanel: NSPanel {
         hasShadow = true
         animationBehavior = .utilityWindow
 
-        minSize = NSSize(width: 350, height: DS.Shelf.minHeight)
-        maxSize = NSSize(width: frame.width, height: DS.Shelf.maxHeight)
-
         // Native AppKit blur — single GPU pass, much faster than SwiftUI .ultraThinMaterial
         let blurView = NSVisualEffectView()
         blurView.blendingMode = .behindWindow
         blurView.material = .hudWindow
         blurView.state = .active
         blurView.wantsLayer = true
-        blurView.layer?.cornerRadius = DS.Radius.lg
+        blurView.layer?.cornerRadius = DS.Shelf.cornerRadius
         blurView.layer?.maskedCorners = [.layerMinXMaxYCorner, .layerMaxXMaxYCorner]
         blurView.layer?.masksToBounds = true
-        blurView.autoresizingMask = [.width, .height]
+        blurView.translatesAutoresizingMaskIntoConstraints = false
 
-        contentView.translatesAutoresizingMaskIntoConstraints = true
-        contentView.autoresizingMask = [.width, .height]
-        contentView.frame = blurView.bounds
-        blurView.addSubview(contentView)
+        hostingView.translatesAutoresizingMaskIntoConstraints = false
+        blurView.addSubview(hostingView)
 
         self.contentView = blurView
+
+        // Pin blurView to fill panel's contentView using constraints
+        if let cv = self.contentView {
+            NSLayoutConstraint.activate([
+                blurView.leadingAnchor.constraint(equalTo: cv.leadingAnchor),
+                blurView.trailingAnchor.constraint(equalTo: cv.trailingAnchor),
+                blurView.topAnchor.constraint(equalTo: cv.topAnchor),
+                blurView.bottomAnchor.constraint(equalTo: cv.bottomAnchor),
+            ])
+        }
+        // Pin hostingView within blurView
+        NSLayoutConstraint.activate([
+            hostingView.leadingAnchor.constraint(equalTo: blurView.leadingAnchor),
+            hostingView.trailingAnchor.constraint(equalTo: blurView.trailingAnchor),
+            hostingView.topAnchor.constraint(equalTo: blurView.topAnchor),
+            hostingView.bottomAnchor.constraint(equalTo: blurView.bottomAnchor),
+        ])
     }
 
     override func resignKey() {
@@ -179,31 +196,41 @@ final class WindowManager {
         previousApp = NSWorkspace.shared.frontmostApplication
 
         guard let screen = screenForMouse() ?? NSScreen.main else { return }
-        let visibleFrame = screen.visibleFrame
+        let visibleFrame = screen.visibleFrame  // Area above Dock
 
         let shelfHeight = DS.Shelf.defaultHeight
-        let frame = NSRect(x: visibleFrame.minX, y: visibleFrame.minY, width: visibleFrame.width, height: shelfHeight)
+        let inset = DS.Shelf.edgeInset
+        let targetFrame = NSRect(
+            x: visibleFrame.minX + inset,
+            y: visibleFrame.minY,
+            width: visibleFrame.width - inset * 2,
+            height: shelfHeight
+        )
 
-        let hostingView = NSHostingView(rootView: content())
-        // Prevent Auto Layout conflicts — let the panel drive sizing
+        let hostingView = NSHostingView(rootView: content().ignoresSafeArea())
+        // Prevent SwiftUI from influencing window size
         hostingView.sizingOptions = []
-        hostingView.translatesAutoresizingMaskIntoConstraints = true
-        hostingView.autoresizingMask = [.width, .height]
-        hostingView.frame = NSRect(x: 0, y: 0, width: frame.width, height: frame.height)
 
-        let newPanel = BottomShelfPanel(contentView: hostingView, frame: frame)
+        let newPanel = BottomShelfPanel(contentView: hostingView, frame: targetFrame)
         newPanel.onRequestClose = { [weak self] in
             self?.hide()
         }
 
-        // Start below screen → animate up
-        newPanel.setFrameOrigin(NSPoint(x: visibleFrame.minX, y: visibleFrame.minY - shelfHeight))
+        // Set start position BELOW screen BEFORE showing — prevents layout flash
+        let startFrame = NSRect(
+            x: visibleFrame.minX + inset,
+            y: visibleFrame.minY - shelfHeight,
+            width: visibleFrame.width - inset * 2,
+            height: shelfHeight
+        )
+        newPanel.setFrame(startFrame, display: false)
         newPanel.makeKeyAndOrderFront(nil)
 
+        // Animate slide-up to target position
         NSAnimationContext.runAnimationGroup { ctx in
             ctx.duration = 0.3
             ctx.timingFunction = CAMediaTimingFunction(name: .easeOut)
-            newPanel.animator().setFrameOrigin(NSPoint(x: visibleFrame.minX, y: visibleFrame.minY))
+            newPanel.animator().setFrame(targetFrame, display: true)
         }
 
         panel = newPanel
@@ -243,12 +270,19 @@ final class WindowManager {
            let screen = shelfPanel.screen ?? NSScreen.main {
             shelfPanel.onRequestClose = nil
             let visibleFrame = screen.visibleFrame
-            let height = shelfPanel.frame.height
+            let currentFrame = shelfPanel.frame
+
+            let hideFrame = NSRect(
+                x: currentFrame.minX,
+                y: visibleFrame.minY - currentFrame.height,
+                width: currentFrame.width,
+                height: currentFrame.height
+            )
 
             NSAnimationContext.runAnimationGroup { ctx in
                 ctx.duration = 0.25
                 ctx.timingFunction = CAMediaTimingFunction(name: .easeIn)
-                shelfPanel.animator().setFrameOrigin(NSPoint(x: visibleFrame.minX, y: visibleFrame.minY - height))
+                shelfPanel.animator().setFrame(hideFrame, display: true)
             } completionHandler: {
                 shelfPanel.close()
             }
@@ -292,9 +326,10 @@ final class WindowManager {
               let screen = shelfPanel.screen ?? NSScreen.main else { return }
         let visibleFrame = screen.visibleFrame
         let height = shelfPanel.frame.height
+        let inset = DS.Shelf.edgeInset
         shelfPanel.setFrame(
-            NSRect(x: visibleFrame.minX, y: visibleFrame.minY,
-                   width: visibleFrame.width, height: height),
+            NSRect(x: visibleFrame.minX + inset, y: visibleFrame.minY,
+                   width: visibleFrame.width - inset * 2, height: height),
             display: true
         )
     }

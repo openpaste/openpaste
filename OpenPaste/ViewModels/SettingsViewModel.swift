@@ -33,6 +33,33 @@ final class SettingsViewModel {
     var hotkeyDisplayString: String = HotkeyManager.currentHotkeyDisplayString()
     var isRecordingHotkey: Bool = false
 
+    // Sync
+    var iCloudSyncEnabled: Bool {
+        didSet {
+            UserDefaults.standard.set(iCloudSyncEnabled, forKey: Constants.iCloudSyncEnabledKey)
+            Task {
+                if iCloudSyncEnabled {
+                    await syncService?.start()
+                } else {
+                    await syncService?.stop()
+                }
+                await refreshSyncInfo()
+            }
+        }
+    }
+
+    var iCloudSyncIncludeSensitive: Bool {
+        didSet {
+            UserDefaults.standard.set(iCloudSyncIncludeSensitive, forKey: Constants.iCloudSyncIncludeSensitiveKey)
+        }
+    }
+
+    var syncStatus: SyncStatus = .disabled
+    var syncLastSyncDate: Date?
+    var syncPendingChangesCount: Int = 0
+
+    var syncService: SyncServiceProtocol?
+
     // Storage info
     var databaseSize: String = "—"
     var totalItemCount: Int = 0
@@ -50,6 +77,9 @@ final class SettingsViewModel {
         screenSharingAutoHide = defaults.object(forKey: Constants.screenSharingAutoHideKey) as? Bool ?? true
         urlPreviewEnabled = defaults.object(forKey: Constants.urlPreviewEnabledKey) as? Bool ?? true
         launchAtLogin = SMAppService.mainApp.status == .enabled
+
+        iCloudSyncEnabled = defaults.object(forKey: Constants.iCloudSyncEnabledKey) as? Bool ?? false
+        iCloudSyncIncludeSensitive = defaults.object(forKey: Constants.iCloudSyncIncludeSensitiveKey) as? Bool ?? false
 
         loadBlacklist()
     }
@@ -142,31 +172,5 @@ final class SettingsViewModel {
 
     func optimizeStorage() async {
         // Placeholder for VACUUM and expired item cleanup
-    }
-
-    private func loadBlacklist() {
-        guard let data = UserDefaults.standard.data(forKey: "blacklistedApps"),
-              let decoded = try? JSONDecoder().decode([AppInfo].self, from: data) else {
-            blacklistedApps = defaultBlacklistApps
-            return
-        }
-        blacklistedApps = decoded
-    }
-
-    private func saveBlacklist() {
-        if let data = try? JSONEncoder().encode(blacklistedApps) {
-            UserDefaults.standard.set(data, forKey: "blacklistedApps")
-        }
-    }
-
-    private var defaultBlacklistApps: [AppInfo] {
-        [
-            AppInfo(bundleId: "com.apple.keychainaccess", name: "Keychain Access", iconPath: nil),
-            AppInfo(bundleId: "com.agilebits.onepassword7", name: "1Password 7", iconPath: nil),
-            AppInfo(bundleId: "com.agilebits.onepassword-osx", name: "1Password", iconPath: nil),
-            AppInfo(bundleId: "com.bitwarden.desktop", name: "Bitwarden", iconPath: nil),
-            AppInfo(bundleId: "com.lastpass.LastPass", name: "LastPass", iconPath: nil),
-            AppInfo(bundleId: "com.apple.Passwords", name: "Passwords", iconPath: nil),
-        ]
     }
 }

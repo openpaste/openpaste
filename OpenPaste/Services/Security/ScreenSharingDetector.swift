@@ -3,9 +3,14 @@ import CoreGraphics
 import AppKit
 
 final class ScreenSharingDetector: @unchecked Sendable {
+    private let userDefaults: UserDefaults
     private var pollTimer: Timer?
     private var onScreenSharingDetected: (() -> Void)?
     private var wasSharing = false
+
+    init(userDefaults: UserDefaults = .standard) {
+        self.userDefaults = userDefaults
+    }
     
     private static let screenSharingProcessNames: Set<String> = [
         "screensharingd", "ScreensharingAgent",
@@ -19,8 +24,8 @@ final class ScreenSharingDetector: @unchecked Sendable {
     ]
     
     var isScreenSharingEnabled: Bool {
-        get { UserDefaults.standard.bool(forKey: Constants.screenSharingAutoHideKey) }
-        set { UserDefaults.standard.set(newValue, forKey: Constants.screenSharingAutoHideKey) }
+        get { userDefaults.bool(forKey: Constants.screenSharingAutoHideKey) }
+        set { userDefaults.set(newValue, forKey: Constants.screenSharingAutoHideKey) }
     }
     
     func startMonitoring(onDetected: @escaping () -> Void) {

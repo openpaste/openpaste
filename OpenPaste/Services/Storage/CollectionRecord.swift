@@ -6,6 +6,10 @@ struct CollectionRecord: Sendable, Identifiable {
     var name: String
     var color: String
     var createdAt: Date
+    var modifiedAt: Date
+    var deviceId: String
+    var isDeleted: Bool
+    var ckSystemFields: Data?
 }
 
 extension CollectionRecord: FetchableRecord {
@@ -16,6 +20,11 @@ extension CollectionRecord: FetchableRecord {
         name = row["name"]
         color = row["color"]
         createdAt = row["createdAt"]
+        let decodedModifiedAt: Date? = row["modifiedAt"]
+        modifiedAt = decodedModifiedAt ?? createdAt
+        deviceId = row["deviceId"]
+        isDeleted = row["isDeleted"]
+        ckSystemFields = row["ckSystemFields"]
     }
 }
 
@@ -25,6 +34,10 @@ extension CollectionRecord: PersistableRecord {
         container["name"] = name
         container["color"] = color
         container["createdAt"] = createdAt
+        container["modifiedAt"] = modifiedAt
+        container["deviceId"] = deviceId
+        container["isDeleted"] = isDeleted
+        container["ckSystemFields"] = ckSystemFields
     }
 }
 
@@ -34,6 +47,10 @@ extension CollectionRecord {
         name = collection.name
         color = collection.color
         createdAt = collection.createdAt
+        modifiedAt = collection.modifiedAt
+        deviceId = collection.deviceId
+        isDeleted = collection.isDeleted
+        ckSystemFields = nil
     }
 
     func toCollection() -> Collection {
@@ -41,7 +58,10 @@ extension CollectionRecord {
             id: UUID(uuidString: id) ?? UUID(),
             name: name,
             color: color,
-            createdAt: createdAt
+            createdAt: createdAt,
+            modifiedAt: modifiedAt,
+            deviceId: deviceId,
+            isDeleted: isDeleted
         )
     }
 }

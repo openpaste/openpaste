@@ -10,4 +10,9 @@ enum AppEvent: Sendable {
     case sensitiveDetected(ClipboardItem)
     case ocrCompleted(item: ClipboardItem, extractedText: String)
     case settingsUpdated(key: String, value: String)
+
+    // Sync
+    case syncStarted
+    case syncCompleted
+    case syncFailed(String)
 }

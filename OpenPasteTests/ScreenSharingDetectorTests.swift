@@ -58,32 +58,40 @@ struct ScreenSharingDetectorTests {
 
     @Test func screenSharingEnabledReadsFromUserDefaults() {
         let key = Constants.screenSharingAutoHideKey
-        let detector = ScreenSharingDetector()
+        let suiteName = "ScreenSharingDetectorTests.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defaults.removePersistentDomain(forName: suiteName)
+
+        let detector = ScreenSharingDetector(userDefaults: defaults)
 
         // Set to true
-        UserDefaults.standard.set(true, forKey: key)
+        defaults.set(true, forKey: key)
         #expect(detector.isScreenSharingEnabled == true)
 
         // Set to false
-        UserDefaults.standard.set(false, forKey: key)
+        defaults.set(false, forKey: key)
         #expect(detector.isScreenSharingEnabled == false)
 
         // Cleanup
-        UserDefaults.standard.removeObject(forKey: key)
+        defaults.removePersistentDomain(forName: suiteName)
     }
 
     @Test func screenSharingEnabledWritesToUserDefaults() {
         let key = Constants.screenSharingAutoHideKey
-        let detector = ScreenSharingDetector()
+        let suiteName = "ScreenSharingDetectorTests.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defaults.removePersistentDomain(forName: suiteName)
+
+        let detector = ScreenSharingDetector(userDefaults: defaults)
 
         detector.isScreenSharingEnabled = true
-        #expect(UserDefaults.standard.bool(forKey: key) == true)
+        #expect(defaults.bool(forKey: key) == true)
 
         detector.isScreenSharingEnabled = false
-        #expect(UserDefaults.standard.bool(forKey: key) == false)
+        #expect(defaults.bool(forKey: key) == false)
 
         // Cleanup
-        UserDefaults.standard.removeObject(forKey: key)
+        defaults.removePersistentDomain(forName: suiteName)
     }
 
     // MARK: - Screen Sharing Process Names

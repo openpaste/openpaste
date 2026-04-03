@@ -70,6 +70,12 @@ final class AppController {
                 await hvm?.loadInitial()
             }
             svm.storageService = c.storageService
+            svm.syncService = c.syncService
+
+            Task {
+                await c.syncService.start()
+                await svm.refreshSyncInfo()
+            }
 
             let cleanup = SecurityService(
                 detector: c.securityService as! SensitiveContentDetector,

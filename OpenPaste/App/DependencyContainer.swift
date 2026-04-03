@@ -5,6 +5,10 @@ import GRDB
 final class DependencyContainer {
     let eventBus: EventBus
     let databaseManager: DatabaseManager
+
+    let premiumService: PremiumServiceProtocol
+    let syncService: SyncServiceProtocol
+
     let storageService: StorageServiceProtocol
     let searchService: SearchServiceProtocol
     let securityService: SecurityServiceProtocol
@@ -18,6 +22,17 @@ final class DependencyContainer {
         let dbQueue = databaseManager.dbQueue
         storageService = StorageService(dbQueue: dbQueue)
         searchService = SearchEngine(dbQueue: dbQueue)
+
+        premiumService = PremiumService()
+        if #available(macOS 14.0, *) {
+            syncService = SyncService(
+                databaseManager: databaseManager,
+                eventBus: eventBus,
+                premiumService: premiumService
+            )
+        } else {
+            syncService = NoopSyncService()
+        }
 
         let detector = SensitiveContentDetector()
         securityService = detector

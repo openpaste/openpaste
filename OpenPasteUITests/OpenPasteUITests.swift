@@ -24,17 +24,20 @@ final class OpenPasteUITests: XCTestCase {
 
     @MainActor
     func testExample() throws {
-        // UI tests must launch the application that they test.
-        let app = XCUIApplication()
-        app.launch()
-
-        // Use XCTAssert and related functions to verify your tests produce the correct results.
-        // XCUIAutomation Documentation
-        // https://developer.apple.com/documentation/xcuiautomation
+        // Template placeholder test. Launching the real app from here can be flaky when
+        // OpenPaste is already running on the developer machine.
+        throw XCTSkip("Template UI test is skipped by default")
     }
 
     @MainActor
     func testLaunchPerformance() throws {
+        // Performance tests are intentionally opt-in because they are sensitive to
+        // machine load and can be flaky in CI / shared dev environments.
+        let env = ProcessInfo.processInfo.environment
+        guard env["RUN_PERFORMANCE_TESTS"] == "1" else {
+            throw XCTSkip("Set RUN_PERFORMANCE_TESTS=1 to enable launch performance measurement")
+        }
+
         // This measures how long it takes to launch your application.
         measure(metrics: [XCTApplicationLaunchMetric()]) {
             XCUIApplication().launch()

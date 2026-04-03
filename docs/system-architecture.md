@@ -199,12 +199,14 @@ for await event in await eventBus.stream() {
 ### Database
 
 - **Engine:** SQLite via GRDB.swift 7.10.0
-- **Location:** `~/Library/Application Support/OpenPaste/`
+- **Location:** `~/Library/Containers/dev.tuanle.OpenPaste/Data/Library/Application Support/OpenPaste/` (sandbox-compatible)
+  - Legacy path (pre-sandbox): `~/Library/Application Support/OpenPaste/`
+  - On first launch, the legacy DB is copied forward if present (including WAL/SHM).
 - **Search:** FTS5 full-text index on `plainTextContent` + `ocrText`
 - **Thread safety:** `DatabaseQueue` serializes all access
 - **Encryption:** Optional SQLCipher (`#if GRDBCIPHER`)
 - **Key storage:** macOS Keychain via `KeychainHelper`
-- **Migrations:** Versioned via `DatabaseManager.registerMigrations()`
+- **Migrations:** Versioned via `DatabaseMigrations.registerMigrations(&migrator)`
 
 ### User Preferences
 

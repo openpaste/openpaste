@@ -12,6 +12,11 @@ struct ClipboardItemRecord: Sendable, Hashable, Identifiable {
     var sourceAppIconPath: String?
     var sourceURL: String?
     var createdAt: Date
+    var modifiedAt: Date
+    var deviceId: String
+    var isDeleted: Bool
+    var syncVersion: Int
+    var ckSystemFields: Data?
     var accessedAt: Date
     var accessCount: Int
     var tags: String
@@ -38,6 +43,12 @@ extension ClipboardItemRecord: FetchableRecord {
         sourceAppIconPath = row["sourceAppIconPath"]
         sourceURL = row["sourceURL"]
         createdAt = row["createdAt"]
+        let decodedModifiedAt: Date? = row["modifiedAt"]
+        modifiedAt = decodedModifiedAt ?? createdAt
+        deviceId = row["deviceId"]
+        isDeleted = row["isDeleted"]
+        syncVersion = row["syncVersion"]
+        ckSystemFields = row["ckSystemFields"]
         accessedAt = row["accessedAt"]
         accessCount = row["accessCount"]
         tags = row["tags"]
@@ -63,6 +74,11 @@ extension ClipboardItemRecord: PersistableRecord {
         container["sourceAppIconPath"] = sourceAppIconPath
         container["sourceURL"] = sourceURL
         container["createdAt"] = createdAt
+        container["modifiedAt"] = modifiedAt
+        container["deviceId"] = deviceId
+        container["isDeleted"] = isDeleted
+        container["syncVersion"] = syncVersion
+        container["ckSystemFields"] = ckSystemFields
         container["accessedAt"] = accessedAt
         container["accessCount"] = accessCount
         container["tags"] = tags
@@ -88,6 +104,11 @@ extension ClipboardItemRecord {
         self.sourceAppIconPath = item.sourceApp.iconPath
         self.sourceURL = item.sourceURL?.absoluteString
         self.createdAt = item.createdAt
+        self.modifiedAt = item.modifiedAt
+        self.deviceId = item.deviceId
+        self.isDeleted = item.isDeleted
+        self.syncVersion = item.syncVersion
+        self.ckSystemFields = nil
         self.accessedAt = item.accessedAt
         self.accessCount = item.accessCount
         self.tags = (try? JSONEncoder().encode(item.tags)).flatMap { String(data: $0, encoding: .utf8) } ?? "[]"
@@ -113,6 +134,10 @@ extension ClipboardItemRecord {
             sourceApp: AppInfo(bundleId: sourceAppBundleId, name: sourceAppName, iconPath: sourceAppIconPath),
             sourceURL: sourceURL.flatMap { URL(string: $0) },
             createdAt: createdAt,
+            modifiedAt: modifiedAt,
+            deviceId: deviceId,
+            isDeleted: isDeleted,
+            syncVersion: syncVersion,
             accessedAt: accessedAt,
             accessCount: accessCount,
             tags: decodedTags,

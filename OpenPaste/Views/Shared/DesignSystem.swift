@@ -39,24 +39,27 @@ enum DS {
 
     // MARK: - Card (Bottom Shelf)
     enum Card {
-        static let width: CGFloat = 160
-        static let height: CGFloat = 120
-        static let spacing: CGFloat = 8
-        static let cornerRadius: CGFloat = 10
+        static let width: CGFloat = 180
+        static let height: CGFloat = 150
+        static let spacing: CGFloat = 10
+        static let cornerRadius: CGFloat = 12
         static let borderWidth: CGFloat = 2
         static let hoverScale: CGFloat = 1.03
         static let selectedBorderOpacity: Double = 0.8
+        static let typeBadgeHeight: CGFloat = 22
     }
 
     // MARK: - Bottom Shelf
     enum Shelf {
-        static let defaultHeight: CGFloat = 260
-        static let minHeight: CGFloat = 160
-        static let maxHeight: CGFloat = 350
+        static let defaultHeight: CGFloat = 300
+        static let minHeight: CGFloat = 200
+        static let maxHeight: CGFloat = 400
         static let searchBarHeight: CGFloat = 36
         static let tabBarHeight: CGFloat = 32
         static let hintBarHeight: CGFloat = 24
         static let horizontalPadding: CGFloat = 16
+        static let edgeInset: CGFloat = 6
+        static let cornerRadius: CGFloat = 14
     }
 
     // MARK: - Animation

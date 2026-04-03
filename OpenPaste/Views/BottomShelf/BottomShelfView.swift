@@ -9,22 +9,30 @@ struct BottomShelfView: View {
     @State var selectedId: UUID?
     @State var selectedCollectionId: UUID?
     @State var showPreview = false
+    @State private var showNewCollectionSheet = false
+    @State private var newCollectionName = ""
     @FocusState var searchFocused: Bool
+
+    @AppStorage(Constants.showShortcutHintsKey) private var showShortcutHints = true
 
     var body: some View {
         VStack(spacing: 0) {
             topBar
-            Divider()
+            Divider().opacity(0.5)
             mainContent
-            Divider()
-            ShortcutHintBar()
+
+            if showShortcutHints {
+                Divider().opacity(0.5)
+                ShortcutHintBar()
+            }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .ignoresSafeArea()
         // Background blur handled natively by NSVisualEffectView at panel level
         .overlay(alignment: .bottom) {
             if let pvm = pasteStackViewModel {
                 PasteStackOverlay(viewModel: pvm)
-                    .padding(.bottom, DS.Shelf.hintBarHeight)
+                    .padding(.bottom, showShortcutHints ? DS.Shelf.hintBarHeight : 0)
             }
         }
         .focusable()
@@ -47,42 +55,75 @@ struct BottomShelfView: View {
             moveSelection(by: 1)
             return .handled
         }
+        .onKeyPress(.delete) {
+            guard !searchFocused else { return .ignored }
+            deleteSelected()
+            return .handled
+        }
+        .onKeyPress(.deleteForward) {
+            guard !searchFocused else { return .ignored }
+            deleteSelected()
+            return .handled
+        }
         .onAppear {
             selectedId = displayItems.first?.id
             selectedCollectionId = searchViewModel.filters.collectionId
         }
         .task { await historyViewModel.loadInitial() }
         .task { await historyViewModel.observeEvents() }
+        .sheet(isPresented: $showNewCollectionSheet) {
+            newCollectionSheet
+        }
     }
+
+    // MARK: - Top Bar (Paste-style: search left, tabs center, + right)
 
     private var topBar: some View {
         HStack(spacing: DS.Spacing.md) {
+            // Search field (left)
             HStack(spacing: 6) {
                 Image(systemName: "magnifyingglass")
+                    .font(.system(size: 12))
                     .foregroundStyle(.secondary)
                 TextField("Search…", text: $searchViewModel.query)
                     .textFieldStyle(.plain)
+                    .font(.system(size: 12))
                     .focused($searchFocused)
                     .onChange(of: searchViewModel.query) { _, _ in
                         searchViewModel.searchDebounced()
                     }
+                if !searchViewModel.query.isEmpty {
+                    Button {
+                        searchViewModel.query = ""
+                        searchViewModel.searchDebounced()
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.system(size: 10))
+                            .foregroundStyle(.tertiary)
+                    }
+                    .buttonStyle(.plain)
+                }
             }
             .padding(.horizontal, 10)
             .padding(.vertical, 6)
-            .background(Color.secondary.opacity(0.08))
+            .background(Color(nsColor: .separatorColor).opacity(0.12))
             .clipShape(RoundedRectangle(cornerRadius: DS.Radius.md))
-            .frame(maxWidth: 260)
+            .frame(maxWidth: 240)
 
+            // Tab bar (fills center)
             PinboardTabBar(
                 collectionViewModel: collectionViewModel,
-                selectedCollectionId: $selectedCollectionId
+                selectedCollectionId: $selectedCollectionId,
+                onAddCollection: {
+                    newCollectionName = ""
+                    showNewCollectionSheet = true
+                }
             )
-            .frame(maxWidth: 420)
 
             Spacer()
         }
         .padding(.horizontal, DS.Shelf.horizontalPadding)
-        .padding(.vertical, 6)
+        .padding(.vertical, 8)
         .onAppear {
             searchFocused = true
         }
@@ -90,6 +131,8 @@ struct BottomShelfView: View {
             applyCollectionFilter(newValue)
         }
     }
+
+    // MARK: - Main Content
 
     private var mainContent: some View {
         Group {
@@ -107,6 +150,8 @@ struct BottomShelfView: View {
             }
         }
     }
+
+    // MARK: - Card Grid
 
     private var cardGrid: some View {
         ScrollViewReader { proxy in
@@ -158,4 +203,35 @@ struct BottomShelfView: View {
         }
     }
 
+    // MARK: - New Collection Sheet
+
+    private var newCollectionSheet: some View {
+        VStack(spacing: 16) {
+            Text("New Pinboard")
+                .font(.headline)
+
+            TextField("Name", text: $newCollectionName)
+                .textFieldStyle(.roundedBorder)
+                .frame(width: 220)
+
+            HStack(spacing: 12) {
+                Button("Cancel") {
+                    showNewCollectionSheet = false
+                }
+                .keyboardShortcut(.cancelAction)
+
+                Button("Create") {
+                    guard !newCollectionName.trimmingCharacters(in: .whitespaces).isEmpty else { return }
+                    Task {
+                        await collectionViewModel?.createCollection(name: newCollectionName)
+                        showNewCollectionSheet = false
+                    }
+                }
+                .keyboardShortcut(.defaultAction)
+                .disabled(newCollectionName.trimmingCharacters(in: .whitespaces).isEmpty)
+            }
+        }
+        .padding(24)
+        .frame(width: 300)
+    }
 }

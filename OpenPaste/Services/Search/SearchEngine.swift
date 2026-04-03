@@ -85,7 +85,7 @@ final class SearchEngine: SearchServiceProtocol, @unchecked Sendable {
     // MARK: - Filter Application
 
     private static func applyFilters(_ request: QueryInterfaceRequest<ClipboardItemRecord>, filters: SearchFilters) -> QueryInterfaceRequest<ClipboardItemRecord> {
-        var result = request
+        var result = request.filter(Column("isDeleted") == false)
         if let contentType = filters.contentType {
             result = result.filter(Column("type") == contentType.rawValue)
         }
