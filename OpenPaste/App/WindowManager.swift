@@ -72,12 +72,23 @@ final class BottomShelfPanel: NSPanel {
         minSize = NSSize(width: 350, height: DS.Shelf.minHeight)
         maxSize = NSSize(width: frame.width, height: DS.Shelf.maxHeight)
 
-        self.contentView = contentView
+        // Native AppKit blur — single GPU pass, much faster than SwiftUI .ultraThinMaterial
+        let blurView = NSVisualEffectView()
+        blurView.blendingMode = .behindWindow
+        blurView.material = .hudWindow
+        blurView.state = .active
+        blurView.wantsLayer = true
+        blurView.layer?.cornerRadius = DS.Radius.lg
+        blurView.layer?.maskedCorners = [.layerMinXMaxYCorner, .layerMaxXMaxYCorner]
+        blurView.layer?.masksToBounds = true
+        blurView.autoresizingMask = [.width, .height]
 
-        contentView.wantsLayer = true
-        contentView.layer?.cornerRadius = DS.Radius.lg
-        contentView.layer?.maskedCorners = [.layerMinXMaxYCorner, .layerMaxXMaxYCorner]
-        contentView.layer?.masksToBounds = true
+        contentView.translatesAutoresizingMaskIntoConstraints = true
+        contentView.autoresizingMask = [.width, .height]
+        contentView.frame = blurView.bounds
+        blurView.addSubview(contentView)
+
+        self.contentView = blurView
     }
 
     override func resignKey() {
@@ -102,6 +113,7 @@ final class BottomShelfPanel: NSPanel {
 final class WindowManager {
     private var panel: NSPanel?
     private var closeObserver: NSObjectProtocol?
+    private var screenObserver: NSObjectProtocol?
     var isVisible: Bool = false
     /// App đang active trước khi panel hiện lên
     private(set) var previousApp: NSRunningApplication?
@@ -160,6 +172,9 @@ final class WindowManager {
         if let obs = closeObserver {
             NotificationCenter.default.removeObserver(obs)
         }
+        if let obs = screenObserver {
+            NotificationCenter.default.removeObserver(obs)
+        }
 
         previousApp = NSWorkspace.shared.frontmostApplication
 
@@ -170,6 +185,10 @@ final class WindowManager {
         let frame = NSRect(x: visibleFrame.minX, y: visibleFrame.minY, width: visibleFrame.width, height: shelfHeight)
 
         let hostingView = NSHostingView(rootView: content())
+        // Prevent Auto Layout conflicts — let the panel drive sizing
+        hostingView.sizingOptions = []
+        hostingView.translatesAutoresizingMaskIntoConstraints = true
+        hostingView.autoresizingMask = [.width, .height]
         hostingView.frame = NSRect(x: 0, y: 0, width: frame.width, height: frame.height)
 
         let newPanel = BottomShelfPanel(contentView: hostingView, frame: frame)
@@ -198,12 +217,26 @@ final class WindowManager {
             self?.isVisible = false
             self?.panel = nil
         }
+
+        // Re-position when Dock or screen config changes
+        screenObserver = NotificationCenter.default.addObserver(
+            forName: NSApplication.didChangeScreenParametersNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            self?.repositionBottomShelf()
+        }
     }
 
     func hide() {
         guard let currentPanel = panel else {
             isVisible = false
             return
+        }
+
+        if let obs = screenObserver {
+            NotificationCenter.default.removeObserver(obs)
+            screenObserver = nil
         }
 
         if let shelfPanel = currentPanel as? BottomShelfPanel,
@@ -252,5 +285,17 @@ final class WindowManager {
     private func screenForMouse() -> NSScreen? {
         let mouseLocation = NSEvent.mouseLocation
         return NSScreen.screens.first(where: { $0.frame.contains(mouseLocation) })
+    }
+
+    private func repositionBottomShelf() {
+        guard let shelfPanel = panel as? BottomShelfPanel,
+              let screen = shelfPanel.screen ?? NSScreen.main else { return }
+        let visibleFrame = screen.visibleFrame
+        let height = shelfPanel.frame.height
+        shelfPanel.setFrame(
+            NSRect(x: visibleFrame.minX, y: visibleFrame.minY,
+                   width: visibleFrame.width, height: height),
+            display: true
+        )
     }
 }

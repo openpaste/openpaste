@@ -50,7 +50,7 @@ enum DS {
 
     // MARK: - Bottom Shelf
     enum Shelf {
-        static let defaultHeight: CGFloat = 200
+        static let defaultHeight: CGFloat = 260
         static let minHeight: CGFloat = 160
         static let maxHeight: CGFloat = 350
         static let searchBarHeight: CGFloat = 36

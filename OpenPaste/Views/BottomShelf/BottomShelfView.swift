@@ -19,7 +19,8 @@ struct BottomShelfView: View {
             Divider()
             ShortcutHintBar()
         }
-        .background(.ultraThinMaterial)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        // Background blur handled natively by NSVisualEffectView at panel level
         .overlay(alignment: .bottom) {
             if let pvm = pasteStackViewModel {
                 PasteStackOverlay(viewModel: pvm)

@@ -37,11 +37,12 @@ struct ClipboardCard: View {
         }
         .padding(8)
         .frame(width: DS.Card.width, height: DS.Card.height)
-        .background(.ultraThinMaterial)
+        .background(Color(nsColor: .controlBackgroundColor).opacity(0.5))
         .clipShape(RoundedRectangle(cornerRadius: DS.Card.cornerRadius))
         .overlay(selectionBorder)
         .overlay(alignment: .topLeading) { typeIndicator }
         .overlay(alignment: .topTrailing) { quickIndexBadge }
+        .compositingGroup()
         .scaleEffect(isHovered ? DS.Card.hoverScale : 1.0)
         .shadow(
             color: isSelected ? DS.Colors.accent.opacity(0.25) : DS.Shadow.card.color,
@@ -90,7 +91,7 @@ struct ClipboardCard: View {
                 .font(.system(size: 8, weight: .bold, design: .rounded))
                 .padding(.horizontal, 4)
                 .padding(.vertical, 2)
-                .background(.ultraThinMaterial)
+                .background(Color(nsColor: .controlBackgroundColor).opacity(0.7))
                 .clipShape(RoundedRectangle(cornerRadius: 4))
                 .padding(4)
                 .opacity(isHovered ? 1 : 0.55)
@@ -114,7 +115,7 @@ struct ClipboardCard: View {
             }
         case .image:
             sensitiveWrapper {
-                if let nsImage = NSImage(data: item.content) {
+                if let nsImage = ThumbnailCache.shared.thumbnail(for: item.id, data: item.content) {
                     Image(nsImage: nsImage)
                         .resizable()
                         .aspectRatio(contentMode: .fill)
