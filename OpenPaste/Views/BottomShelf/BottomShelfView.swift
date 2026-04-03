@@ -76,6 +76,16 @@ struct BottomShelfView: View {
                 searchFocused = true
             }
         }
+        .background(
+            ShelfKeyboardSink(
+                searchFocused: searchFocused,
+                hasSelection: selectedItem != nil,
+                onDelete: deleteSelected,
+                onMoveLeft: { moveSelection(by: -1) },
+                onMoveRight: { moveSelection(by: 1) }
+            )
+            .frame(width: 0, height: 0)
+        )
         .task { await historyViewModel.loadInitial() }
         .task { await historyViewModel.observeEvents() }
         .sheet(isPresented: $showNewCollectionSheet) {
@@ -172,6 +182,9 @@ struct BottomShelfView: View {
                             },
                             onSelect: {
                                 selectedId = item.id
+                                // Resign text field at AppKit level so Delete/arrows reach
+                                // the ShelfKeyboardSink monitor instead of the TextField.
+                                NSApp.keyWindow?.makeFirstResponder(nil)
                             },
                             onDelete: {
                                 selectedId = item.id
