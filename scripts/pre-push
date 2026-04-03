@@ -12,7 +12,7 @@ if [ "$BRANCH" = "gh-pages" ]; then
 fi
 
 echo "🧪 Pre-push: running tests on $BRANCH..."
-if ! xcodebuild test -project OpenPaste.xcodeproj -scheme OpenPaste -destination 'platform=macOS' -configuration Debug CODE_SIGNING_ALLOWED=NO > /dev/null 2>&1; then
+if ! xcodebuild test -project OpenPaste.xcodeproj -scheme OpenPaste -destination 'platform=macOS' -only-testing:OpenPasteTests -configuration Debug CODE_SIGNING_ALLOWED=NO > /dev/null 2>&1; then
     echo "❌ Tests failed. Fix tests before pushing."
     exit 1
 fi
