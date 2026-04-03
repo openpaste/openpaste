@@ -9,6 +9,7 @@ final class SearchViewModel {
     var isSearching = false
     var dismissAction: (() -> Void)?
     var reactivatePreviousApp: (() -> Void)?
+    var previousAppBundleId: (() -> String?)?
     var availableTags: [String] = []
 
     private let searchService: SearchServiceProtocol
@@ -83,13 +84,17 @@ final class SearchViewModel {
 
     func paste(_ item: ClipboardItem) async {
         await clipboardService.copyToClipboard(item)
-        dismissAction?()
 
         let shouldPasteDirectly = UserDefaults.standard.object(forKey: Constants.pasteDirectlyKey) as? Bool ?? true
-        guard shouldPasteDirectly else { return }
+        guard shouldPasteDirectly else {
+            dismissAction?()
+            return
+        }
 
+        let targetBundleId = previousAppBundleId?()
         reactivatePreviousApp?()
-        await clipboardService.simulatePasteToFrontApp()
+        dismissAction?()
+        await clipboardService.simulatePasteToFrontApp(targetBundleId: targetBundleId)
     }
 
     func pasteAsPlainText(_ item: ClipboardItem) async {

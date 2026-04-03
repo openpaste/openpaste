@@ -40,6 +40,9 @@ final class AppController {
             hvm.reactivatePreviousApp = { [weak self] in
                 self?.windowManager.reactivatePreviousApp()
             }
+            hvm.previousAppBundleId = { [weak self] in
+                self?.windowManager.previousApp?.bundleIdentifier
+            }
             historyViewModel = hvm
 
             let searchVm = SearchViewModel(
@@ -53,6 +56,9 @@ final class AppController {
             searchVm.reactivatePreviousApp = { [weak self] in
                 self?.windowManager.reactivatePreviousApp()
             }
+            searchVm.previousAppBundleId = { [weak self] in
+                self?.windowManager.previousApp?.bundleIdentifier
+            }
             searchViewModel = searchVm
 
             collectionViewModel = CollectionViewModel(storageService: c.storageService)
@@ -63,6 +69,9 @@ final class AppController {
             }
             pasteStackViewModel.reactivatePreviousApp = { [weak self] in
                 self?.windowManager.reactivatePreviousApp()
+            }
+            pasteStackViewModel.previousAppBundleId = { [weak self] in
+                self?.windowManager.previousApp?.bundleIdentifier
             }
 
             svm.onClearAllHistory = { [weak hvm] in

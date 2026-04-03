@@ -198,6 +198,7 @@ final class WindowManager {
         }
 
         previousApp = NSWorkspace.shared.frontmostApplication
+        print("[WindowManager] showBottomShelf: captured previousApp = \(previousApp?.bundleIdentifier ?? "nil"), isActive = \(previousApp?.isActive ?? false)")
 
         guard let screen = screenForMouse() ?? NSScreen.main else { return }
         let visibleFrame = screen.visibleFrame  // Area above Dock
@@ -300,6 +301,7 @@ final class WindowManager {
 
     /// Trả focus về app trước đó
     func reactivatePreviousApp() {
+        print("[WindowManager] reactivatePreviousApp: \(previousApp?.bundleIdentifier ?? "nil"), isActive = \(previousApp?.isActive ?? false)")
         previousApp?.activate()
     }
 

@@ -10,6 +10,7 @@ final class HistoryViewModel {
     var showPasteConfirmation = false
     var dismissAction: (() -> Void)?
     var reactivatePreviousApp: (() -> Void)?
+    var previousAppBundleId: (() -> String?)?
 
     // Scroll restoration state
     var scrollAnchorId: UUID?
@@ -60,15 +61,39 @@ final class HistoryViewModel {
     }
 
     func paste(_ item: ClipboardItem) async {
+        print("[Paste] Starting paste for item: \(item.type)")
         await clipboardService.copyToClipboard(item)
         showPasteConfirmation = true
-        dismissAction?()
 
         let shouldPasteDirectly = UserDefaults.standard.object(forKey: Constants.pasteDirectlyKey) as? Bool ?? true
-        guard shouldPasteDirectly else { return }
+        print("[Paste] shouldPasteDirectly = \(shouldPasteDirectly)")
+        guard shouldPasteDirectly else {
+            dismissAction?()
+            return
+        }
 
+        // Capture target BEFORE dismissing — dismiss clears window state
+        let targetBundleId = previousAppBundleId?()
+        print("[Paste] targetBundleId = \(targetBundleId ?? "nil")")
+        print("[Paste] Current frontmost = \(NSWorkspace.shared.frontmostApplication?.bundleIdentifier ?? "nil")")
+        print("[Paste] OpenPaste bundleId = \(Bundle.main.bundleIdentifier ?? "nil")")
+
+        // Reactivate target app FIRST while panel is still around
         reactivatePreviousApp?()
-        await clipboardService.simulatePasteToFrontApp()
+        print("[Paste] Called reactivatePreviousApp, waiting 100ms...")
+
+        // Give macOS time to process app activation
+        try? await Task.sleep(for: .milliseconds(100))
+
+        print("[Paste] After wait, frontmost = \(NSWorkspace.shared.frontmostApplication?.bundleIdentifier ?? "nil")")
+
+        // Then dismiss the panel
+        dismissAction?()
+        print("[Paste] Called dismissAction")
+
+        // Finally simulate ⌘V into the (now active) target app
+        await clipboardService.simulatePasteToFrontApp(targetBundleId: targetBundleId)
+        print("[Paste] simulatePasteToFrontApp completed")
     }
 
     func pasteAsPlainText(_ item: ClipboardItem) async {
@@ -126,9 +151,11 @@ final class HistoryViewModel {
         modified.content = Data(newText.utf8)
         modified.plainTextContent = newText
         await clipboardService.copyToClipboard(modified)
-        dismissAction?()
+
+        let targetBundleId = previousAppBundleId?()
         reactivatePreviousApp?()
-        await clipboardService.simulatePasteToFrontApp()
+        dismissAction?()
+        await clipboardService.simulatePasteToFrontApp(targetBundleId: targetBundleId)
     }
 
     func assignToCollection(_ item: ClipboardItem, collectionId: UUID) async {
