@@ -46,3 +46,6 @@ xcodebuild -project OpenPaste.xcodeproj -scheme OpenPaste -destination 'platform
 - Use `async/await` for concurrency, not Combine (except where unavoidable)
 - Constants go in `OpenPaste/Utilities/Constants.swift`
 - Keep files under 200 lines
+
+## Workspace Skills
+- For Apple Human Interface Guidelines reviews, macOS UI audits, SwiftUI UX polish, menu bar app UX, or accessibility-focused design feedback, use the `apple-hig-review` skill at `.github/skills/apple-hig-review/`.

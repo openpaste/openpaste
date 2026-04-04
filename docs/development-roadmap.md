@@ -4,6 +4,7 @@ Strategic roadmap for OpenPaste development phases, milestones, and feature prio
 
 **Last Updated:** April 2026  
 **Current Phase:** Foundation (In Progress)  
+**Active Go-to-Market Track:** First-users validation roadmap — see `../plans/260403-first-users-roadmap/plan.md`
 
 ---
 
@@ -49,7 +50,7 @@ Strategic roadmap for OpenPaste development phases, milestones, and feature prio
    - Updated TypeIcon sizes (14→18pt) and brand colors via `DS.Colors`
 
    **Phase 2 — Competitive Parity:**
-   - Settings migrated from `TabView` to `NavigationSplitView` with 6 sections (general, privacy, keyboard, appearance, storage, about)
+   - Settings migrated from `TabView` to `NavigationSplitView` with 7 sections (general, privacy, keyboard, appearance, sync, storage, about)
    - New `AppearanceSettingsView` (theme picker, window position mode)
    - New `StorageSettingsView` (database size, item counts by type, optimize action)
    - Pinned items section in history list with dedicated header
@@ -207,6 +208,31 @@ Strategic roadmap for OpenPaste development phases, milestones, and feature prio
 
 ---
 
+## Parallel Track: First Users & Positioning 📣
+
+**Status:** In Progress  
+**Target Completion:** Q2 2026
+
+### Milestones
+
+1. **Trust Reset & Honest Positioning**
+   - Align README, docs, and in-app copy with shipped reality
+   - Add explicit shipped / maturing / roadmap framing
+   - Establish feedback intake and weekly dashboard
+   - In-app feedback handoff shipped in Settings > About with local-first GitHub/Mail draft routing ✅
+
+2. **Sticky Recall Pack**
+   - Snippets/templates MVP
+   - Quick text transformations for developer workflows
+   - Search ranking and filter improvements
+
+3. **Private Beta → Public Launch**
+   - Recruit design partners
+   - Validate cold install + first-use experience
+   - Launch via GitHub, Homebrew, Hacker News, Reddit, Indie Hackers, and dev Twitter/X
+
+---
+
 ## Success Metrics
 
 - [ ] Clipboard history with 5,000+ items without performance degradation
@@ -217,7 +243,7 @@ Strategic roadmap for OpenPaste development phases, milestones, and feature prio
 - [x] Onboarding completes in < 2 minutes for typical user
 - [x] Centralized design system adopted across all views (`DS` enum)
 - [x] Spring-based animations replace all `easeInOut` transitions
-- [x] Settings organized into 6 navigable sections (NavigationSplitView)
+- [x] Settings organized into 7 navigable sections (NavigationSplitView)
 - [x] Keyboard shortcuts discoverable via `?` overlay
 - [x] Vim-style navigation (j/k/gg/G) operational in history list
 - [x] Window resizable within defined bounds (350×400 to 700×900)
@@ -246,6 +272,7 @@ Strategic roadmap for OpenPaste development phases, milestones, and feature prio
 ## Notes
 
 - **Q2 2026 Focus:** Complete advanced search & filtering; image metadata; performance benchmarks
+- **Q2 2026 Go-to-Market Focus:** Run the first-users roadmap in `../plans/260403-first-users-roadmap/plan.md` before expanding AI/plugin claims publicly
 - **Distribution:** v1.0.0 released — signed, notarized, Homebrew installable. See [release-guide.md](release-guide.md)
 - **UI/UX Overhaul:** Complete — design system (`DS` enum), Liquid Glass, spring animations, vim navigation, and settings redesign shipped
 - **Onboarding Release:** Ready for initial user feedback loop

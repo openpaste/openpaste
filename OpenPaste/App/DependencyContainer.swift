@@ -8,6 +8,7 @@ final class DependencyContainer {
 
     let premiumService: PremiumServiceProtocol
     let syncService: SyncServiceProtocol
+    let feedbackRouter: FeedbackRouterProtocol
 
     let storageService: StorageServiceProtocol
     let searchService: SearchServiceProtocol
@@ -18,6 +19,7 @@ final class DependencyContainer {
     init() throws {
         eventBus = EventBus()
         databaseManager = try DatabaseManager()
+        feedbackRouter = FeedbackRouter()
 
         let dbQueue = databaseManager.dbQueue
         storageService = StorageService(dbQueue: dbQueue)

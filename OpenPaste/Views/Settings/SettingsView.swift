@@ -3,6 +3,7 @@ import SwiftUI
 struct SettingsView: View {
     @Bindable var viewModel: SettingsViewModel
     var updaterService: UpdaterServiceProtocol
+    var feedbackRouter: FeedbackRouterProtocol
 
     @State private var selectedSection: SettingsSection = .general
 
@@ -11,7 +12,17 @@ struct SettingsView: View {
 
         var id: String { rawValue }
 
-        var title: String { rawValue.capitalized }
+        var title: String {
+            switch self {
+            case .general: "General"
+            case .privacy: "Privacy"
+            case .keyboard: "Keyboard"
+            case .appearance: "Appearance"
+            case .sync: "Sync (Premium Beta)"
+            case .storage: "Storage"
+            case .about: "About"
+            }
+        }
 
         var icon: String {
             switch self {
@@ -49,7 +60,7 @@ struct SettingsView: View {
             case .storage:
                 StorageSettingsView(viewModel: viewModel)
             case .about:
-                AboutView(updaterService: updaterService)
+                AboutView(updaterService: updaterService, feedbackRouter: feedbackRouter)
             }
         }
         .frame(width: 650, height: 480)

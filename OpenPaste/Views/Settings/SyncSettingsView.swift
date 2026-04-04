@@ -6,6 +6,12 @@ struct SyncSettingsView: View {
     var body: some View {
         Form {
             Section {
+                Text("Optional premium beta feature path — still maturing. OpenPaste remains local-first by default.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
+
+            Section {
                 Toggle("Enable iCloud Sync", isOn: $viewModel.iCloudSyncEnabled)
 
                 Toggle("Sync sensitive items", isOn: $viewModel.iCloudSyncIncludeSensitive)
@@ -60,7 +66,7 @@ struct SyncSettingsView: View {
             }
 
             Section {
-                Text("Clipboard data is encrypted before leaving this device.")
+                Text("Current builds may still show Premium required while sync is being hardened for broader rollout.")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }

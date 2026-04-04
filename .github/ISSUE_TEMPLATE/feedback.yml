@@ -1,0 +1,78 @@
+name: Workflow feedback
+description: Tell us what you copied, what you expected, and where OpenPaste helped or failed.
+title: "[Feedback]: "
+body:
+  - type: dropdown
+    id: install-method
+    attributes:
+      label: Install method
+      options:
+        - Homebrew
+        - DMG / GitHub Release
+        - Build from source
+        - Other
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: OpenPaste version
+      placeholder: "e.g. 1.2.0"
+    validations:
+      required: true
+
+  - type: input
+    id: macos
+    attributes:
+      label: macOS version
+      placeholder: "e.g. macOS 15.4"
+    validations:
+      required: true
+
+  - type: textarea
+    id: workflow
+    attributes:
+      label: What were you trying to do?
+      description: Describe the real workflow, not just the bug.
+      placeholder: I was copying JSON payloads between Postman and VS Code...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expectation
+    attributes:
+      label: What did you expect OpenPaste to help with?
+      placeholder: I expected to find the previous payload quickly and paste it back.
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual-result
+    attributes:
+      label: What actually happened?
+      placeholder: Search did not find it / the panel opened but paste failed / the flow felt great because...
+    validations:
+      required: true
+
+  - type: textarea
+    id: blockers
+    attributes:
+      label: What felt confusing, slow, or untrustworthy?
+      placeholder: Anything that made you hesitate, get stuck, or close the app.
+
+  - type: dropdown
+    id: quote-permission
+    attributes:
+      label: Can we quote your positive feedback publicly?
+      options:
+        - Yes
+        - No
+    validations:
+      required: true
+
+  - type: textarea
+    id: quote
+    attributes:
+      label: Optional one-line quote
+      placeholder: OpenPaste finally feels like a clipboard tool built for developers.

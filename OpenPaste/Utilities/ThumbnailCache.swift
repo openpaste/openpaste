@@ -6,11 +6,13 @@ final class ThumbnailCache: @unchecked Sendable {
     static let shared = ThumbnailCache()
 
     private let cache = NSCache<NSUUID, NSImage>()
+    private let sizeCache = NSCache<NSUUID, NSValue>()
     private let maxThumbnailSize: CGFloat = 320 // 2x card width for Retina
 
     private init() {
         cache.countLimit = 200
         cache.totalCostLimit = 50 * 1024 * 1024 // 50 MB
+        sizeCache.countLimit = 200
     }
 
     func thumbnail(for id: UUID, data: Data) -> NSImage? {
@@ -21,6 +23,7 @@ final class ThumbnailCache: @unchecked Sendable {
         }
 
         guard let original = NSImage(data: data) else { return nil }
+        sizeCache.setObject(NSValue(size: original.size), forKey: key)
 
         let thumbnail = downsample(original)
         let cost = data.count
@@ -28,8 +31,22 @@ final class ThumbnailCache: @unchecked Sendable {
         return thumbnail
     }
 
+    func originalSize(for id: UUID, data: Data) -> NSSize? {
+        let key = id as NSUUID
+
+        if let cached = sizeCache.object(forKey: key) {
+            return cached.sizeValue
+        }
+
+        guard let original = NSImage(data: data) else { return nil }
+        sizeCache.setObject(NSValue(size: original.size), forKey: key)
+        return original.size
+    }
+
     func evict(for id: UUID) {
-        cache.removeObject(forKey: id as NSUUID)
+        let key = id as NSUUID
+        cache.removeObject(forKey: key)
+        sizeCache.removeObject(forKey: key)
     }
 
     private func downsample(_ image: NSImage) -> NSImage {

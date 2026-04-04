@@ -29,7 +29,7 @@ struct OnboardingWelcomeStep: View {
                 .opacity(titleOpacity)
 
             // Subtitle
-            Text("Your intelligent clipboard manager for macOS")
+            Text("Your local-first clipboard manager for macOS")
                 .font(.title3)
                 .foregroundColor(.secondary)
                 .offset(y: subtitleOffset)
@@ -37,8 +37,8 @@ struct OnboardingWelcomeStep: View {
 
             // Feature highlights
             VStack(spacing: 12) {
-                featureRow(icon: "magnifyingglass", title: "Smart Search", desc: "Find anything you've copied instantly")
-                featureRow(icon: "lock.shield", title: "Privacy First", desc: "Your data stays on your device")
+                featureRow(icon: "magnifyingglass", title: "Fast Search", desc: "Find anything you've copied instantly")
+                featureRow(icon: "lock.shield", title: "Local First", desc: "Your clipboard stays on your Mac by default")
                 featureRow(icon: "keyboard", title: "Keyboard Driven", desc: "Power-user shortcuts for everything")
                 featureRow(icon: "text.viewfinder", title: "OCR Built-in", desc: "Extract text from images automatically")
             }

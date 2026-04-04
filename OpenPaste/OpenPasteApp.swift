@@ -48,7 +48,8 @@ struct OpenPasteApp: App {
         Settings {
             SettingsView(
                 viewModel: controller.settingsViewModel,
-                updaterService: controller.updaterService
+                updaterService: controller.updaterService,
+                feedbackRouter: controller.feedbackRouter
             )
             .onAppear {
                     NSApp.activate(ignoringOtherApps: true)

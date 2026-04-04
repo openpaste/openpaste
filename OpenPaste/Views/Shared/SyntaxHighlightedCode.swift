@@ -6,6 +6,23 @@ import AppKit
 struct SyntaxHighlightedCode: View {
     let code: String
     let maxLines: Int
+
+    private static let highlightRules: [(regex: NSRegularExpression, color: Color)] = [
+        (#"//[^\n]*"#, .gray),
+        (#"/\*[\s\S]*?\*/"#, .gray),
+        (#""[^"\\]*(?:\\.[^"\\]*)*""#, Color(nsColor: .systemRed)),
+        (#"'[^'\\]*(?:\\.[^'\\]*)*'"#, Color(nsColor: .systemRed)),
+        (#"\b\d+\.?\d*\b"#, Color(nsColor: .systemCyan)),
+        (#"\b(func|let|var|class|struct|enum|protocol|import|return|if|else|guard|switch|case|for|while|do|try|catch|throw|async|await|self|Self|true|false|nil|public|private|internal|static|final|override|init|deinit|extension|typealias|where|in|is|as|break|continue|default|defer|repeat|fallthrough|some|any)\b"#, Color(nsColor: .systemPink)),
+        (#"\b(function|const|export|from|require|yield|type|interface|implements|extends|abstract|new|delete|typeof|instanceof|void|null|undefined|def|class|lambda|elif|except|finally|pass|raise|with|print|fn|pub|mut|impl|mod|crate|use|match|loop|move|ref|trait|unsafe)\b"#, Color(nsColor: .systemPink)),
+        (#"\b(String|Int|Double|Float|Bool|Data|Date|URL|Array|Dictionary|Set|Optional|Result|Error|Any|AnyObject|UUID|NSImage|NSView|View|some)\b"#, Color(nsColor: .systemTeal)),
+        (#"@\w+"#, Color(nsColor: .systemOrange)),
+    ].compactMap { pattern, color in
+        guard let regex = try? NSRegularExpression(pattern: pattern, options: []) else {
+            return nil
+        }
+        return (regex, color)
+    }
     
     init(code: String, maxLines: Int = 3) {
         self.code = code
@@ -32,27 +49,7 @@ struct SyntaxHighlightedCode: View {
     }
     
     private func applyHighlighting(_ attributed: inout AttributedString, in text: String) {
-        let rules: [(pattern: String, color: Color)] = [
-            // Comments (// and /* */)
-            (#"//[^\n]*"#, .gray),
-            (#"/\*[\s\S]*?\*/"#, .gray),
-            // Strings
-            (#""[^"\\]*(?:\\.[^"\\]*)*""#, Color(nsColor: .systemRed)),
-            (#"'[^'\\]*(?:\\.[^'\\]*)*'"#, Color(nsColor: .systemRed)),
-            // Numbers
-            (#"\b\d+\.?\d*\b"#, Color(nsColor: .systemCyan)),
-            // Keywords (multi-language)
-            (#"\b(func|let|var|class|struct|enum|protocol|import|return|if|else|guard|switch|case|for|while|do|try|catch|throw|async|await|self|Self|true|false|nil|public|private|internal|static|final|override|init|deinit|extension|typealias|where|in|is|as|break|continue|default|defer|repeat|fallthrough|some|any)\b"#, Color(nsColor: .systemPink)),
-            // JS/TS/Python/Go/Rust keywords
-            (#"\b(function|const|export|from|require|yield|type|interface|implements|extends|abstract|new|delete|typeof|instanceof|void|null|undefined|def|class|lambda|elif|except|finally|pass|raise|with|print|fn|pub|mut|impl|mod|crate|use|match|loop|move|ref|trait|unsafe)\b"#, Color(nsColor: .systemPink)),
-            // Types
-            (#"\b(String|Int|Double|Float|Bool|Data|Date|URL|Array|Dictionary|Set|Optional|Result|Error|Any|AnyObject|UUID|NSImage|NSView|View|some)\b"#, Color(nsColor: .systemTeal)),
-            // Decorators / attributes
-            (#"@\w+"#, Color(nsColor: .systemOrange)),
-        ]
-        
-        for (pattern, color) in rules {
-            guard let regex = try? NSRegularExpression(pattern: pattern, options: []) else { continue }
+        for (regex, color) in Self.highlightRules {
             let nsRange = NSRange(text.startIndex..., in: text)
             let matches = regex.matches(in: text, options: [], range: nsRange)
             
