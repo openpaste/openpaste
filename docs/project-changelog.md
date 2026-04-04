@@ -192,6 +192,13 @@ Comprehensive three-phase UI/UX overhaul delivering a centralized design system,
 
 ### Fixed
 
+#### Bottom Shelf Interaction Responsiveness (April 2026)
+- `fix(bottomShelf)`: Replaced competing single-click and double-click tap gestures on `ClipboardCard` with a native button click path so selection highlights immediately without waiting for macOS double-click disambiguation
+- `fix(bottomShelf)`: Preserved double-click paste by routing card activation through `NSApp.currentEvent.clickCount` instead of stacked SwiftUI tap recognizers
+- `fix(bottomShelf)`: Synced search focus with card selection and suspended `ShelfKeyboardSink` while a sheet or text responder owns input to avoid Delete/arrow key interception in the “New Pinboard” flow
+- `fix(bottomShelf)`: Cached original image dimensions in `ThumbnailCache` so image card footers stop decoding full image data on every selection rerender
+- `fix(code)`: Precompiled `SyntaxHighlightedCode` regex rules to reduce repeated work when code cards re-render during Bottom Shelf selection changes
+
 #### Code Review Fixes (April 2026)
 - **Thread safety:** `MainActor.run` wrapping for `HistoryViewModel` item mutations in `observeEvents()` async stream handler
 - **Paste confirmation timing:** 600ms `Task.sleep` delay before `dismissAction` ensures overlay is visible

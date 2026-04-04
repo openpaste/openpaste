@@ -259,8 +259,8 @@ struct ClipboardCard: View {
         Group {
             switch item.type {
             case .image:
-                if let nsImage = NSImage(data: item.content) {
-                    Text("\(Int(nsImage.size.width)) × \(Int(nsImage.size.height))")
+                if let imageDimensionsText {
+                    Text(imageDimensionsText)
                 }
             case .text, .richText, .code:
                 if let text = item.plainTextContent {
@@ -276,6 +276,19 @@ struct ClipboardCard: View {
                 EmptyView()
             }
         }
+    }
+
+    private var imageDimensionsText: String? {
+        if let width = item.metadata["imageWidth"],
+           let height = item.metadata["imageHeight"] {
+            return "\(width) × \(height)"
+        }
+
+        guard let size = ThumbnailCache.shared.originalSize(for: item.id, data: item.content) else {
+            return nil
+        }
+
+        return "\(Int(size.width)) × \(Int(size.height))"
     }
 
     // MARK: - Status Badges
