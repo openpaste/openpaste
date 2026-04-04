@@ -4,6 +4,9 @@
 <dict>
 	<key>SUFeedURL</key>
 	<string>https://openpaste.github.io/openpaste/appcast.xml</string>
+	<!-- Sparkle's installer XPC service is required for sandboxed app updates. -->
+	<key>SUEnableInstallerLauncherService</key>
+	<true/>
 	<key>SUPublicEDKey</key>
 	<string>k+n1mXiTIIqt/Fytb92Pr1AQP1Ap4ByEdwLHLYOUJWA=</string>
 </dict>
