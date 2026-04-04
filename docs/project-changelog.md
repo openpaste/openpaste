@@ -2,33 +2,45 @@
 
 All notable changes to the OpenPaste project are documented in this file. Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
-## [1.0.0] — 2026-04-02
+## [Unreleased]
+
+_No notable changes yet._
+
+## [1.3.0] — 2026-04-04
 
 ### Added
 
-#### Distribution & CI/CD Pipeline (April 2026)
-Full release pipeline: code signing, Apple notarization, DMG packaging, GitHub Releases, and Homebrew Cask distribution.
+#### In-App Feedback Handoff (April 2026)
+- `feat(settings)`: Added `Send Feedback…` to Settings > About
+- `feat(feedback)`: Added a local-first feedback form that pre-fills app version, macOS version, and likely install method
+- `feat(feedback)`: Routes workflow feedback, bug reports, and feature requests to GitHub’s structured feedback form with pre-filled fields
+- `feat(feedback)`: Routes praise and general feedback to a pre-filled Mail draft for private follow-up
+- `test(feedback)`: Added route-generation and view-model tests for validation, metadata defaults, and reset behavior
 
-- **Bundle ID** changed from `com.openshot.OpenPaste` to `dev.tuanle.OpenPaste` (6 locations in `project.pbxproj` + `Constants.swift`)
-- **Code signing:** Developer ID Application certificate (Team ID: `VGQU7EVXZV`)
-- **Notarization:** Apple `notarytool submit --wait` + `stapler staple` — app passes Gatekeeper
-- **DMG packaging:** `scripts/create-dmg.sh` — creates compressed DMG with /Applications symlink
-- **GitHub Actions:** `.github/workflows/release.yml` — tag push triggers: build → sign → notarize → staple → DMG → GitHub Release → Homebrew tap update
-- **Homebrew Cask:** `openpaste/homebrew-tap` repo with `Casks/openpaste.rb` — auto-updated via `repository-dispatch` on every release
-- **Installation:** `brew tap openpaste/tap && brew install --cask openpaste`
-- **Version format:** Semver `X.Y.Z` (`MARKETING_VERSION` in 6 build configs must match git tag)
+#### First-Users Launch Surfaces (April 2026)
+- Added `docs/positioning.md`, `docs/launch-faq.md`, `docs/feedback-template.md`, `docs/first-users-dashboard.md`, and `docs/design-partner-outreach.md`
+- Added `.github/ISSUE_TEMPLATE/feedback.yml` for structured workflow feedback intake
+- Added `.github/skills/apple-hig-review/` guidance and reference docs to support future macOS UI audits
 
-**New Files:**
+### Changed
 
-| File | Purpose |
-|------|---------|
-| `.github/workflows/release.yml` | CI/CD: build, sign, notarize, release, update Homebrew |
-| `scripts/create-dmg.sh` | DMG creation script with SHA-256 output |
-| `docs/release-guide.md` | Step-by-step release procedure document |
-| `docs/system-architecture.md` | Full architecture overview |
+#### Trust Reset & Positioning Alignment (April 2026)
+- `README.md`: repositioned OpenPaste as a native, local-first clipboard manager for developers instead of leading with unshipped AI claims
+- `README.md`: added explicit `Shipped Today`, `Still Maturing`, and `Planned Later` sections to reduce promise/product drift
+- `prd.md`: clarified that the PRD is a longer-term product vision, not a claim that every feature is already shipped
+- `Views/Settings/AboutView.swift`: updated in-app About messaging to match the current product story
+- `Views/Settings/SettingsView.swift`: renamed the sync section label to `Sync (Premium Beta)` for clearer expectations in Settings
+- Developer docs now reflect the macOS 15+ and Xcode 16+ minimum baseline
+- GitHub Releases now use the annotated git tag body as the release body
 
 ### Fixed
-- `SettingsViewModel.onClearAllHistory` — added `@ObservationIgnored` to fix Swift 6.2 `@Observable` macro type conflict with `nonisolated(nonsending)` closure type
+
+#### Bottom Shelf Interaction Responsiveness (April 2026)
+- `fix(bottomShelf)`: Replaced competing single-click and double-click tap gestures on `ClipboardCard` with a native button click path so selection highlights immediately without waiting for macOS double-click disambiguation
+- `fix(bottomShelf)`: Preserved double-click paste by routing card activation through `NSApp.currentEvent.clickCount` instead of stacked SwiftUI tap recognizers
+- `fix(bottomShelf)`: Synced search focus with card selection and suspended `ShelfKeyboardSink` while a sheet or text responder owns input to avoid Delete/arrow key interception in the “New Pinboard” flow
+- `fix(bottomShelf)`: Cached original image dimensions in `ThumbnailCache` so image card footers stop decoding full image data on every selection rerender
+- `fix(code)`: Precompiled `SyntaxHighlightedCode` regex rules to reduce repeated work when code cards re-render during Bottom Shelf selection changes
 
 ---
 
@@ -60,196 +72,24 @@ Foundation for real-time clipboard sync across devices using CloudKit.
 #### Release Infrastructure (April 2026)
 - `feat(release)`: Dynamic release body generation from commit history; structured release notes in GitHub Releases
 
-### Fixed
+#### UI & Settings Refresh (April 2026)
+- Centralized `DS` design system tokens for colors, spacing, radius, animation, typography, shadow, and Liquid Glass feature detection
+- Added reusable hover highlight, paste confirmation, keyboard shortcut overlay, and smart filter bar components
+- Migrated Settings from `TabView` to `NavigationSplitView` with six sections: General, Privacy, Keyboard, Appearance, Storage, and About
+- Added `AppearanceSettingsView` for theme and window-position controls
+- Added `StorageSettingsView` for database size, item counts, and storage optimization actions
+- Improved History and Search presentation with pinned sections, larger previews, spring animations, empty-state polish, and cursor-positioned windows
 
-- `fix(ui)`: Use `maskImage` for reliable panel corner rounding across macOS versions
-- `fix(settings)`: Correct database size calculation path
-- `fix(ci)`: Skip UI tests in pre-push hook to unblock local developer workflows
-- `fix(test)`: Add `UserDefaults.synchronize()` to prevent flaky CI test failures
-
-### Performance
-
-- `perf`: Optimized Bottom Shelf window positioning and rendering performance
-
----
-
-## [Unreleased]
-
-### Changed
-
-#### Trust Reset & Positioning Alignment (April 2026)
-- `README.md`: repositioned OpenPaste as a native, local-first clipboard manager for developers instead of leading with unshipped AI claims
-- `README.md`: added explicit `Shipped Today`, `Still Maturing`, and `Planned Later` sections to reduce promise/product drift
-- `prd.md`: added a status note clarifying the PRD is long-term product vision, not a claim that every feature is shipped today
-- `Views/Settings/AboutView.swift`: updated in-app About messaging to match the current product story
-- `docs/development-roadmap.md`: added the active first-users validation track and linked the 6-week roadmap
-
-### Added
-
-#### In-App Feedback Handoff (April 2026)
-- `feat(settings)`: Added `Send Feedback…` entry point in Settings > About
-- `feat(feedback)`: Added a local-first feedback form that pre-fills app version, macOS version, and likely install method
-- `feat(feedback)`: Routes workflow feedback, bug reports, and feature requests to GitHub’s structured feedback form with pre-filled fields
-- `feat(feedback)`: Routes praise / other feedback to a pre-filled Mail draft for private follow-up
-- `test(feedback)`: Added route-generation and view-model tests for validation, metadata defaults, and reset behavior
-
-#### First-Users Launch Surfaces (April 2026)
-- `docs/positioning.md` — frozen 6-week positioning statement, public-message variants, and messaging guardrails
-- `docs/launch-faq.md` — honest FAQ covering privacy, sync, encryption, and roadmap status
-- `docs/feedback-template.md` — copy/paste template for bugs, workflow feedback, and testimonial capture
-- `docs/first-users-dashboard.md` — privacy-safe weekly acquisition and retention dashboard template
-- `docs/design-partner-outreach.md` — design-partner invite script and short interview plan
-- `.github/ISSUE_TEMPLATE/feedback.yml` — structured workflow feedback intake form
-
-#### UI/UX Overhaul — Design System & Liquid Glass (April 2026)
-Comprehensive three-phase UI/UX overhaul delivering a centralized design system, competitive-parity features, and delight-layer polish.
-
-**Phase 1 — Essential Polish:**
-- Centralized `DS` design system enum in `Views/Shared/DesignSystem.swift` with namespaced tokens:
-  - `DS.Colors` — Brand accent (`#2EC4B6`), secondary (`#6159DB`), and per-content-type colors (text, richText, image, file, link, color, code)
-  - `DS.Spacing` — 7 steps: `xxs` (2pt) through `xxl` (24pt)
-  - `DS.Radius` — `sm` (4pt), `md` (8pt), `lg` (12pt)
-  - `DS.Animation` — `springDefault`, `springSnappy`, `springGentle`, `quick`
-  - `DS.Typography` — `rowTitle`, `rowMeta`, `codePreview`, `filterChip`, `sectionHeader`
-  - `DS.Shadow` — `card` (black 8% opacity, radius 4, y-offset 2)
-  - `DS.Glass` — `isAvailable` flag for Liquid Glass feature detection
-- Reusable `.hoverHighlight()` view modifier (`Views/Shared/HoverHighlightModifier.swift`) with configurable `cornerRadius` and `DS.Animation.quick` transitions
-- Paste confirmation overlay (`Views/Shared/PasteConfirmationOverlay.swift`) — green `checkmark.circle.fill` with bounce symbol effect, ultra-thin material background, asymmetric scale+opacity transition, auto-dismiss via structured concurrency (`Task.sleep` 800ms)
-- Redesigned filter chips using `DS` tokens with count badges
-- `TypeIcon` sizes updated from 14pt → 18pt in 28×28 frame; colors mapped through `DS.Colors`
-
-**Phase 2 — Competitive Parity:**
-- Settings migrated from `TabView` to `NavigationSplitView` with 7 sections via `SettingsSection` enum:
-  - `.general` (gear), `.privacy` (lock.shield), `.keyboard` (keyboard), `.appearance` (paintbrush), `.sync` (icloud), `.storage` (internaldrive), `.about` (info.circle)
-  - Fixed frame: 650×480
-- New `AppearanceSettingsView` (`Views/Settings/AppearanceSettingsView.swift`):
-  - Theme picker (System / Light / Dark) via `@AppStorage(Constants.appearanceThemeKey)`
-  - Window position mode (Center / Near cursor) via `@AppStorage(Constants.windowPositionModeKey)`
-- New `StorageSettingsView` (`Views/Settings/StorageSettingsView.swift`):
-  - Database size display, total item count, breakdown by `ContentType`
-  - "Optimize Storage…" action (calls `viewModel.optimizeStorage()`)
-  - Data loaded via `viewModel.loadStorageInfo()` in `.task`
-- Pinned items section in `HistoryView` — items with `pinned == true` render in a dedicated section with `pin.fill` icon header styled with `DS.Colors.accent`
-- Keyboard shortcut overlay (`Views/Shared/KeyboardShortcutOverlay.swift`):
-  - Two sections: Navigation (`j/k`, `gg`, `G`) and Actions (`Enter`, `Tab`, `Escape`, `/`, `?`)
-  - `@FocusState` management for immediate key capture; any key press dismisses
-  - Ultra-thick material backdrop with `DS.Shadow.card` shadow
-  - Toggled via `?` key in `HistoryView`
-- Spring-based animations replacing `easeInOut` throughout — all list mutations, transitions, and state changes use `DS.Animation.springDefault` or `DS.Animation.springSnappy`
-- Panel fade-in: `ContentView` applies `scaleEffect(0.96→1.0)` + `opacity(0→1)` on appear with `DS.Animation.springDefault`
-- Content preview improvements: larger image previews, spring-animated transitions
-
-**Phase 3 — Delight & Differentiation:**
-- Liquid Glass integration via `.glassEffect(.regular, in: .rect(cornerRadius: DS.Radius.md))` on tab picker in `ContentView`
-- Redesigned empty state in `HistoryView`: animated clipboard icon with `.symbolEffect(.pulse.byLayer)`, shortcut hint badge (`⇧⌘V`), and scale+opacity transition
-- Smart filter bar (`Views/Shared/SmartFilterBar.swift`):
-  - Time range filters: "Last 24h", "Last 7 days", "Last 30 days" via `TimeRange` enum in `SearchFilters.swift`
-  - Toggle filters: "Pinned", "Starred"
-  - Horizontal scroll with `DS.Spacing.sm` chip spacing
-- `SettingsViewModel` storage info: `databaseSize`, `totalItemCount`, `itemCountByType` properties with `loadStorageInfo()` computing counts by paginated fetch and `ByteCountFormatter`
-- Cursor-positioned window mode in `WindowManager`: `positionNearCursor()` reads `Constants.windowPositionModeKey`, centers panel at mouse location clamped to visible screen frame
-- Resizable window: `FloatingPanel` `minSize` 350×400, `maxSize` 700×900; `ContentView` frame constraints match
-
-**New Files:**
-
-| File | Purpose |
-|------|---------|
-| `Views/Shared/DesignSystem.swift` | Centralized `DS` enum with Colors, Spacing, Radius, Animation, Typography, Shadow, Glass tokens |
-| `Views/Shared/HoverHighlightModifier.swift` | Reusable `.hoverHighlight()` ViewModifier |
-| `Views/Shared/PasteConfirmationOverlay.swift` | Green checkmark flash overlay with structured concurrency auto-dismiss |
-| `Views/Shared/KeyboardShortcutOverlay.swift` | `?`-key cheatsheet with `@FocusState` and key-press dismissal |
-| `Views/Shared/SmartFilterBar.swift` | Time-range and pin/star filter chips |
-| `Views/Settings/AppearanceSettingsView.swift` | Theme and window position settings |
-| `Views/Settings/StorageSettingsView.swift` | Database size, item counts, optimize action |
-
-**Modified Files (26 total, +634 / −77 lines):**
-- `App/AppController.swift` — Wired new overlay and filter components
-- `App/WindowManager.swift` — Cursor-positioned mode, `NotificationCenter` observer leak fix, resizable panel
-- `ContentView.swift` — Panel fade-in animation, `.glassEffect` on tab picker, resizable frame constraints
-- `Models/SearchFilters.swift` — Added `TimeRange` enum, `pinnedOnly`, `starredOnly`, `timeRange` fields
-- `Utilities/Constants.swift` — Added `appearanceThemeKey`, `historyRetentionDaysKey`, `windowPositionModeKey`, `savedWindowFrameKey`
-- `ViewModels/HistoryViewModel.swift` — `showPasteConfirmation` state, `MainActor.run` for thread-safe mutations in `observeEvents()`, 600ms paste confirmation timing before dismiss
-- `ViewModels/SearchViewModel.swift` — Smart filter bar integration
-- `ViewModels/SettingsViewModel.swift` — Storage info properties (`databaseSize`, `totalItemCount`, `itemCountByType`), `loadStorageInfo()`, `optimizeStorage()`
-- `Views/Collections/CollectionListView.swift` — Brand color and DS token updates
-- `Views/History/ClipboardItemRow.swift` — Hover highlight integration
-- `Views/History/HistoryView.swift` — Pinned section, keyboard shortcut overlay, vim-style navigation (`j/k/gg/G`), empty state redesign, paste confirmation overlay
-- `Views/PasteStack/PasteStackOverlay.swift` — Brand color and spring animation updates
-- `Views/Search/SearchView.swift` — Smart filter bar integration, DS token adoption
-- `Views/Settings/AboutView.swift` — Layout adjustments for NavigationSplitView
-- `Views/Settings/GeneralSettingsView.swift` — Added retention days setting
-- `Views/Settings/SettingsView.swift` — Migrated to `NavigationSplitView` with `SettingsSection` enum
-- `Views/Shared/ContentPreviewView.swift` — Larger image previews, spring animations
-- `Views/Shared/TypeIcon.swift` — 14pt → 18pt icons, colors via `DS.Colors`
-
-#### Bottom Shelf (Paste-style) window mode (April 2026)
-- New window mode option in Settings > Appearance
-- Slide-up bottom panel with a horizontal card grid
-- Preview pane toggle (`Tab` / `Space`)
-- Shortcut hint bar
-- Keyboard shortcuts: `Enter` (paste), `Shift+Enter` (paste as plain text), `⌘1`–`⌘9` (select), `d` (delete), `p` (pin), `s` (star)
-- Pinboard tabs now show collection color; existing pinboard items migrated automatically
-
-### Fixed
-
-#### Bottom Shelf Interaction Responsiveness (April 2026)
-- `fix(bottomShelf)`: Replaced competing single-click and double-click tap gestures on `ClipboardCard` with a native button click path so selection highlights immediately without waiting for macOS double-click disambiguation
-- `fix(bottomShelf)`: Preserved double-click paste by routing card activation through `NSApp.currentEvent.clickCount` instead of stacked SwiftUI tap recognizers
-- `fix(bottomShelf)`: Synced search focus with card selection and suspended `ShelfKeyboardSink` while a sheet or text responder owns input to avoid Delete/arrow key interception in the “New Pinboard” flow
-- `fix(bottomShelf)`: Cached original image dimensions in `ThumbnailCache` so image card footers stop decoding full image data on every selection rerender
-- `fix(code)`: Precompiled `SyntaxHighlightedCode` regex rules to reduce repeated work when code cards re-render during Bottom Shelf selection changes
-
-#### Code Review Fixes (April 2026)
-- **Thread safety:** `MainActor.run` wrapping for `HistoryViewModel` item mutations in `observeEvents()` async stream handler
-- **Paste confirmation timing:** 600ms `Task.sleep` delay before `dismissAction` ensures overlay is visible
-- **NotificationCenter observer leak:** `WindowManager.show()` now removes previous `closeObserver` before adding a new one
-- **Double opacity animation:** Removed conflicting animation on panel appearance
-- **Storage counts:** `StorageSettingsView` wired to `SettingsViewModel.loadStorageInfo()` with paginated type counting
-- **KeyboardShortcutOverlay focus:** `@FocusState` + `.focused()` + `.onAppear { isFocused = true }` ensures immediate key capture
-- **Structured concurrency:** `PasteConfirmationOverlay` uses `.task` + `Task.sleep` instead of `DispatchQueue.main.asyncAfter`
-
----
+#### Bottom Shelf (Paste-style) Window Mode (April 2026)
+- Added a new window mode option in Settings > Appearance
+- Added a slide-up bottom panel with a horizontal card grid, preview toggle, and shortcut hint bar
+- Added keyboard shortcuts for paste, plain-text paste, quick selection, delete, pin, and star actions
+- Pinboard tabs now show collection color; existing pinboard items migrate automatically
 
 #### Onboarding Feature (April 2026)
-Complete first-launch onboarding experience with step-by-step guided setup.
-
-**Components:**
-- 5-step onboarding flow: Welcome → Permissions → Shortcut → Preferences → Ready
-- `OnboardingViewModel` — State management and navigation logic
-- `OnboardingView` — Container view with spring animations and progress indicators
-- `OnboardingWindowManager` — NSWindow-based presentation (first launch detection)
-- Step views: `WelcomeStepView`, `PermissionsStepView`, `ShortcutStepView`, `PreferencesStepView`, `ReadyStepView`
-
-**Features:**
-- Accessibility permission check with `AXIsProcessTrusted()` + System Settings deep link
-- Live permission status polling with auto-detection when user grants access
-- Interactive hotkey recorder UI for customizable global shortcut configuration
-- Custom key combination saved to `UserDefaults` with automatic loading by `HotkeyManager`
-- Launch at login configuration during onboarding flow
-- Spring animations and staggered reveal animations for UI polish
-- Progress indicator dots showing current step
-- Responsive layout adapting to window size
-- Back/Next navigation with previous step disabling on first step
-
-**Tests:**
-- 20 unit tests in `OnboardingViewModelTests.swift` covering:
-  - Initial state validation (default step, total steps, default hotkey)
-  - Navigation logic (next/previous step transitions)
-  - Progress calculation and state tracking
-  - Hotkey customization and persistence
-  - Permission polling and status updates
-  - Launch at login settings
-
-**Integration:**
-- Modified `AppDelegate` for first-launch detection and window presentation
-- Modified `AppController` to coordinate onboarding flow
-- Modified `HotkeyManager` to load custom hotkeys from UserDefaults
-- Updated `Constants.swift` with onboarding-related key strings
-- Updated `OpenPasteApp` to support onboarding workflow
-
-**Breaking Changes:** None
-
----
+- Added a 5-step onboarding flow: Welcome → Permissions → Shortcut → Preferences → Ready
+- Added onboarding state management, window presentation, permission polling, and a custom hotkey recorder
+- Added launch-at-login setup and onboarding coverage in `OnboardingViewModelTests.swift`
 
 #### Sparkle Auto-Update Framework (April 2026)
 In-app automatic update system powered by Sparkle 2.9.1 with EdDSA code signing.
@@ -282,6 +122,55 @@ In-app automatic update system powered by Sparkle 2.9.1 with EdDSA code signing.
 - `SPARKLE_EDDSA_PRIVATE_KEY` — Base64-encoded Ed25519 private key (imported during build)
 
 **Breaking Changes:** None
+
+### Fixed
+
+- `fix(ui)`: Use `maskImage` for reliable panel corner rounding across macOS versions
+- `fix(settings)`: Correct database size calculation path
+- `fix(ci)`: Skip UI tests in pre-push hook to unblock local developer workflows
+- `fix(test)`: Add `UserDefaults.synchronize()` to prevent flaky CI test failures
+
+#### Code Review Fixes (April 2026)
+- Wrapped `HistoryViewModel.observeEvents()` item mutations in `MainActor.run` for thread safety
+- Ensured paste confirmation stays visible before dismissal by using a 600ms delay
+- Removed the previous `WindowManager.show()` close observer before adding a new one
+- Wired `StorageSettingsView` to paginated storage counts from `SettingsViewModel.loadStorageInfo()`
+- Ensured `KeyboardShortcutOverlay` captures focus immediately on appearance
+- Moved paste confirmation auto-dismiss logic to structured concurrency
+
+### Performance
+
+- `perf`: Optimized Bottom Shelf window positioning and rendering performance
+
+---
+
+## [1.0.0] — 2026-04-02
+
+### Added
+
+#### Distribution & CI/CD Pipeline (April 2026)
+Full release pipeline: code signing, Apple notarization, DMG packaging, GitHub Releases, and Homebrew Cask distribution.
+
+- **Bundle ID** changed from `com.openshot.OpenPaste` to `dev.tuanle.OpenPaste` (6 locations in `project.pbxproj` + `Constants.swift`)
+- **Code signing:** Developer ID Application certificate (Team ID: `VGQU7EVXZV`)
+- **Notarization:** Apple `notarytool submit --wait` + `stapler staple` — app passes Gatekeeper
+- **DMG packaging:** `scripts/create-dmg.sh` — creates compressed DMG with /Applications symlink
+- **GitHub Actions:** `.github/workflows/release.yml` — tag push triggers: build → sign → notarize → staple → DMG → GitHub Release → Homebrew tap update
+- **Homebrew Cask:** `openpaste/homebrew-tap` repo with `Casks/openpaste.rb` — auto-updated via `repository-dispatch` on every release
+- **Installation:** `brew tap openpaste/tap && brew install --cask openpaste`
+- **Version format:** Semver `X.Y.Z` (`MARKETING_VERSION` in 6 build configs must match git tag)
+
+**New Files:**
+
+| File | Purpose |
+|------|---------|
+| `.github/workflows/release.yml` | CI/CD: build, sign, notarize, release, update Homebrew |
+| `scripts/create-dmg.sh` | DMG creation script with SHA-256 output |
+| `docs/release-guide.md` | Step-by-step release procedure document |
+| `docs/system-architecture.md` | Full architecture overview |
+
+### Fixed
+- `SettingsViewModel.onClearAllHistory` — added `@ObservationIgnored` to fix Swift 6.2 `@Observable` macro type conflict with `nonisolated(nonsending)` closure type
 
 ---
 
