@@ -4,6 +4,14 @@ All notable changes to the OpenPaste project are documented in this file. Format
 
 ## [Unreleased]
 
+### Changed
+
+- `chore(release)`: enabled repo auto-merge so protected `develop -> main` release PRs can use `gh pr merge --auto` instead of requiring a second manual merge after CI turns green
+- `ci(workflows)`: upgraded official GitHub Actions pins in CI/release workflows to Node 24-ready versions where available (`actions/checkout`, `actions/upload-artifact`)
+- `ci(release)`: replaced JavaScript-based GitHub Release publishing and Homebrew tap dispatch steps with `gh` CLI commands so release reruns are idempotent and stop depending on Node 20-only actions
+- `fix(release)`: release workflow reruns now skip duplicate GitHub Release asset uploads and duplicate Sparkle appcast entries for the same tag, while suppressing the Homebrew dispatch once the tap already reflects that version
+- `.gitignore`: now ignores generated root-level `OpenPaste-*.dmg` artifacts to keep local release experiments out of future ship commits
+
 ## [1.3.1] — 2026-04-04
 
 ### Added

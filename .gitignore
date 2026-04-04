@@ -83,3 +83,6 @@ homebrew-tap/
 # Certificates
 *.p12
 *.cer
+
+# Generated release artifacts
+OpenPaste-*.dmg

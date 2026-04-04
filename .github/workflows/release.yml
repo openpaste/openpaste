@@ -8,13 +8,19 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref_name }}
+  cancel-in-progress: false
+
 jobs:
   build:
     name: Build & Release
     runs-on: macos-15
+    env:
+      GH_TOKEN: ${{ github.token }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6.0.2
         with:
           fetch-depth: 0
 
@@ -144,6 +150,34 @@ jobs:
           chmod +x scripts/create-dmg.sh
           ./scripts/create-dmg.sh build/export/OpenPaste.app build/export
 
+      - name: Get version from tag
+        id: version
+        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Ensure GitHub Release asset
+        id: release_asset
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          DMG_PATH=$(ls build/export/OpenPaste-*.dmg)
+          DMG_NAME=$(basename "$DMG_PATH")
+          PUBLISHED_DIR="$RUNNER_TEMP/published"
+
+          mkdir -p "$PUBLISHED_DIR"
+
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            if gh release view "$TAG" --json assets --jq '.assets[].name' | grep -Fxq "$DMG_NAME"; then
+              echo "==> GitHub Release already contains ${DMG_NAME}; reusing published asset"
+            else
+              gh release upload "$TAG" "$DMG_PATH"
+            fi
+          else
+            gh release create "$TAG" "$DMG_PATH" --title "$TAG" --notes "Release assets uploaded by workflow. Release notes will be updated once checksums are computed."
+          fi
+
+          gh release download "$TAG" --pattern "$DMG_NAME" --dir "$PUBLISHED_DIR" --clobber
+          echo "path=$PUBLISHED_DIR/$DMG_NAME" >> "$GITHUB_OUTPUT"
+          echo "name=$DMG_NAME" >> "$GITHUB_OUTPUT"
+
       - name: Download Sparkle tools
         run: |
           SPARKLE_VERSION="2.9.1"
@@ -160,19 +194,15 @@ jobs:
         env:
           SPARKLE_EDDSA_KEY: ${{ secrets.SPARKLE_EDDSA_PRIVATE_KEY }}
         run: |
-          DMG_PATH=$(ls build/export/OpenPaste-*.dmg)
+          DMG_PATH="${{ steps.release_asset.outputs.path }}"
           echo "Signing: $DMG_PATH"
           SIGNATURE=$(echo "$SPARKLE_EDDSA_KEY" | /tmp/sparkle/bin/sign_update "$DMG_PATH" --ed-key-file - -p)
           echo "eddsa_signature=${SIGNATURE}" >> "$GITHUB_OUTPUT"
 
-      - name: Get version from tag
-        id: version
-        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
-
       - name: Compute SHA-256
         id: sha
         run: |
-          SHA=$(shasum -a 256 build/export/OpenPaste-*.dmg | awk '{print $1}')
+          SHA=$(shasum -a 256 "${{ steps.release_asset.outputs.path }}" | awk '{print $1}')
           echo "sha256=${SHA}" >> "$GITHUB_OUTPUT"
 
       - name: Build release body
@@ -195,33 +225,56 @@ jobs:
           printf '\n---\n**SHA-256:** `%s`\n' "${{ steps.sha.outputs.sha256 }}" >> "$BODY_FILE"
           echo "path=$BODY_FILE" >> "$GITHUB_OUTPUT"
 
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          files: build/export/OpenPaste-*.dmg
-          body_path: ${{ steps.body.outputs.path }}
+      - name: Sync GitHub Release metadata
+        run: |
+          gh release edit "${GITHUB_REF_NAME}" --title "${GITHUB_REF_NAME}" --notes-file "${{ steps.body.outputs.path }}"
+
+      - name: Read Homebrew tap version
+        id: tap
+        env:
+          GH_TOKEN: ${{ secrets.TAP_REPO_TOKEN }}
+        run: |
+          CONTENT=$(gh api 'repos/openpaste/homebrew-tap/contents/Casks/openpaste.rb?ref=main' --jq '.content')
+          CURRENT_VERSION=$(printf '%s' "$CONTENT" | base64 --decode | sed -n 's/^  version "\(.*\)"$/\1/p' | head -1)
+
+          if [ -z "$CURRENT_VERSION" ]; then
+            echo "::error::Could not determine current Homebrew tap version"
+            exit 1
+          fi
+
+          echo "current_version=${CURRENT_VERSION}" >> "$GITHUB_OUTPUT"
 
       - name: Update Homebrew tap
-        if: success()
-        uses: peter-evans/repository-dispatch@v3
-        with:
-          token: ${{ secrets.TAP_REPO_TOKEN }}
-          repository: openpaste/homebrew-tap
-          event-type: update-cask
-          client-payload: |
-            {
+        if: success() && steps.tap.outputs.current_version != steps.version.outputs.version
+        env:
+          GH_TOKEN: ${{ secrets.TAP_REPO_TOKEN }}
+        run: |
+          DISPATCH_PAYLOAD=$RUNNER_TEMP/homebrew-dispatch.json
+
+          cat > "$DISPATCH_PAYLOAD" <<EOF
+          {
+            "event_type": "update-cask",
+            "client_payload": {
               "version": "${{ steps.version.outputs.version }}",
               "sha256": "${{ steps.sha.outputs.sha256 }}",
-              "url": "https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/OpenPaste-${{ steps.version.outputs.version }}.dmg"
+              "url": "https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/${{ steps.release_asset.outputs.name }}"
             }
+          }
+          EOF
+
+          gh api repos/openpaste/homebrew-tap/dispatches --method POST --input "$DISPATCH_PAYLOAD"
+
+      - name: Skip Homebrew tap update when already current
+        if: success() && steps.tap.outputs.current_version == steps.version.outputs.version
+        run: echo "==> Homebrew tap already references version ${{ steps.version.outputs.version }}; skipping dispatch"
 
       - name: Update appcast for Sparkle
         if: success()
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          DMG_PATH=$(ls build/export/OpenPaste-*.dmg)
-          DMG_NAME=$(basename "$DMG_PATH")
+          DMG_PATH="${{ steps.release_asset.outputs.path }}"
+          DMG_NAME="${{ steps.release_asset.outputs.name }}"
           VERSION="${{ steps.version.outputs.version }}"
           DMG_SIZE=$(stat -f%z "$DMG_PATH")
           SIGNATURE="${{ steps.sign.outputs.eddsa_signature }}"
@@ -241,12 +294,20 @@ jobs:
           }
           git checkout gh-pages
 
-          # Insert new item before </channel>
           if [ -f appcast.xml ]; then
-            sed -i '' "s|  </channel>|${ITEM}\\n  </channel>|" appcast.xml
-            git add appcast.xml
-            git commit -m "chore: update appcast for v${VERSION}"
-            git push origin gh-pages
+            if grep -q "<sparkle:version>${VERSION}</sparkle:version>" appcast.xml; then
+              echo "==> Appcast already contains version ${VERSION}; skipping"
+            else
+              sed -i '' "s|  </channel>|${ITEM}\\n  </channel>|" appcast.xml
+              git add appcast.xml
+
+              if git diff --cached --quiet; then
+                echo "==> No appcast changes detected after insertion; skipping"
+              else
+                git commit -m "chore: update appcast for v${VERSION}"
+                git push origin gh-pages
+              fi
+            fi
           else
             echo "appcast.xml not found on gh-pages, skipping"
           fi
