@@ -4,7 +4,7 @@
 
 set -eo pipefail
 
-SECRET_PATTERNS="(AKIA[0-9A-Z]{16}|-----BEGIN [A-Z0-9 ]*PRIVATE KEY( BLOCK)?-----|^[[:space:]]*(export[[:space:]]+)?(([A-Za-z_][A-Za-z0-9_]*_)?(api[_-]?key|password|secret|private[_-]?key)[A-Za-z0-9_]*)[[:space:]]*=[[:space:]]*[^[:space:]]+|^[[:space:]]*[\"']?(api[_-]?key|password|secret|private[_-]?key)[\"']?[[:space:]]*:[[:space:]]*[\"'][^\"']+[\"']|\b(let|var|const)[[:space:]]+(api[_-]?key|password|secret|private[_-]?key)[[:space:]]*=[[:space:]]*[\"'][^\"']+[\"'])"
+SECRET_PATTERNS="(AKIA[0-9A-Z]{16}|-----BEGIN [A-Z0-9 ]*PRIVATE KEY( BLOCK)?-----|^[[:space:]]*(export[[:space:]]+)?(([A-Za-z_][A-Za-z0-9_]*_)?(api[_-]?key|password|secret|private[_-]?key))[[:space:]]*=[[:space:]]*[^[:space:]]+|^[[:space:]]*[\"']?(api[_-]?key|password|secret|private[_-]?key)[\"']?[[:space:]]*:[[:space:]]*[\"'][^\"']+[\"']|\b(let|var|const)[[:space:]]+(api[_-]?key|password|secret|private[_-]?key)[[:space:]]*=[[:space:]]*[\"'][^\"']+[\"'])"
 BUILD_LOG="$(mktemp -t openpaste-precommit-build)"
 trap 'rm -f "$BUILD_LOG"' EXIT
 
