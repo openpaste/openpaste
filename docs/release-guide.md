@@ -17,7 +17,9 @@ Step-by-step guide for cutting a new release.
 | `APPLE_TEAM_ID` | Apple Developer Team ID (`VGQU7EVXZV`) |
 | `APPLE_ID` | Apple ID for notarization |
 | `APPLE_ID_PASSWORD` | App-specific password (not account password) |
-| `TAP_REPO_TOKEN` | GitHub PAT with `repo` scope for `openpaste/homebrew-tap` || `SPARKLE_EDDSA_PRIVATE_KEY` | Base64-encoded Ed25519 private key for signing DMG and appcast.xml |
+| `TAP_REPO_TOKEN` | GitHub PAT with `repo` scope for `openpaste/homebrew-tap` |
+| `SPARKLE_EDDSA_PRIVATE_KEY` | Base64-encoded Ed25519 private key for signing DMG and appcast.xml |
+
 ### Apple Developer Portal
 
 - **Certificate type:** Developer ID Application (NOT Apple Development)
@@ -52,7 +54,37 @@ cat sparkle_private.key
 
 ## Release Workflow
 
-### 1. Bump Version
+### 1. Pre-flight & Analyze Release Scope
+
+All release prep happens on `develop`. Use the `develop → main` PR diff as the source of truth for the release scope.
+
+```bash
+# Confirm clean working tree + branch
+git status --short
+git branch --show-current
+
+# Reuse an existing release PR if one already exists
+gh pr list --base main --head develop --state open
+
+# Analyze the actual release diff
+git log --format='%h %s' main..develop
+git diff --stat main..develop
+```
+
+> **Why `main..develop`?** In this repository, `main` can contain commits after the previous tag that are not part of the next release diff. The release PR diff is the reliable source of truth.
+
+Before bumping the version:
+
+- generate `RELEASE_NOTES.md` with user-facing notes
+- run the full test suite with a pipefail-safe command
+- only proceed if tests pass
+
+```bash
+set -o pipefail
+xcodebuild test -project OpenPaste.xcodeproj -scheme OpenPaste -destination 'platform=macOS' 2>&1 | tee /tmp/openpaste-release-tests.log | tail -30
+```
+
+### 2. Bump Version and Update Release Metadata on `develop`
 
 Update `MARKETING_VERSION` and `CURRENT_PROJECT_VERSION` in **all 6** build configurations in `project.pbxproj`:
 
@@ -68,29 +100,62 @@ grep -c 'CURRENT_PROJECT_VERSION = 1.1.0' OpenPaste.xcodeproj/project.pbxproj
 
 > **CRITICAL:** `MARKETING_VERSION` and `CURRENT_PROJECT_VERSION` must be the same semver (`X.Y.Z`). Sparkle compares `sparkle:version` (appcast) against `CFBundleVersion` (`CURRENT_PROJECT_VERSION`). A mismatch causes false update prompts.
 
-### 2. Tag from Develop
-
-All changes accumulate on `develop`. Create a PR to `main` — the PR diff is used to analyze changes and determine version bump:
+After bumping:
 
 ```bash
-# Create release PR (analyze its diff to determine version)
+# Compile-check before commit
+set -o pipefail
+xcodebuild -project OpenPaste.xcodeproj -scheme OpenPaste -destination 'platform=macOS' build 2>&1 | tee /tmp/openpaste-release-build.log | tail -10
+
+# Update changelog / release notes, then commit on develop
+git add OpenPaste.xcodeproj/project.pbxproj docs/project-changelog.md RELEASE_NOTES.md
+git commit -m "chore(build): bump version to X.Y.Z"
+git push origin develop
+```
+
+### 3. Merge Release PR and Tag on `main`
+
+Create or reuse the release PR to `main`, then inspect its merge state before merging:
+
+```bash
+# Create the release PR if needed
 gh pr create --base main --head develop --title "chore: release vX.Y.Z"
 
-# After version bump committed to develop and PR updated, merge:
-gh pr merge --merge --subject "chore: release vX.Y.Z"
+# Or update the existing release PR title after the bump commit lands
+gh pr edit <pr-number> --title "chore: release vX.Y.Z"
 
-# Tag on main after merge
+# Check protected-branch requirements / checks
+gh pr view <pr-number> --json mergeStateStatus,statusCheckRollup,url
+
+# If branch protection blocks an immediate merge, arm auto-merge
+gh pr merge <pr-number> --auto --merge --subject "chore: release vX.Y.Z"
+
+# Wait until the PR is actually merged before tagging main
+gh pr view <pr-number> --json state,mergeStateStatus,url
+```
+
+If the PR is already mergeable and checks are green, direct merge is fine:
+
+```bash
+gh pr merge <pr-number> --merge --subject "chore: release vX.Y.Z"
+```
+
+Then tag on `main` after the PR has actually merged:
+
+```bash
 git checkout main && git pull origin main
-git tag vX.Y.Z
+git tag -a vX.Y.Z -F RELEASE_NOTES.md
 git push origin main --tags
 ```
 
-### 3. Automated Pipeline (triggered by tag push)
+> **Why annotated tags?** `RELEASE_NOTES.md` is the release-body source of truth in CI, and tagging with `-F RELEASE_NOTES.md` keeps the tag annotation aligned with the published notes.
+
+### 4. Automated Pipeline (triggered by tag push)
 
 The tag push triggers `.github/workflows/release.yml`:
 
 ```
-Tag Push → Build → Sign → Notarize → Staple → DMG → GitHub Release → Update Homebrew Tap
+Tag Push → Build → Sign → Notarize → DMG → GitHub Release → Update Homebrew Tap → Update Sparkle Appcast
 ```
 
 | Step | What happens |
@@ -101,9 +166,21 @@ Tag Push → Build → Sign → Notarize → Staple → DMG → GitHub Release �
 | **Staple** | `stapler staple` attaches notarization ticket to .app |
 | **DMG** | `scripts/create-dmg.sh` creates `OpenPaste-X.Y.Z.dmg` |
 | **DMG Sign (Sparkle)** | Private key from `SPARKLE_EDDSA_PRIVATE_KEY` signs the DMG for update verification |
-| **Appcast Gen** | `generate_appcast` tool creates `appcast.xml` with version, download link, delta patches, and EdDSA signatures |
-| **Pages Deploy** | Appcast + DMG pushed to `gh-pages` branch; served at `https://openpaste.github.io/openpaste/appcast.xml` |
-gh release view v1.1.0
+| **GitHub Release** | `softprops/action-gh-release` publishes the DMG to GitHub Releases |
+| **Homebrew Tap Update** | `repository-dispatch` tells `openpaste/homebrew-tap` to update the cask version + SHA-256 |
+| **Appcast Update** | The workflow appends a new `<item>` entry to `appcast.xml` on `gh-pages`, pointing to the GitHub Release DMG URL and EdDSA signature |
+| **Release Body** | The workflow uses `RELEASE_NOTES.md` from the tagged commit as the public GitHub Release body, then appends the DMG SHA-256 |
+
+**Recommended verification commands:**
+
+```bash
+GH_PAGER=cat gh run list --limit 10 --json databaseId,workflowName,displayTitle,headBranch,event,status,conclusion,url
+GH_PAGER=cat gh run watch <run-id> --exit-status
+
+# If watch output becomes unreadable in the current terminal, fall back to snapshots
+GH_PAGER=cat gh run view <run-id> --json status,conclusion,jobs,url | cat
+
+gh release view vX.Y.Z
 
 # Verify Homebrew tap updated (wait ~1min for dispatch workflow)
 brew untap openpaste/tap 2>/dev/null
@@ -146,7 +223,7 @@ xcrun stapler staple build/OpenPaste.app
 ./scripts/create-dmg.sh build/OpenPaste.app build/
 
 # 5) Upload release
-gh release create v1.1.0 build/OpenPaste-1.1.0.dmg --generate-notes
+gh release create v1.1.0 build/OpenPaste-1.1.0.dmg --notes-file RELEASE_NOTES.md
 
 # 6) Manually update homebrew-tap Casks/openpaste.rb with new version + SHA256
 ```
@@ -158,12 +235,13 @@ gh release create v1.1.0 build/OpenPaste-1.1.0.dmg --generate-notes
 | Field | Location | Format |
 |-------|----------|--------|
 | `MARKETING_VERSION` | `project.pbxproj` (×6 configs) | `X.Y.Z` (semver) |
-| `CURRENT_PROJECT_VERSION` | `project.pbxproj` | Integer build number |
+| `CURRENT_PROJECT_VERSION` | `project.pbxproj` (×6 configs) | `X.Y.Z` (same semver as `MARKETING_VERSION` in this repo) |
+| `RELEASE_NOTES.md` | Project root | User-facing notes used for the annotated release tag |
 | Git tag | `git tag vX.Y.Z` | Must match MARKETING_VERSION with `v` prefix |
 
 **Version ↔ Tag ↔ DMG name chain:**
 ```
-MARKETING_VERSION=1.2.0 → tag v1.2.0 → OpenPaste-1.2.0.dmg → brew cask version "1.2.0"
+MARKETING_VERSION=1.2.0 = CURRENT_PROJECT_VERSION=1.2.0 → tag v1.2.0 → OpenPaste-1.2.0.dmg → brew cask version "1.2.0"
 ```
 
 ---
@@ -176,9 +254,9 @@ MARKETING_VERSION=1.2.0 → tag v1.2.0 → OpenPaste-1.2.0.dmg → brew cask ver
 
 This feed is consumed by users' `UpdaterService` instances to check for updates.
 
-### Delta Patches
+### Appcast Entries
 
-The `generate_appcast` tool automatically creates binary delta patches between released versions, reducing download size for incremental updates. Users on older versions only download the delta, not the full DMG.
+The release workflow appends a new `<item>` to `appcast.xml` on `gh-pages` for each release. That item points Sparkle to the DMG hosted on GitHub Releases and includes the EdDSA signature generated during the release workflow.
 
 ### Testing Updates Locally
 

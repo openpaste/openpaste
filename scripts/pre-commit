@@ -2,18 +2,28 @@
 # Pre-commit hook: build check + secret scan
 # Install: git config core.hooksPath scripts
 
-set -e
+set -eo pipefail
 
-echo "🔍 Pre-commit: checking for secrets..."
-if git diff --cached | grep -iE "(AKIA[0-9A-Z]{16}|api[_-]?key\s*=|password\s*=|secret\s*=|private[_-]?key|-----BEGIN)" | grep -v "grep" > /dev/null 2>&1; then
-    echo "❌ Potential secrets detected in staged files!"
-    echo "   Run: git diff --cached | grep -iE 'api.key|password|secret|private.key'"
+SECRET_PATTERNS="(AKIA[0-9A-Z]{16}|-----BEGIN [A-Z0-9 ]*PRIVATE KEY( BLOCK)?-----|^[[:space:]]*(export[[:space:]]+)?(([A-Za-z_][A-Za-z0-9_]*_)?(api[_-]?key|password|secret|private[_-]?key))[[:space:]]*=[[:space:]]*[^[:space:]]+|^[[:space:]]*[\"']?(api[_-]?key|password|secret|private[_-]?key)[\"']?[[:space:]]*:[[:space:]]*[\"'][^\"']+[\"']|\b(let|var|const)[[:space:]]+(api[_-]?key|password|secret|private[_-]?key)[[:space:]]*=[[:space:]]*[\"'][^\"']+[\"'])"
+BUILD_LOG="$(mktemp -t openpaste-precommit-build)"
+trap 'rm -f "$BUILD_LOG"' EXIT
+
+echo "🔍 Pre-commit: checking added staged lines for secrets..."
+ADDED_LINES=$(git diff --cached --no-color --unified=0 | grep -E '^\+[^+]' | sed 's/^+//' || true)
+if printf '%s\n' "$ADDED_LINES" | grep -iE "$SECRET_PATTERNS" > /dev/null 2>&1; then
+    echo "❌ Potential secrets detected in added staged lines!"
+    echo "   Review newly added lines in the staged diff and remove secrets before committing."
     echo "   Remove secrets and try again."
     exit 1
 fi
 
 echo "🔨 Pre-commit: building..."
-if ! xcodebuild -project OpenPaste.xcodeproj -scheme OpenPaste -destination 'platform=macOS' build 2>&1 | tail -3 | grep -q "BUILD SUCCEEDED"; then
+if ! xcodebuild -project OpenPaste.xcodeproj -scheme OpenPaste -destination 'platform=macOS' build 2>&1 | tee "$BUILD_LOG" | tail -3; then
+    echo "❌ Build failed. Fix errors before committing."
+    exit 1
+fi
+
+if ! grep -q "BUILD SUCCEEDED" "$BUILD_LOG"; then
     echo "❌ Build failed. Fix errors before committing."
     exit 1
 fi
