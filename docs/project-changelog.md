@@ -4,7 +4,10 @@ All notable changes to the OpenPaste project are documented in this file. Format
 
 ## [Unreleased]
 
-_No notable changes yet._
+### Changed
+
+- `docs/release-guide.md`: aligned the release guide with the real git-flow release process, including `main..develop` analysis, pipefail-safe test commands, semver-matched `CURRENT_PROJECT_VERSION`, explicit wait/re-check after auto-merge, and the actual Sparkle appcast update flow
+- `.github/workflows/release.yml`: GitHub Releases now build the public release body directly from `RELEASE_NOTES.md` in the tagged commit instead of reconstructing it from git tag contents
 
 ## [1.3.0] — 2026-04-04
 
@@ -31,7 +34,7 @@ _No notable changes yet._
 - `Views/Settings/AboutView.swift`: updated in-app About messaging to match the current product story
 - `Views/Settings/SettingsView.swift`: renamed the sync section label to `Sync (Premium Beta)` for clearer expectations in Settings
 - Developer docs now reflect the macOS 15+ and Xcode 16+ minimum baseline
-- GitHub Releases now use the annotated git tag body as the release body
+- Release automation stopped generating GitHub Release notes from commit history and moved toward explicit release-note inputs
 
 ### Fixed
 

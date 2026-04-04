@@ -15,6 +15,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup Xcode
         uses: maxim-lobanov/setup-xcode@v1
@@ -177,12 +179,19 @@ jobs:
         id: body
         run: |
           BODY_FILE=$RUNNER_TEMP/release_body.md
-          # Use git tag annotation message as release notes (strip first line which is the tag name)
-          git tag -l --format='%(contents)' "${{ github.ref_name }}" | tail -n +2 > "$BODY_FILE"
-          # Fallback if tag message is empty
+          # Prefer the checked-in release notes file from the tagged commit.
+          # This is more stable than reconstructing notes from git tag contents.
+          if [ -s RELEASE_NOTES.md ]; then
+            cat RELEASE_NOTES.md > "$BODY_FILE"
+          else
+            git tag -l --format='%(contents)' "${{ github.ref_name }}" > "$BODY_FILE"
+          fi
+
+          # Fallback if both sources are empty
           if [ ! -s "$BODY_FILE" ]; then
             echo "See assets below for the full download." > "$BODY_FILE"
           fi
+
           printf '\n---\n**SHA-256:** `%s`\n' "${{ steps.sha.outputs.sha256 }}" >> "$BODY_FILE"
           echo "path=$BODY_FILE" >> "$GITHUB_OUTPUT"
 
