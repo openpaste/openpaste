@@ -12,6 +12,10 @@ if [ "$BRANCH" = "gh-pages" ]; then
 fi
 
 echo "🧪 Pre-push: running tests on $BRANCH..."
+
+# Kill any stale app instance so the macOS test runner can establish its connection cleanly.
+/usr/bin/pkill -x OpenPaste >/dev/null 2>&1 || true
+
 if ! xcodebuild test -project OpenPaste.xcodeproj -scheme OpenPaste -destination 'platform=macOS' -only-testing:OpenPasteTests -configuration Debug CODE_SIGNING_ALLOWED=NO > /dev/null 2>&1; then
     echo "❌ Tests failed. Fix tests before pushing."
     exit 1
