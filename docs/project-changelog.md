@@ -4,6 +4,16 @@ All notable changes to the OpenPaste project are documented in this file. Format
 
 ## [Unreleased]
 
+## [1.3.1] — 2026-04-04
+
+### Added
+
+- `test(update)`: added an opt-in installed-app Sparkle UI validation path in `OpenPasteUITests/OpenPasteUITests.swift` for local end-to-end updater verification
+
+### Fixed
+
+- `fix(update)`: enabled Sparkle’s required installer launcher XPC service in `OpenPaste/Info.plist` and added the documented `-spks` / `-spki` mach-lookup entitlement exceptions so sandboxed builds can hand off update installation instead of failing with “An error occurred while launching the installer.”
+
 ### Changed
 
 - `docs/release-guide.md`: aligned the release guide with the real git-flow release process, including `main..develop` analysis, pipefail-safe test commands, semver-matched `CURRENT_PROJECT_VERSION`, explicit wait/re-check after auto-merge, and the actual Sparkle appcast update flow
