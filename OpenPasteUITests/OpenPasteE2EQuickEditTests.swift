@@ -23,6 +23,7 @@ final class OpenPasteE2EQuickEditTests: XCTestCase {
         app.launchEnvironment["OPENPASTE_UI_TEST_OPEN_PANEL"] = "1"
         app.launchEnvironment["OPENPASTE_UI_TEST_SEED_IMAGE"] = "1"
         app.launchEnvironment["OPENPASTE_UI_TEST_AUTO_OPEN_QUICK_EDIT"] = "1"
+        app.launchEnvironment["OPENPASTE_UI_TEST_IMAGE_SCALE"] = "0.25"
         app.launch()
         app.activate()
         defer { app.terminate() }
@@ -33,13 +34,9 @@ final class OpenPasteE2EQuickEditTests: XCTestCase {
             "Expected Quick Edit sheet to open in UI test mode"
         )
 
-        // Scale slider to min (0.25x) then paste.
-        let scaleSlider = app.sliders["quickEdit.scaleSlider"]
-        XCTAssertTrue(scaleSlider.waitForExistence(timeout: 5))
-        scaleSlider.adjust(toNormalizedSliderPosition: 0.0)
-
         let pasteButton = app.buttons["quickEdit.pasteButton"]
         XCTAssertTrue(pasteButton.waitForExistence(timeout: 5))
+        let initialChangeCount = pasteboard.changeCount
         pasteButton.click()
 
         // Verify we got a TIFF of the expected resized pixel dimensions.
@@ -49,8 +46,10 @@ final class OpenPasteE2EQuickEditTests: XCTestCase {
         let deadline = Date().addingTimeInterval(2)
         var tiffData: Data?
         while Date() < deadline {
-            tiffData = pasteboard.data(forType: .tiff)
-            if tiffData != nil { break }
+            if pasteboard.changeCount > initialChangeCount {
+                tiffData = pasteboard.data(forType: .tiff)
+                if tiffData != nil { break }
+            }
             RunLoop.current.run(mode: .default, before: Date().addingTimeInterval(0.05))
         }
 

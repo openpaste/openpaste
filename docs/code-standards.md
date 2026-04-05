@@ -207,6 +207,7 @@ The app supports deterministic end-to-end UI automation via launch environment v
 | `OPENPASTE_UI_TEST_SEED_IMAGE=1` | Seeds a deterministic image item into the database at launch |
 | `OPENPASTE_UI_TEST_OPEN_PANEL=1` | Auto-opens the main panel after launch (for UI tests) |
 | `OPENPASTE_UI_TEST_AUTO_OPEN_QUICK_EDIT=1` | Auto-opens the Quick Edit sheet for the first image item (for UI tests) |
+| `OPENPASTE_UI_TEST_IMAGE_SCALE=<float>` | Preloads the Quick Edit image scale in UI-test mode (clamped to `0.25...2.0` and snapped to 0.25x steps) so E2E tests avoid flaky slider dragging. |
 | `OPENPASTE_UI_TEST_SQLCIPHER_PASTEBOARD=<name>` | Publishes SQLCipher UI-test diagnostics as JSON on a named pasteboard so the runner can verify DB creation/header state without relying on direct container file reads |
 
 **Coverage targets:**

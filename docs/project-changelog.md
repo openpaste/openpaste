@@ -23,6 +23,7 @@ All notable changes to the OpenPaste project are documented in this file. Format
 ### Fixed
 
 - `fix(test)`: stabilized hosted-app startup for local and CI test runs by honoring UI-test launch mode earlier, suppressing updater interference during test sessions, and adding a pre-push path for installed-app updater verification
+- `fix(test)`: stabilized `OpenPasteUITests/OpenPasteE2EQuickEditTests` by replacing flaky macOS slider automation with a deterministic UI-test image-scale hook and by waiting for a real pasteboard change before reading exported TIFF data
 - `fix(test)`: stabilized `OpenPasteUITests/OpenPasteE2ESQLCipherTests` across signed local runs and unsigned CI-like runs by switching SQLCipher verification from brittle cross-process file reads to app-emitted diagnostics over a named pasteboard
 - `fix(test)`: isolated `OpenPasteTests/KeychainHelperTests` keychain entries per worker process so parallelized test hosts stop colliding on the same test credential namespace
 - `fix(build)`: excluded `OpenPaste/Info.plist` from the app target's auto-synced target membership so Xcode no longer warns that the target Info.plist is being copied via Copy Bundle Resources
