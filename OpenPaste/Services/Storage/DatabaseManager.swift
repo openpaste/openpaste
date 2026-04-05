@@ -1,4 +1,5 @@
 import Foundation
+import Darwin
 import GRDB
 
 actor DatabaseManager {
@@ -7,78 +8,98 @@ actor DatabaseManager {
     private static let dbFileName = "clipboard.sqlite"
     private static let encryptedDbFileName = "clipboard_encrypted.sqlite"
 
-    init() throws {
+    init(
+        databaseDirectoryOverride: URL? = nil,
+        passphraseProvider: (() throws -> String)? = nil
+    ) throws {
         let fileManager = FileManager.default
 
-        // Prefer a sandbox-compatible location so enabling App Sandbox later doesn't reset user data.
-        // - Legacy (pre-sandbox): ~/Library/Application Support/OpenPaste/
-        // - Sandbox: ~/Library/Containers/<bundleId>/Data/Library/Application Support/OpenPaste/
-        // NOTE: We compute the legacy path explicitly so it remains correct even when App Sandbox is enabled
-        // (where `.applicationSupportDirectory` resolves inside the app container).
-        let legacyDirectory = fileManager.homeDirectoryForCurrentUser
-            .appendingPathComponent("Library", isDirectory: true)
-            .appendingPathComponent("Application Support", isDirectory: true)
-            .appendingPathComponent("OpenPaste", isDirectory: true)
+        let dbDirectory: URL
+        if let override = databaseDirectoryOverride {
+            dbDirectory = override
+            try fileManager.createDirectory(at: dbDirectory, withIntermediateDirectories: true)
+        } else {
+            // Prefer a sandbox-compatible location so enabling App Sandbox later doesn't reset user data.
+            // - Legacy (pre-sandbox): ~/Library/Application Support/OpenPaste/
+            // - Sandbox: ~/Library/Containers/<bundleId>/Data/Library/Application Support/OpenPaste/
+            // NOTE: We compute the legacy path explicitly so it remains correct even when App Sandbox is enabled
+            // (where `.applicationSupportDirectory` resolves inside the app container).
+            let realHomeDirectory: URL = {
+                if let pw = getpwuid(getuid()),
+                   let homePath = String(validatingUTF8: pw.pointee.pw_dir) {
+                    return URL(fileURLWithPath: homePath, isDirectory: true)
+                }
+                return fileManager.homeDirectoryForCurrentUser
+            }()
 
-        let bundleId = Bundle.main.bundleIdentifier ?? "dev.tuanle.OpenPaste"
-        let preferredAppSupportURL = fileManager.homeDirectoryForCurrentUser
-            .appendingPathComponent("Library", isDirectory: true)
-            .appendingPathComponent("Containers", isDirectory: true)
-            .appendingPathComponent(bundleId, isDirectory: true)
-            .appendingPathComponent("Data", isDirectory: true)
-            .appendingPathComponent("Library", isDirectory: true)
-            .appendingPathComponent("Application Support", isDirectory: true)
+            let legacyDirectory = realHomeDirectory
+                .appendingPathComponent("Library", isDirectory: true)
+                .appendingPathComponent("Application Support", isDirectory: true)
+                .appendingPathComponent("OpenPaste", isDirectory: true)
 
-        let dbDirectory = preferredAppSupportURL.appendingPathComponent("OpenPaste", isDirectory: true)
-        try fileManager.createDirectory(at: dbDirectory, withIntermediateDirectories: true)
+            let bundleId = Bundle.main.bundleIdentifier ?? "dev.tuanle.OpenPaste"
+            let preferredAppSupportURL = realHomeDirectory
+                .appendingPathComponent("Library", isDirectory: true)
+                .appendingPathComponent("Containers", isDirectory: true)
+                .appendingPathComponent(bundleId, isDirectory: true)
+                .appendingPathComponent("Data", isDirectory: true)
+                .appendingPathComponent("Library", isDirectory: true)
+                .appendingPathComponent("Application Support", isDirectory: true)
 
-        try Self.copyLegacyDatabaseIfNeeded(
-            legacyDirectory: legacyDirectory,
-            targetDirectory: dbDirectory,
-            fileManager: fileManager
-        )
+            dbDirectory = preferredAppSupportURL.appendingPathComponent("OpenPaste", isDirectory: true)
+            try fileManager.createDirectory(at: dbDirectory, withIntermediateDirectories: true)
+
+            try Self.copyLegacyDatabaseIfNeeded(
+                legacyDirectory: legacyDirectory,
+                targetDirectory: dbDirectory,
+                fileManager: fileManager
+            )
+        }
 
         let dbPath = dbDirectory.appendingPathComponent(Self.dbFileName).path
-
-        #if GRDBCIPHER
-        let passphrase = try KeychainHelper.shared.getOrCreatePassphrase()
-        #endif
+        let resolvePassphrase = passphraseProvider ?? { try KeychainHelper.shared.getOrCreatePassphrase() }
+        let passphrase = try resolvePassphrase()
 
         var config = Configuration()
         config.prepareDatabase { db in
-            #if GRDBCIPHER
             try db.usePassphrase(passphrase)
-            #endif
             try db.execute(sql: "PRAGMA journal_mode=WAL")
             try db.execute(sql: "PRAGMA synchronous=NORMAL")
         }
 
         // Migrate unencrypted DB if needed
-        let unencryptedExists = fileManager.fileExists(atPath: dbPath)
+        let dbExists = fileManager.fileExists(atPath: dbPath)
         let migrationMarker = dbDirectory.appendingPathComponent(".encrypted").path
 
-        #if GRDBCIPHER
-        if unencryptedExists && !fileManager.fileExists(atPath: migrationMarker) {
-            let encryptedPath = dbDirectory.appendingPathComponent(Self.encryptedDbFileName).path
-            try Self.migrateToEncrypted(
-                unencryptedPath: dbPath,
-                encryptedPath: encryptedPath,
-                passphrase: passphrase
-            )
-            // Atomic replacement: backup original, move encrypted, then cleanup
-            let backupPath = dbPath + ".bak"
-            try fileManager.moveItem(atPath: dbPath, toPath: backupPath)
-            try fileManager.moveItem(atPath: encryptedPath, toPath: dbPath)
-            try? fileManager.removeItem(atPath: backupPath)
-            fileManager.createFile(atPath: migrationMarker, contents: nil)
+        if dbExists && !fileManager.fileExists(atPath: migrationMarker) {
+            if Self.isPlainSQLiteDatabase(atPath: dbPath) {
+                let encryptedPath = dbDirectory.appendingPathComponent(Self.encryptedDbFileName).path
+                try Self.migrateToEncrypted(
+                    unencryptedPath: dbPath,
+                    encryptedPath: encryptedPath,
+                    passphrase: passphrase
+                )
+                // Atomic replacement: backup original, move encrypted, then cleanup
+                let backupPath = dbPath + ".bak"
+                try fileManager.moveItem(atPath: dbPath, toPath: backupPath)
+                try fileManager.moveItem(atPath: encryptedPath, toPath: dbPath)
+                try? fileManager.removeItem(atPath: backupPath)
+                fileManager.createFile(atPath: migrationMarker, contents: nil)
+            } else {
+                // DB already looks encrypted; prevent re-migration loops.
+                fileManager.createFile(atPath: migrationMarker, contents: nil)
+            }
         }
-        #endif
 
         dbQueue = try DatabaseQueue(path: dbPath, configuration: config)
 
         var migrator = DatabaseMigrator()
         DatabaseMigrations.registerMigrations(&migrator)
         try migrator.migrate(dbQueue)
+
+        if !fileManager.fileExists(atPath: migrationMarker) {
+            fileManager.createFile(atPath: migrationMarker, contents: nil)
+        }
 
         dbQueue.add(transactionObserver: syncChangeTracker)
     }
@@ -126,7 +147,15 @@ actor DatabaseManager {
         }
     }
 
-    #if GRDBCIPHER
+    private static func isPlainSQLiteDatabase(atPath path: String) -> Bool {
+        guard let data = try? Data(contentsOf: URL(fileURLWithPath: path), options: [.mappedIfSafe]),
+              data.count >= 16
+        else { return false }
+
+        let magic = Data("SQLite format 3\u{0}".utf8)
+        return data.prefix(16) == magic
+    }
+
     /// Migrate an unencrypted database to SQLCipher-encrypted format
     private static func migrateToEncrypted(
         unencryptedPath: String,
@@ -134,7 +163,7 @@ actor DatabaseManager {
         passphrase: String
     ) throws {
         let source = try DatabaseQueue(path: unencryptedPath)
-        try source.write { db in
+        try source.writeWithoutTransaction { db in
             try db.execute(
                 sql: "ATTACH DATABASE ? AS encrypted KEY ?",
                 arguments: [encryptedPath, passphrase]
@@ -143,5 +172,4 @@ actor DatabaseManager {
             try db.execute(sql: "DETACH DATABASE encrypted")
         }
     }
-    #endif
 }

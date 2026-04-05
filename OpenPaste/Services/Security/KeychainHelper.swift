@@ -3,9 +3,17 @@ import Security
 
 final class KeychainHelper: @unchecked Sendable {
     static let shared = KeychainHelper()
-    
-    private let service = Constants.bundleIdentifier
-    private let passphraseKey = "database-encryption-key"
+
+    private let service: String
+    private let passphraseKey: String
+
+    init(
+        service: String = Constants.bundleIdentifier,
+        passphraseKey: String = "database-encryption-key"
+    ) {
+        self.service = service
+        self.passphraseKey = passphraseKey
+    }
     
     func getOrCreatePassphrase() throws -> String {
         if let existing = try? retrievePassphrase() {
