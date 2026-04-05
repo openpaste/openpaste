@@ -1,9 +1,11 @@
-import Foundation
 import Darwin
+import Foundation
 import GRDB
 
 actor DatabaseManager {
     nonisolated let dbQueue: DatabaseQueue
+    nonisolated let databaseFileURL: URL
+    nonisolated let encryptionMarkerURL: URL
     private let syncChangeTracker = SyncChangeTracker()
     private static let dbFileName = "clipboard.sqlite"
     private static let encryptedDbFileName = "clipboard_encrypted.sqlite"
@@ -26,19 +28,22 @@ actor DatabaseManager {
             // (where `.applicationSupportDirectory` resolves inside the app container).
             let realHomeDirectory: URL = {
                 if let pw = getpwuid(getuid()),
-                   let homePath = String(validatingUTF8: pw.pointee.pw_dir) {
+                    let homePath = String(validatingUTF8: pw.pointee.pw_dir)
+                {
                     return URL(fileURLWithPath: homePath, isDirectory: true)
                 }
                 return fileManager.homeDirectoryForCurrentUser
             }()
 
-            let legacyDirectory = realHomeDirectory
+            let legacyDirectory =
+                realHomeDirectory
                 .appendingPathComponent("Library", isDirectory: true)
                 .appendingPathComponent("Application Support", isDirectory: true)
                 .appendingPathComponent("OpenPaste", isDirectory: true)
 
             let bundleId = Bundle.main.bundleIdentifier ?? "dev.tuanle.OpenPaste"
-            let preferredAppSupportURL = realHomeDirectory
+            let preferredAppSupportURL =
+                realHomeDirectory
                 .appendingPathComponent("Library", isDirectory: true)
                 .appendingPathComponent("Containers", isDirectory: true)
                 .appendingPathComponent(bundleId, isDirectory: true)
@@ -46,7 +51,8 @@ actor DatabaseManager {
                 .appendingPathComponent("Library", isDirectory: true)
                 .appendingPathComponent("Application Support", isDirectory: true)
 
-            dbDirectory = preferredAppSupportURL.appendingPathComponent("OpenPaste", isDirectory: true)
+            dbDirectory = preferredAppSupportURL.appendingPathComponent(
+                "OpenPaste", isDirectory: true)
             try fileManager.createDirectory(at: dbDirectory, withIntermediateDirectories: true)
 
             try Self.copyLegacyDatabaseIfNeeded(
@@ -57,7 +63,10 @@ actor DatabaseManager {
         }
 
         let dbPath = dbDirectory.appendingPathComponent(Self.dbFileName).path
-        let resolvePassphrase = passphraseProvider ?? { try KeychainHelper.shared.getOrCreatePassphrase() }
+        databaseFileURL = dbDirectory.appendingPathComponent(Self.dbFileName)
+        encryptionMarkerURL = dbDirectory.appendingPathComponent(".encrypted")
+        let resolvePassphrase =
+            passphraseProvider ?? { try KeychainHelper.shared.getOrCreatePassphrase() }
         let passphrase = try resolvePassphrase()
 
         var config = Configuration()
@@ -69,11 +78,12 @@ actor DatabaseManager {
 
         // Migrate unencrypted DB if needed
         let dbExists = fileManager.fileExists(atPath: dbPath)
-        let migrationMarker = dbDirectory.appendingPathComponent(".encrypted").path
+        let migrationMarker = encryptionMarkerURL.path
 
         if dbExists && !fileManager.fileExists(atPath: migrationMarker) {
             if Self.isPlainSQLiteDatabase(atPath: dbPath) {
-                let encryptedPath = dbDirectory.appendingPathComponent(Self.encryptedDbFileName).path
+                let encryptedPath = dbDirectory.appendingPathComponent(Self.encryptedDbFileName)
+                    .path
                 try Self.migrateToEncrypted(
                     unencryptedPath: dbPath,
                     encryptedPath: encryptedPath,
@@ -112,7 +122,8 @@ actor DatabaseManager {
         return try await operation()
     }
 
-    nonisolated func setSyncOutboxCallback(_ callback: @escaping (_ recordNames: [String]) -> Void) {
+    nonisolated func setSyncOutboxCallback(_ callback: @escaping (_ recordNames: [String]) -> Void)
+    {
         syncChangeTracker.onOutboxEnqueued = callback
     }
 
@@ -125,7 +136,7 @@ actor DatabaseManager {
         let targetDB = targetDirectory.appendingPathComponent(Self.dbFileName)
 
         guard fileManager.fileExists(atPath: legacyDB.path),
-              !fileManager.fileExists(atPath: targetDB.path)
+            !fileManager.fileExists(atPath: targetDB.path)
         else { return }
 
         // Copy main DB and WAL/SHM if present (WAL mode).
@@ -136,20 +147,27 @@ actor DatabaseManager {
 
         try fileManager.createDirectory(at: targetDirectory, withIntermediateDirectories: true)
         try fileManager.copyItem(at: legacyDB, to: targetDB)
-        if fileManager.fileExists(atPath: legacyWal.path) { try fileManager.copyItem(at: legacyWal, to: targetWal) }
-        if fileManager.fileExists(atPath: legacyShm.path) { try fileManager.copyItem(at: legacyShm, to: targetShm) }
+        if fileManager.fileExists(atPath: legacyWal.path) {
+            try fileManager.copyItem(at: legacyWal, to: targetWal)
+        }
+        if fileManager.fileExists(atPath: legacyShm.path) {
+            try fileManager.copyItem(at: legacyShm, to: targetShm)
+        }
 
         // Preserve encryption migration marker if it exists.
         let legacyMarker = legacyDirectory.appendingPathComponent(".encrypted")
         let targetMarker = targetDirectory.appendingPathComponent(".encrypted")
-        if fileManager.fileExists(atPath: legacyMarker.path), !fileManager.fileExists(atPath: targetMarker.path) {
+        if fileManager.fileExists(atPath: legacyMarker.path),
+            !fileManager.fileExists(atPath: targetMarker.path)
+        {
             try? fileManager.copyItem(at: legacyMarker, to: targetMarker)
         }
     }
 
     private static func isPlainSQLiteDatabase(atPath path: String) -> Bool {
-        guard let data = try? Data(contentsOf: URL(fileURLWithPath: path), options: [.mappedIfSafe]),
-              data.count >= 16
+        guard
+            let data = try? Data(contentsOf: URL(fileURLWithPath: path), options: [.mappedIfSafe]),
+            data.count >= 16
         else { return false }
 
         let magic = Data("SQLite format 3\u{0}".utf8)

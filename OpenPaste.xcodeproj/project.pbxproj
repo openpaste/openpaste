@@ -34,8 +34,21 @@
 		D0AC71362F7D0D180088575B /* OpenPasteUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = OpenPasteUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		D0AC71F12F7D2A100088575B /* Info.plist Resources Exception */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			target = D0AC711E2F7D0D170088575B /* OpenPaste */;
+			membershipExceptions = (
+				Info.plist,
+			);
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		D0AC71212F7D0D170088575B /* OpenPaste */ = {
+			exceptions = (
+				D0AC71F12F7D2A100088575B /* Info.plist Resources Exception */,
+			);
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = OpenPaste;
 			sourceTree = "<group>";

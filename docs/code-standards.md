@@ -203,10 +203,11 @@ The app supports deterministic end-to-end UI automation via launch environment v
 | Env var | Meaning |
 |---|---|
 | `OPENPASTE_UI_TEST_MODE=1` | Enables UI-test-safe behavior (e.g., disables paste simulation / hotkey / background monitoring) and allows test-only seeding/auto-open hooks |
-| `OPENPASTE_UI_TEST_DATABASE_DIR=<relative>` | Uses a per-run database directory under the app container temp dir (`~/Library/Containers/<bundleId>/Data/tmp/…`). Must be a **relative** path. |
+| `OPENPASTE_UI_TEST_DATABASE_DIR=<path>` | Overrides the per-run database directory used in UI-test mode. Relative paths are resolved under the runtime temp dir; absolute paths are used as-is. |
 | `OPENPASTE_UI_TEST_SEED_IMAGE=1` | Seeds a deterministic image item into the database at launch |
 | `OPENPASTE_UI_TEST_OPEN_PANEL=1` | Auto-opens the main panel after launch (for UI tests) |
 | `OPENPASTE_UI_TEST_AUTO_OPEN_QUICK_EDIT=1` | Auto-opens the Quick Edit sheet for the first image item (for UI tests) |
+| `OPENPASTE_UI_TEST_SQLCIPHER_PASTEBOARD=<name>` | Publishes SQLCipher UI-test diagnostics as JSON on a named pasteboard so the runner can verify DB creation/header state without relying on direct container file reads |
 
 **Coverage targets:**
 - Services: High coverage (business logic)

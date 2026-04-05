@@ -1,5 +1,6 @@
 import Foundation
 import Testing
+
 @testable import OpenPaste
 
 @Suite(.serialized)
@@ -13,8 +14,8 @@ struct KeychainHelperTests {
     // IMPORTANT: Use a test-specific Keychain entry so we never rotate the app's real database passphrase.
 
     let helper = KeychainHelper(
-        service: "\(Constants.bundleIdentifier).tests",
-        passphraseKey: "database-encryption-key-tests"
+        service: "\(Constants.bundleIdentifier).tests.\(ProcessInfo.processInfo.processIdentifier)",
+        passphraseKey: "database-encryption-key-tests-\(ProcessInfo.processInfo.processIdentifier)"
     )
 
     // MARK: - Helpers

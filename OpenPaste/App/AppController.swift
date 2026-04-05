@@ -1,9 +1,19 @@
-import Foundation
 import AppKit
+import Foundation
 import SwiftUI
 
 @Observable
 final class AppController {
+    private struct UITestSQLCipherDiagnostics: Encodable {
+        let databasePath: String?
+        let markerPath: String?
+        let dbExists: Bool
+        let markerExists: Bool
+        let headerBase64: String?
+        let headerIsPlainSQLite: Bool?
+        let initError: String?
+    }
+
     var windowManager = WindowManager()
     var pasteStackViewModel = PasteStackViewModel()
     var settingsViewModel: SettingsViewModel
@@ -21,12 +31,13 @@ final class AppController {
     private var onboardingWindowManager: OnboardingWindowManager?
     private var pasteInterceptor: PasteInterceptor?
     private var screenSharingDetector: ScreenSharingDetector?
-    private let isRunningTests = ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
+    private let isRunningTests =
+        ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
     private let isUITestMode: Bool = {
         #if DEBUG
-        ProcessInfo.processInfo.environment["OPENPASTE_UI_TEST_MODE"] == "1"
+            ProcessInfo.processInfo.environment["OPENPASTE_UI_TEST_MODE"] == "1"
         #else
-        false
+            false
         #endif
     }()
 
@@ -135,13 +146,19 @@ final class AppController {
                 configureDefaultsForUITests()
                 Task {
                     await seedAndOpenPanelIfNeeded(container: c)
+                    writeUITestSQLCipherDiagnostics(container: c, initError: nil)
                 }
             }
         } catch {
             initError = error.localizedDescription
             #if DEBUG
-            NSLog("OpenPaste init error: %@", String(describing: error))
+                NSLog("OpenPaste init error: %@", String(describing: error))
             #endif
+
+            if isUITestMode {
+                writeUITestSQLCipherDiagnostics(
+                    container: nil, initError: error.localizedDescription)
+            }
         }
 
         guard !isUITestMode else { return }
@@ -183,6 +200,14 @@ final class AppController {
         isUITestMode && uiTestEnvironment["OPENPASTE_UI_TEST_OPEN_PANEL"] == "1"
     }
 
+    private var uiTestSQLCipherPasteboardName: NSPasteboard.Name? {
+        guard let name = uiTestEnvironment["OPENPASTE_UI_TEST_SQLCIPHER_PASTEBOARD"],
+            !name.isEmpty
+        else { return nil }
+
+        return NSPasteboard.Name(name)
+    }
+
     private func configureDefaultsForUITests() {
         // Override preferences in-memory (non-persistent) so UI tests don't leak settings.
         let overrides: [String: Any] = [
@@ -205,6 +230,37 @@ final class AppController {
         }
     }
 
+    private func writeUITestSQLCipherDiagnostics(
+        container: DependencyContainer?, initError: String?
+    ) {
+        guard let pasteboardName = uiTestSQLCipherPasteboardName else { return }
+
+        let databaseURL = container?.databaseManager.databaseFileURL
+        let markerURL = container?.databaseManager.encryptionMarkerURL
+        let header = databaseURL.flatMap { url in
+            try? Data(contentsOf: url, options: [.mappedIfSafe]).prefix(16)
+        }
+        let sqliteMagic = Data("SQLite format 3\u{0}".utf8)
+
+        let payload = UITestSQLCipherDiagnostics(
+            databasePath: databaseURL?.path,
+            markerPath: markerURL?.path,
+            dbExists: databaseURL.map { FileManager.default.fileExists(atPath: $0.path) } ?? false,
+            markerExists: markerURL.map { FileManager.default.fileExists(atPath: $0.path) }
+                ?? false,
+            headerBase64: header.map { Data($0).base64EncodedString() },
+            headerIsPlainSQLite: header.map { Data($0) == sqliteMagic },
+            initError: initError
+        )
+
+        guard let data = try? JSONEncoder().encode(payload) else { return }
+        guard let json = String(data: data, encoding: .utf8) else { return }
+
+        let pasteboard = NSPasteboard(name: pasteboardName)
+        pasteboard.clearContents()
+        pasteboard.setString(json, forType: .string)
+    }
+
     private func seedTestImageItem(storageService: StorageServiceProtocol) async {
         guard let data = Self.makeUITestTIFFData(width: 80, height: 60) else { return }
 
@@ -212,7 +268,8 @@ final class AppController {
         let item = ClipboardItem(
             type: .image,
             content: data,
-            sourceApp: AppInfo(bundleId: "dev.tuanle.OpenPaste.uitests", name: "UI Tests", iconPath: nil),
+            sourceApp: AppInfo(
+                bundleId: "dev.tuanle.OpenPaste.uitests", name: "UI Tests", iconPath: nil),
             contentHash: hash
         )
 
@@ -222,18 +279,19 @@ final class AppController {
     private static func makeUITestTIFFData(width: Int, height: Int) -> Data? {
         guard width > 0, height > 0 else { return nil }
 
-        guard let rep = NSBitmapImageRep(
-            bitmapDataPlanes: nil,
-            pixelsWide: width,
-            pixelsHigh: height,
-            bitsPerSample: 8,
-            samplesPerPixel: 4,
-            hasAlpha: true,
-            isPlanar: false,
-            colorSpaceName: .deviceRGB,
-            bytesPerRow: 0,
-            bitsPerPixel: 0
-        ),
+        guard
+            let rep = NSBitmapImageRep(
+                bitmapDataPlanes: nil,
+                pixelsWide: width,
+                pixelsHigh: height,
+                bitsPerSample: 8,
+                samplesPerPixel: 4,
+                hasAlpha: true,
+                isPlanar: false,
+                colorSpaceName: .deviceRGB,
+                bytesPerRow: 0,
+                bitsPerPixel: 0
+            ),
             let bitmap = rep.bitmapData
         else {
             return nil
@@ -297,7 +355,8 @@ final class AppController {
 
     func togglePanel() {
         guard let hvm = historyViewModel,
-              let svm = searchViewModel else { return }
+            let svm = searchViewModel
+        else { return }
         let pvm = pasteStackViewModel
         let cvm = collectionViewModel
         windowManager.toggle {

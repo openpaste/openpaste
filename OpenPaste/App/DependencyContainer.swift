@@ -20,7 +20,8 @@ final class DependencyContainer {
         eventBus = EventBus()
 
         let dbDirectory = uiTestMode ? Self.makeUITestDatabaseDirectory() : nil
-        let passphraseProvider: (() throws -> String)? = uiTestMode ? { "openpaste-ui-test-passphrase" } : nil
+        let passphraseProvider: (() throws -> String)? =
+            uiTestMode ? { "openpaste-ui-test-passphrase" } : nil
         databaseManager = try DatabaseManager(
             databaseDirectoryOverride: dbDirectory,
             passphraseProvider: passphraseProvider
@@ -62,15 +63,19 @@ final class DependencyContainer {
         let base = FileManager.default.temporaryDirectory
 
         #if DEBUG
-        if let relative = env["OPENPASTE_UI_TEST_DATABASE_DIR"],
-           !relative.isEmpty,
-           !relative.hasPrefix("/") {
-            return URL(fileURLWithPath: relative, isDirectory: true, relativeTo: base)
-                .standardizedFileURL
-        }
+            if let overridePath = env["OPENPASTE_UI_TEST_DATABASE_DIR"], !overridePath.isEmpty {
+                if overridePath.hasPrefix("/") {
+                    return URL(fileURLWithPath: overridePath, isDirectory: true)
+                        .standardizedFileURL
+                }
+
+                return URL(fileURLWithPath: overridePath, isDirectory: true, relativeTo: base)
+                    .standardizedFileURL
+            }
         #endif
 
-        return base
+        return
+            base
             .appendingPathComponent("OpenPasteUITests", isDirectory: true)
             .appendingPathComponent(UUID().uuidString, isDirectory: true)
     }

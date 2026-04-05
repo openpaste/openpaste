@@ -4,6 +4,13 @@ All notable changes to the OpenPaste project are documented in this file. Format
 
 ## [Unreleased]
 
+### Added
+
+- `feat(quick-edit)`: added `ImageCropView` plus the new `ImageExport` pipeline so Quick Edit can crop or resize clipboard images and export the transformed result without mutating the original history item
+- `test(quick-edit)`: added `OpenPasteTests/ImageExportTests.swift` and `OpenPasteUITests/OpenPasteE2EQuickEditTests.swift` to cover image export math and the seeded Quick Edit flow end to end
+- `test(e2e)`: added a DEBUG-only UI test harness in `AppController` / `DependencyContainer` with deterministic seeding, auto-open hooks, per-run database overrides, and SQLCipher diagnostics publishing for full-flow XCUITest scenarios
+- `test(storage)`: added `OpenPasteUITests/OpenPasteE2ESQLCipherTests.swift` to verify encrypted database creation and SQLCipher header state end to end
+
 ### Changed
 
 - `chore(release)`: enabled repo auto-merge so protected `develop -> main` release PRs can use `gh pr merge --auto` instead of requiring a second manual merge after CI turns green
@@ -11,6 +18,19 @@ All notable changes to the OpenPaste project are documented in this file. Format
 - `ci(release)`: replaced JavaScript-based GitHub Release publishing and Homebrew tap dispatch steps with `gh` CLI commands so release reruns are idempotent and stop depending on Node 20-only actions
 - `fix(release)`: release workflow reruns now skip duplicate GitHub Release asset uploads and duplicate Sparkle appcast entries for the same tag, while suppressing the Homebrew dispatch once the tap already reflects that version
 - `.gitignore`: now ignores generated root-level `OpenPaste-*.dmg` artifacts to keep local release experiments out of future ship commits
+- `docs`: updated `docs/code-standards.md` to document the full DEBUG UI-test hook surface and refreshed `docs/system-architecture.md` for the new SQLCipher-by-default storage/security flow
+
+### Fixed
+
+- `fix(test)`: stabilized hosted-app startup for local and CI test runs by honoring UI-test launch mode earlier, suppressing updater interference during test sessions, and adding a pre-push path for installed-app updater verification
+- `fix(test)`: stabilized `OpenPasteUITests/OpenPasteE2ESQLCipherTests` across signed local runs and unsigned CI-like runs by switching SQLCipher verification from brittle cross-process file reads to app-emitted diagnostics over a named pasteboard
+- `fix(test)`: isolated `OpenPasteTests/KeychainHelperTests` keychain entries per worker process so parallelized test hosts stop colliding on the same test credential namespace
+- `fix(build)`: excluded `OpenPaste/Info.plist` from the app target's auto-synced target membership so Xcode no longer warns that the target Info.plist is being copied via Copy Bundle Resources
+
+### Security
+
+- `feat(storage)`: switched persistence to the SQLCipher build of GRDB and now encrypt clipboard history at rest by default, including one-time migration support for legacy plain SQLite stores and a non-secret `.encrypted` marker to avoid re-migration loops
+- `feat(security)`: sensitive clipboard buffers now flow through `SecureBytes` zeroization so temporary plaintext data is wiped from memory after processing; added integration coverage in `OpenPasteTests/SecureZeroIntegrationTests.swift`
 
 ## [1.3.1] — 2026-04-04
 
