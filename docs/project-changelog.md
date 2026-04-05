@@ -4,6 +4,8 @@ All notable changes to the OpenPaste project are documented in this file. Format
 
 ## [Unreleased]
 
+## [1.4.0] — 2026-04-05
+
 ### Added
 
 - `feat(quick-edit)`: added `ImageCropView` plus the new `ImageExport` pipeline so Quick Edit can crop or resize clipboard images and export the transformed result without mutating the original history item
