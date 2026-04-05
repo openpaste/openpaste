@@ -117,8 +117,9 @@ final class StorageService: StorageServiceProtocol { ... }
 - **Search**: FTS5 full-text search with LIKE fallback
 - **Schema**: Managed via `DatabaseManager` with migrations
 - **Thread safety**: `DatabaseQueue` serializes access
-- **Encryption**: Optional SQLCipher via `#if GRDBCIPHER` conditional compilation
+- **Encryption**: SQLCipher encryption at rest enabled by default (GRDB + SQLCipher build)
 - **Key storage**: Encryption passphrase stored in macOS Keychain via `KeychainHelper`
+- **Encryption marker**: A `.encrypted` file is created in the DB directory after initial open/migration to avoid re-migration loops (it does **not** contain secrets)
 
 ---
 
@@ -167,15 +168,50 @@ DS.Glass.isAvailable    // Liquid Glass feature check
 ## Testing
 
 - Framework: **XCTest**
-- Test files: `OpenPasteTests/` — one test file per service/viewmodel
+- Unit tests: `OpenPasteTests/`
+- UI/E2E tests: `OpenPasteUITests/` (XCUITest)
 - Mocking: Create mock implementations of service protocols
 - Shared helpers: `TestHelpers.swift` for common test factories
-- Run tests: `⌘U` in Xcode or `xcodebuild test -scheme OpenPaste`
+
+### Run tests (local + CI parity)
+
+```bash
+xcodebuild test \
+  -project OpenPaste.xcodeproj \
+  -scheme OpenPaste \
+  -destination 'platform=macOS' \
+  -configuration Debug \
+  CODE_SIGNING_ALLOWED=NO
+```
+
+To run only the UI/E2E suite:
+
+```bash
+xcodebuild test \
+  -project OpenPaste.xcodeproj \
+  -scheme OpenPaste \
+  -destination 'platform=macOS' \
+  -configuration Debug \
+  CODE_SIGNING_ALLOWED=NO \
+  -only-testing:OpenPasteUITests
+```
+
+### UI test mode hooks (DEBUG only)
+
+The app supports deterministic end-to-end UI automation via launch environment variables (read from `ProcessInfo.processInfo.environment`).
+
+| Env var | Meaning |
+|---|---|
+| `OPENPASTE_UI_TEST_MODE=1` | Enables UI-test-safe behavior (e.g., disables paste simulation / hotkey / background monitoring) and allows test-only seeding/auto-open hooks |
+| `OPENPASTE_UI_TEST_DATABASE_DIR=<relative>` | Uses a per-run database directory under the app container temp dir (`~/Library/Containers/<bundleId>/Data/tmp/…`). Must be a **relative** path. |
+| `OPENPASTE_UI_TEST_SEED_IMAGE=1` | Seeds a deterministic image item into the database at launch |
+| `OPENPASTE_UI_TEST_OPEN_PANEL=1` | Auto-opens the main panel after launch (for UI tests) |
+| `OPENPASTE_UI_TEST_AUTO_OPEN_QUICK_EDIT=1` | Auto-opens the Quick Edit sheet for the first image item (for UI tests) |
 
 **Coverage targets:**
 - Services: High coverage (business logic)
 - ViewModels: Medium coverage (state transitions)
-- Views: UI tests in `OpenPasteUITests/`
+- Views: E2E coverage for critical flows in `OpenPasteUITests/`
 
 ---
 

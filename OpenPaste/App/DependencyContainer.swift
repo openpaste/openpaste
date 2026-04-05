@@ -16,9 +16,16 @@ final class DependencyContainer {
     let ocrService: OCRServiceProtocol
     let clipboardService: ClipboardServiceProtocol
 
-    init() throws {
+    init(uiTestMode: Bool = false) throws {
         eventBus = EventBus()
-        databaseManager = try DatabaseManager()
+
+        let dbDirectory = uiTestMode ? Self.makeUITestDatabaseDirectory() : nil
+        let passphraseProvider: (() throws -> String)? = uiTestMode ? { "openpaste-ui-test-passphrase" } : nil
+        databaseManager = try DatabaseManager(
+            databaseDirectoryOverride: dbDirectory,
+            passphraseProvider: passphraseProvider
+        )
+
         feedbackRouter = FeedbackRouter()
 
         let dbQueue = databaseManager.dbQueue
@@ -26,7 +33,9 @@ final class DependencyContainer {
         searchService = SearchEngine(dbQueue: dbQueue)
 
         premiumService = PremiumService()
-        if #available(macOS 14.0, *) {
+        if uiTestMode {
+            syncService = NoopSyncService()
+        } else if #available(macOS 14.0, *) {
             syncService = SyncService(
                 databaseManager: databaseManager,
                 eventBus: eventBus,
@@ -46,5 +55,23 @@ final class DependencyContainer {
             ocrService: ocrService,
             eventBus: eventBus
         )
+    }
+
+    private static func makeUITestDatabaseDirectory() -> URL {
+        let env = ProcessInfo.processInfo.environment
+        let base = FileManager.default.temporaryDirectory
+
+        #if DEBUG
+        if let relative = env["OPENPASTE_UI_TEST_DATABASE_DIR"],
+           !relative.isEmpty,
+           !relative.hasPrefix("/") {
+            return URL(fileURLWithPath: relative, isDirectory: true, relativeTo: base)
+                .standardizedFileURL
+        }
+        #endif
+
+        return base
+            .appendingPathComponent("OpenPasteUITests", isDirectory: true)
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
     }
 }

@@ -211,8 +211,9 @@ for await event in await eventBus.stream() {
   - This read requires the sandbox temporary exception entitlement for `Library/Application Support/OpenPaste/`.
 - **Search:** FTS5 full-text index on `plainTextContent` + `ocrText`
 - **Thread safety:** `DatabaseQueue` serializes all access
-- **Encryption:** Optional SQLCipher (`#if GRDBCIPHER`)
+- **Encryption:** SQLCipher encryption at rest (enabled by default)
 - **Key storage:** macOS Keychain via `KeychainHelper`
+- **Encryption marker:** `.encrypted` file in the DB directory indicates the DB has been migrated/opened with SQLCipher (prevents re-migration loops; contains no secrets)
 - **Migrations:** Versioned via `DatabaseMigrations.registerMigrations(&migrator)`
 
 ### User Preferences
@@ -249,8 +250,9 @@ for await event in await eventBus.stream() {
 └─────────────────────────────────────────────┘
 
 ┌─ Storage ───────────────────────────────────┐
-│ Optional SQLCipher encryption at rest       │
+│ SQLCipher encryption at rest (default)      │
 │ Encryption key in macOS Keychain            │
+│ `.encrypted` marker after migration/open    │
 │ Secure deletion (cryptographic wipe)        │
 └─────────────────────────────────────────────┘
 
