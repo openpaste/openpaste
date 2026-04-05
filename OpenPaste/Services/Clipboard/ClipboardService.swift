@@ -76,6 +76,12 @@ final class ClipboardService: ClipboardServiceProtocol, @unchecked Sendable {
     /// and shows an alert if not granted.
     /// - Parameter targetBundleId: If provided, waits for this specific app to become active.
     func simulatePasteToFrontApp(targetBundleId: String? = nil) async {
+        #if DEBUG
+        if ProcessInfo.processInfo.environment["OPENPASTE_UI_TEST_MODE"] == "1" {
+            return
+        }
+        #endif
+
         print("[SimulatePaste] Starting, targetBundleId = \(targetBundleId ?? "nil")")
         // Chờ app đích active (timeout 500ms)
         let deadline = Date().addingTimeInterval(0.5)
@@ -124,7 +130,7 @@ final class ClipboardService: ClipboardServiceProtocol, @unchecked Sendable {
     // MARK: - Private
 
     @MainActor
-    private func handleClipboardChange(_ pasteboard: NSPasteboard) async {
+    func handleClipboardChange(_ pasteboard: NSPasteboard) async {
         guard var item = normalizer.normalize(from: pasteboard) else { return }
 
         if securityService.isBlacklisted(bundleId: item.sourceApp.bundleId) { return }
@@ -148,6 +154,10 @@ final class ClipboardService: ClipboardServiceProtocol, @unchecked Sendable {
 
         try? await storageService.save(item)
         await eventBus.emit(.clipboardChanged(item))
+
+        if item.isSensitive {
+            item.content.secureZero()
+        }
 
         if item.type == .image {
             Task {

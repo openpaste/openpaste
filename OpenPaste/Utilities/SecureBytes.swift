@@ -36,13 +36,45 @@ final class SecureBytes: @unchecked Sendable {
     }
 }
 
+#if DEBUG
+enum SecureBytesDebugHooks {
+    private static let lock = NSLock()
+    private static var hook: ((_ byteCount: Int) -> Void)?
+
+    static var onDataSecureZero: ((_ byteCount: Int) -> Void)? {
+        get {
+            lock.lock(); defer { lock.unlock() }
+            return hook
+        }
+        set {
+            lock.lock()
+            hook = newValue
+            lock.unlock()
+        }
+    }
+
+    static func notifyDataSecureZero(byteCount: Int) {
+        lock.lock()
+        let current = hook
+        lock.unlock()
+        current?(byteCount)
+    }
+}
+#endif
+
 extension Data {
     /// Zero out the contents of this Data object
     mutating func secureZero() {
+        let count = self.count
         withUnsafeMutableBytes { buffer in
             guard let ptr = buffer.baseAddress else { return }
             memset_s(ptr, buffer.count, 0, buffer.count)
         }
+
+        #if DEBUG
+        SecureBytesDebugHooks.notifyDataSecureZero(byteCount: count)
+        #endif
+
         self = Data()
     }
 }
