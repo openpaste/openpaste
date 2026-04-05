@@ -1,5 +1,6 @@
 import Foundation
 import Testing
+
 @testable import OpenPaste
 
 @Suite(.serialized)
@@ -9,9 +10,13 @@ struct KeychainHelperTests {
     // Tests exercise the public API: getOrCreatePassphrase round-trip, deletePassphrase, idempotency.
     // Keychain tests require a signed app + keychain entitlement; they may fail in CI
     // but should pass when run from Xcode locally.
-    // Tests are serialized because they share the same Keychain entry via KeychainHelper.shared.
+    // Tests are serialized because they share the same Keychain entry.
+    // IMPORTANT: Use a test-specific Keychain entry so we never rotate the app's real database passphrase.
 
-    let helper = KeychainHelper.shared
+    let helper = KeychainHelper(
+        service: "\(Constants.bundleIdentifier).tests.\(ProcessInfo.processInfo.processIdentifier)",
+        passphraseKey: "database-encryption-key-tests-\(ProcessInfo.processInfo.processIdentifier)"
+    )
 
     // MARK: - Helpers
 

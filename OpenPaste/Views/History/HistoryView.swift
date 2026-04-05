@@ -9,6 +9,7 @@ struct HistoryView: View {
     @State private var showPreview = false
     @State private var pendingG = false
     @State private var showShortcutOverlay = false
+    @State private var uiTestDidAutoOpenQuickEdit = false
 
     var body: some View {
         Group {
@@ -25,8 +26,14 @@ struct HistoryView: View {
                 }
             }
         }
-        .task { await viewModel.loadInitial() }
+        .task {
+            await viewModel.loadInitial()
+            autoOpenQuickEditIfNeeded()
+        }
         .task { await viewModel.observeEvents() }
+        .onChange(of: viewModel.items.count) { _, _ in
+            autoOpenQuickEditIfNeeded()
+        }
         .overlay {
             PasteConfirmationOverlay(isShowing: $viewModel.showPasteConfirmation)
         }
@@ -43,6 +50,10 @@ struct HistoryView: View {
                         Task { await viewModel.quickEditAndPaste(item, newText: text) }
                         showQuickEdit = false
                     },
+                    onSaveImage: { data in
+                        Task { await viewModel.quickEditAndPasteImage(item, imageData: data) }
+                        showQuickEdit = false
+                    },
                     onCancel: { showQuickEdit = false }
                 )
             }
@@ -52,6 +63,24 @@ struct HistoryView: View {
     private var selectedItem: ClipboardItem? {
         guard let id = selectedId else { return viewModel.items.first }
         return viewModel.items.first(where: { $0.id == id })
+    }
+
+    private var shouldAutoOpenQuickEditForUITests: Bool {
+        #if DEBUG
+        let env = ProcessInfo.processInfo.environment
+        return env["OPENPASTE_UI_TEST_MODE"] == "1"
+            && env["OPENPASTE_UI_TEST_AUTO_OPEN_QUICK_EDIT"] == "1"
+        #else
+        return false
+        #endif
+    }
+
+    private func autoOpenQuickEditIfNeeded() {
+        guard shouldAutoOpenQuickEditForUITests, !uiTestDidAutoOpenQuickEdit else { return }
+        guard let firstImage = viewModel.items.first(where: { $0.type == .image }) else { return }
+        editingItem = firstImage
+        showQuickEdit = true
+        uiTestDidAutoOpenQuickEdit = true
     }
 
     // MARK: - Preview Panel

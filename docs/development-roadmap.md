@@ -18,12 +18,12 @@ Strategic roadmap for OpenPaste development phases, milestones, and feature prio
 1. **Project Setup & Architecture**
    - macOS app structure (SwiftUI + AppKit blend)
    - Core data model (Clipboard, ClipboardItem)
-   - Persistence layer (SQLCipher integration study)
+   - Persistence layer (SQLite + SQLCipher encryption at rest)
 
 2. **Basic Clipboard Capture & History**
    - Clipboard monitoring loop
    - Item deduplication logic
-   - SQLite/SQLCipher storage proof-of-concept
+   - SQLite + SQLCipher storage (encrypted at rest)
    - Item metadata (timestamp, source app, content type)
 
 3. **Global Hotkey System**
@@ -259,7 +259,7 @@ Strategic roadmap for OpenPaste development phases, milestones, and feature prio
 
 | Dependency | Status | Impact |
 |-----------|--------|--------|
-| SQLCipher integration | Pending | Required for Phase 2 |
+| SQLCipher encryption at rest | Shipped | Protects local clipboard DB at rest |
 | macOS version targeting (11.0+) | Confirmed | Security baseline |
 | Accessibility framework stability | Validated | Onboarding Phase 1 ✅ |
 | SwiftUI animation performance | Validated | UI polish ✅ |

@@ -152,6 +152,31 @@ final class HistoryViewModel {
         modified.plainTextContent = newText
         await clipboardService.copyToClipboard(modified)
 
+        #if DEBUG
+        if ProcessInfo.processInfo.environment["OPENPASTE_UI_TEST_MODE"] == "1" {
+            dismissAction?()
+            return
+        }
+        #endif
+
+        let targetBundleId = previousAppBundleId?()
+        reactivatePreviousApp?()
+        dismissAction?()
+        await clipboardService.simulatePasteToFrontApp(targetBundleId: targetBundleId)
+    }
+
+    func quickEditAndPasteImage(_ item: ClipboardItem, imageData: Data) async {
+        var modified = item
+        modified.content = imageData
+        await clipboardService.copyToClipboard(modified)
+
+        #if DEBUG
+        if ProcessInfo.processInfo.environment["OPENPASTE_UI_TEST_MODE"] == "1" {
+            dismissAction?()
+            return
+        }
+        #endif
+
         let targetBundleId = previousAppBundleId?()
         reactivatePreviousApp?()
         dismissAction?()

@@ -3,11 +3,40 @@ import SwiftUI
 struct QuickEditView: View {
     let item: ClipboardItem
     let onSave: (String) -> Void
+    let onSaveImage: ((Data) -> Void)?
     let onCancel: () -> Void
+
+    init(
+        item: ClipboardItem,
+        onSave: @escaping (String) -> Void,
+        onSaveImage: ((Data) -> Void)? = nil,
+        onCancel: @escaping () -> Void
+    ) {
+        self.item = item
+        self.onSave = onSave
+        self.onSaveImage = onSaveImage
+        self.onCancel = onCancel
+    }
 
     @State private var editedText: String = ""
     @State private var showMarkdownPreview = false
     @State private var imageScale: CGFloat = 1.0
+    @State private var cropRect: CGRect = CGRect(x: 0, y: 0, width: 1, height: 1)
+
+    private var uiTestImageScaleOverride: CGFloat? {
+        #if DEBUG
+            let env = ProcessInfo.processInfo.environment
+            guard env["OPENPASTE_UI_TEST_MODE"] == "1",
+                let raw = env["OPENPASTE_UI_TEST_IMAGE_SCALE"],
+                let value = Double(raw)
+            else { return nil }
+
+            let clamped = min(max(CGFloat(value), 0.25), 2.0)
+            return (clamped / 0.25).rounded() * 0.25
+        #else
+            nil
+        #endif
+    }
 
     var body: some View {
         VStack(spacing: 12) {
@@ -27,8 +56,23 @@ struct QuickEditView: View {
 
                 Button("Cancel") { onCancel() }
                     .keyboardShortcut(.cancelAction)
-                Button("Paste") { onSave(editedText) }
-                    .keyboardShortcut(.defaultAction)
+                    .accessibilityIdentifier("quickEdit.cancelButton")
+                Button("Paste") {
+                    if item.type == .image, let nsImage = NSImage(data: item.content) {
+                        let data = ImageExport.exportTIFF(
+                            image: nsImage, cropRect: cropRect, scale: imageScale)
+                        if let onSaveImage {
+                            onSaveImage(data)
+                        } else {
+                            onCancel()
+                        }
+                    } else {
+                        onSave(editedText)
+                    }
+                }
+                .keyboardShortcut(.defaultAction)
+                .accessibilityIdentifier("quickEdit.pasteButton")
+                .disabled(item.type == .image && onSaveImage == nil)
             }
 
             if item.type == .image {
@@ -45,6 +89,9 @@ struct QuickEditView: View {
         .frame(width: 500, height: 400)
         .onAppear {
             editedText = item.plainTextContent ?? ""
+            if item.type == .image, let overrideScale = uiTestImageScaleOverride {
+                imageScale = overrideScale
+            }
         }
     }
 
@@ -116,10 +163,7 @@ struct QuickEditView: View {
     private var imageEditor: some View {
         VStack(spacing: 8) {
             if let nsImage = NSImage(data: item.content) {
-                Image(nsImage: nsImage)
-                    .resizable()
-                    .aspectRatio(contentMode: .fit)
-                    .scaleEffect(imageScale)
+                ImageCropView(image: nsImage, cropRect: $cropRect)
                     .clipShape(RoundedRectangle(cornerRadius: 6))
                     .frame(maxHeight: 250)
 
@@ -127,13 +171,17 @@ struct QuickEditView: View {
                     Text("Scale: \(Int(imageScale * 100))%")
                         .font(.caption)
                         .foregroundStyle(.secondary)
+                        .accessibilityIdentifier("quickEdit.scaleLabel")
                     Slider(value: $imageScale, in: 0.25...2.0, step: 0.25)
                         .frame(width: 150)
+                        .accessibilityIdentifier("quickEdit.scaleSlider")
 
-                    Button("Original") { imageScale = 1.0 }
-                        .controlSize(.small)
-                    Button("50%") { imageScale = 0.5 }
-                        .controlSize(.small)
+                    Button("Reset") {
+                        imageScale = 1.0
+                        cropRect = CGRect(x: 0, y: 0, width: 1, height: 1)
+                    }
+                    .controlSize(.small)
+                    .accessibilityIdentifier("quickEdit.resetButton")
                 }
             }
         }
@@ -141,7 +189,7 @@ struct QuickEditView: View {
 
     private var looksLikeMarkdown: Bool {
         let text = editedText
-        return text.contains("# ") || text.contains("**") || text.contains("- ") ||
-               text.contains("```") || text.contains("[") && text.contains("](")
+        return text.contains("# ") || text.contains("**") || text.contains("- ")
+            || text.contains("```") || text.contains("[") && text.contains("](")
     }
 }

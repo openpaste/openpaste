@@ -32,7 +32,7 @@ OpenPaste is a **native, local-first clipboard manager for developers on macOS**
 ## What we label as “still maturing”
 
 - iCloud sync foundation (premium-gated beta in current builds)
-- SQLCipher hardening across build variants
+- SQLCipher migration/ops hardening (edge cases, performance)
 - Auto-update / distribution polish
 
 ## What we label as roadmap, not current feature
@@ -59,7 +59,7 @@ OpenPaste is a **native, local-first clipboard manager for developers on macOS**
 - AI-native today
 - semantic search today
 - plugin-ready today
-- encryption-at-rest guaranteed in every build today
+- end-to-end encrypted sync today
 
 ## Channel-friendly versions
 

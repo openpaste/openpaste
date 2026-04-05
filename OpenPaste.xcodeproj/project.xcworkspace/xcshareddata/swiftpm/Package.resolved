@@ -1,13 +1,13 @@
 {
-  "originHash" : "91a095bb8faecc98f5715f1db6700ad01222bfd82cc6aa394830b048bf30c6de",
+  "originHash" : "93c9ff0e716935cc3089afae2b05ec29daa80e8b864d96cbfebaa81c33d2e755",
   "pins" : [
     {
-      "identity" : "grdb.swift",
+      "identity" : "grdb.swift-sqlcipher",
       "kind" : "remoteSourceControl",
-      "location" : "https://github.com/groue/GRDB.swift.git",
+      "location" : "https://github.com/tuanle96/GRDB.swift-sqlcipher.git",
       "state" : {
-        "revision" : "36e30a6f1ef10e4194f6af0cff90888526f0c115",
-        "version" : "7.10.0"
+        "branch" : "openpaste-sqlcipher",
+        "revision" : "9c9c4f1d24f6949024f93de9ad13bb889dbd7b45"
       }
     },
     {
@@ -17,6 +17,15 @@
       "state" : {
         "revision" : "066e75a8b3e99962685d6a90cdd5293ebffd9261",
         "version" : "2.9.1"
+      }
+    },
+    {
+      "identity" : "sqlcipher.swift",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/sqlcipher/SQLCipher.swift.git",
+      "state" : {
+        "revision" : "180be9a4dd130d838765a156b709e02f3bc3e7cd",
+        "version" : "4.14.0"
       }
     }
   ],

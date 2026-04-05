@@ -8,6 +8,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private static let pendingRemoteNotificationLock = NSLock()
     private static var hasPendingRemoteNotification = false
     private let isRunningTests = ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
+    private let isUITestMode: Bool = {
+        #if DEBUG
+        ProcessInfo.processInfo.environment["OPENPASTE_UI_TEST_MODE"] == "1"
+        #else
+        false
+        #endif
+    }()
 
     static func consumePendingRemoteNotification() -> Bool {
         pendingRemoteNotificationLock.lock(); defer { pendingRemoteNotificationLock.unlock() }
@@ -17,7 +24,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        guard !isRunningTests else { return }
+        guard !isRunningTests && !isUITestMode else { return }
 
         // Hide dock icon — menu bar only
         NSApp.setActivationPolicy(.accessory)
