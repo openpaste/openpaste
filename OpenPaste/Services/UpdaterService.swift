@@ -1,6 +1,14 @@
 import Foundation
 import Sparkle
 
+@MainActor
+final class DisabledUpdaterService: UpdaterServiceProtocol {
+    var canCheckForUpdates = false
+    var automaticallyChecksForUpdates = false
+
+    func checkForUpdates() {}
+}
+
 /// Wraps Sparkle's SPUStandardUpdaterController for SwiftUI integration.
 /// Uses KVO to bridge `canCheckForUpdates` into Swift Observation.
 @MainActor @Observable

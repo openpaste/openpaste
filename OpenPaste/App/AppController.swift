@@ -6,7 +6,7 @@ final class AppController {
     var windowManager = WindowManager()
     var pasteStackViewModel = PasteStackViewModel()
     var settingsViewModel: SettingsViewModel
-    var updaterService: UpdaterServiceProtocol = UpdaterService()
+    var updaterService: UpdaterServiceProtocol
     var feedbackRouter: FeedbackRouterProtocol = FeedbackRouter()
     var historyViewModel: HistoryViewModel?
     var searchViewModel: SearchViewModel?
@@ -20,11 +20,15 @@ final class AppController {
     private var onboardingWindowManager: OnboardingWindowManager?
     private var pasteInterceptor: PasteInterceptor?
     private var screenSharingDetector: ScreenSharingDetector?
+    private let isRunningTests = ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
 
     init() {
         let svm = SettingsViewModel()
         settingsViewModel = svm
-        showOnboarding = OnboardingViewModel.shouldShowOnboarding
+        showOnboarding = isRunningTests ? false : OnboardingViewModel.shouldShowOnboarding
+        updaterService = isRunningTests ? DisabledUpdaterService() : UpdaterService()
+
+        guard !isRunningTests else { return }
 
         do {
             let c = try DependencyContainer()

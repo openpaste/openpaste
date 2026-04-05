@@ -115,7 +115,9 @@ git push origin develop
 
 ### 3. Merge Release PR and Tag on `main`
 
-Create or reuse the release PR to `main`, then inspect its merge state before merging:
+Create or reuse the release PR to `main`, then inspect its merge state before merging.
+
+**Happy path:** this repository now has repo-wide auto-merge enabled, so once the required checks are green you can arm auto-merge and let GitHub merge the release PR as soon as branch protection allows it.
 
 ```bash
 # Create the release PR if needed
@@ -127,14 +129,14 @@ gh pr edit <pr-number> --title "chore: release vX.Y.Z"
 # Check protected-branch requirements / checks
 gh pr view <pr-number> --json mergeStateStatus,statusCheckRollup,url
 
-# If branch protection blocks an immediate merge, arm auto-merge
+# Preferred: if branch protection blocks an immediate merge, arm auto-merge
 gh pr merge <pr-number> --auto --merge --subject "chore: release vX.Y.Z"
 
 # Wait until the PR is actually merged before tagging main
 gh pr view <pr-number> --json state,mergeStateStatus,url
 ```
 
-If the PR is already mergeable and checks are green, direct merge is fine:
+If auto-merge is unavailable for your token or has been disabled in repo settings, fall back to a manual merge after the required checks finish:
 
 ```bash
 gh pr merge <pr-number> --merge --subject "chore: release vX.Y.Z"
@@ -166,10 +168,11 @@ Tag Push → Build → Sign → Notarize → DMG → GitHub Release → Update H
 | **Staple** | `stapler staple` attaches notarization ticket to .app |
 | **DMG** | `scripts/create-dmg.sh` creates `OpenPaste-X.Y.Z.dmg` |
 | **DMG Sign (Sparkle)** | Private key from `SPARKLE_EDDSA_PRIVATE_KEY` signs the DMG for update verification |
-| **GitHub Release** | `softprops/action-gh-release` publishes the DMG to GitHub Releases |
-| **Homebrew Tap Update** | `repository-dispatch` tells `openpaste/homebrew-tap` to update the cask version + SHA-256 |
-| **Appcast Update** | The workflow appends a new `<item>` entry to `appcast.xml` on `gh-pages`, pointing to the GitHub Release DMG URL and EdDSA signature |
+| **GitHub Release** | The workflow uses `gh release` to create or update the tagged GitHub Release and skips re-uploading the DMG if that asset already exists |
+| **Homebrew Tap Update** | The workflow dispatches `openpaste/homebrew-tap` when the tap does not yet reflect the tagged version |
+| **Appcast Update** | The workflow appends a new `<item>` entry to `appcast.xml` on `gh-pages`, but skips the write if that Sparkle version is already present |
 | **Release Body** | The workflow uses `RELEASE_NOTES.md` from the tagged commit as the public GitHub Release body, then appends the DMG SHA-256 |
+| **Idempotency Guards** | Re-running the same tag does not duplicate the GitHub Release asset or Sparkle appcast entry, and skips the Homebrew dispatch once the tap already reflects that tagged version |
 
 **Recommended verification commands:**
 
@@ -300,6 +303,11 @@ xcodebuild archive -project OpenPaste.xcodeproj -scheme OpenPaste -configuration
 ### DMG 404 on brew install
 - Version mismatch: `MARKETING_VERSION` in pbxproj must exactly match tag (without `v` prefix)
 - Example: tag `v1.0.0` requires `MARKETING_VERSION = 1.0.0`, NOT `1.0`
+
+### Release rerun behavior
+- Re-running the same tag workflow is safe: the workflow now skips duplicate DMG uploads and duplicate Sparkle appcast entries, and it skips the Homebrew dispatch after the tap already reflects that version.
+- If the release failed before the GitHub Release asset was uploaded, rerunning the tag workflow will upload the missing DMG and refresh the release notes.
+- If the release failed after the GitHub Release already exists, the workflow updates the release body but does not upload the same DMG twice.
 
 ---
 
