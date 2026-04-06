@@ -65,6 +65,28 @@ extension SyncService {
                     total += 1
                 }
 
+                // Enqueue smart lists not yet in outbox (skip built-in)
+                let smartListIds = try String.fetchAll(
+                    db,
+                    sql: """
+                    SELECT id FROM smartLists
+                    WHERE isDeleted = 0 AND isBuiltIn = 0
+                      AND ('smartlist_' || id) NOT IN (SELECT recordName FROM sync_metadata)
+                    """
+                )
+                for id in smartListIds {
+                    let recordName = "smartlist_" + id
+                    try db.execute(
+                        sql: """
+                        INSERT OR IGNORE INTO sync_metadata
+                            (recordName, tableName, localId, operation, syncStatus, retryCount, updatedAt)
+                        VALUES (?, 'smartLists', ?, 'upsert', 'pending', 0, ?)
+                        """,
+                        arguments: [recordName, id, now]
+                    )
+                    total += 1
+                }
+
                 return total
             }
 
@@ -117,9 +139,107 @@ extension SyncService {
     func markOutboxError(recordName: String, message: String) async {
         try? await dbQueue.write { db in
             try db.execute(
-                sql: "UPDATE sync_metadata SET syncStatus = 'error', lastError = ?, retryCount = retryCount + 1 WHERE recordName = ?",
-                arguments: [message, recordName]
+                sql: "UPDATE sync_metadata SET syncStatus = 'error', lastError = ?, retryCount = retryCount + 1, updatedAt = ? WHERE recordName = ?",
+                arguments: [message, Date(), recordName]
             )
+        }
+    }
+
+    // MARK: - B5: Tombstone Cleanup
+
+    /// Deletes old tombstones: items soft-deleted > 30 days ago that are synced.
+    /// Should be called periodically (e.g., daily or on app launch).
+    func cleanupTombstones() async {
+        let cutoff = Calendar.current.date(byAdding: .day, value: -30, to: Date()) ?? Date()
+        do {
+            let deleted = try await dbQueue.write { db -> Int in
+                var total = 0
+
+                try db.execute(
+                    sql: """
+                    DELETE FROM sync_metadata
+                    WHERE syncStatus = 'synced'
+                      AND localId IN (
+                        SELECT id FROM clipboardItems WHERE isDeleted = 1 AND modifiedAt < ?
+                      )
+                    """,
+                    arguments: [cutoff]
+                )
+                total += db.changesCount
+
+                try db.execute(
+                    sql: "DELETE FROM clipboardItems WHERE isDeleted = 1 AND modifiedAt < ?",
+                    arguments: [cutoff]
+                )
+                total += db.changesCount
+
+                try db.execute(
+                    sql: "DELETE FROM collections WHERE isDeleted = 1 AND modifiedAt < ?",
+                    arguments: [cutoff]
+                )
+                total += db.changesCount
+
+                // Smart list tombstones
+                try db.execute(
+                    sql: """
+                    DELETE FROM sync_metadata
+                    WHERE syncStatus = 'synced'
+                      AND localId IN (
+                        SELECT id FROM smartLists WHERE isDeleted = 1 AND modifiedAt < ?
+                      )
+                    """,
+                    arguments: [cutoff]
+                )
+                total += db.changesCount
+
+                try db.execute(
+                    sql: "DELETE FROM smartLists WHERE isDeleted = 1 AND modifiedAt < ?",
+                    arguments: [cutoff]
+                )
+                total += db.changesCount
+
+                return total
+            }
+            if deleted > 0 {
+                syncLog.info("Tombstone cleanup: removed \(deleted) rows")
+            }
+        } catch {
+            syncLog.error("Tombstone cleanup failed: \(error.localizedDescription)")
+        }
+    }
+
+    // MARK: - B6: sync_metadata Pruning
+
+    /// Prunes old synced metadata entries to prevent unbounded table growth.
+    func pruneSyncMetadata(keepCount: Int = 10_000) async {
+        do {
+            let pruned = try await dbQueue.write { db -> Int in
+                let total = try Int.fetchOne(
+                    db,
+                    sql: "SELECT COUNT(*) FROM sync_metadata WHERE syncStatus = 'synced'"
+                ) ?? 0
+                guard total > keepCount else { return 0 }
+
+                let deleteCount = total - keepCount
+                try db.execute(
+                    sql: """
+                    DELETE FROM sync_metadata
+                    WHERE rowid IN (
+                        SELECT rowid FROM sync_metadata
+                        WHERE syncStatus = 'synced'
+                        ORDER BY updatedAt ASC
+                        LIMIT ?
+                    )
+                    """,
+                    arguments: [deleteCount]
+                )
+                return db.changesCount
+            }
+            if pruned > 0 {
+                syncLog.info("Metadata pruning: removed \(pruned) old synced entries")
+            }
+        } catch {
+            syncLog.error("Metadata pruning failed: \(error.localizedDescription)")
         }
     }
 }

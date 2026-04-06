@@ -6,11 +6,14 @@ extension BottomShelfView {
         if searchActive {
             return searchViewModel.results
         }
+        if selectedSmartListId != nil, let slvm = smartListViewModel {
+            return slvm.filteredItems
+        }
         return historyViewModel.items
     }
 
     var shouldShowLoadingMore: Bool {
-        !searchActive && historyViewModel.hasMore
+        !searchActive && selectedSmartListId == nil && historyViewModel.hasMore
     }
 
     var searchActive: Bool {

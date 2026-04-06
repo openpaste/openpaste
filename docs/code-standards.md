@@ -28,13 +28,16 @@ Services/             → Business logic behind protocols
   ├── Processing/     → Content normalization, hashing, OCR
   ├── Search/         → FTS5 search engine
   ├── Security/       → Sensitive detection, screen sharing
-  ├── Storage/        → SQLite persistence (GRDB)
+  ├── SmartList/      → Smart List CRUD, rule evaluation, query building
+  ├── Storage/        → SQLite persistence (GRDB), SmartListRecord
+  ├── Sync/           → iCloud CKSyncEngine, retry, reachability, conflict resolution
   └── Protocols/      → Service protocol definitions
 ViewModels/           → @Observable view models
 Views/                → SwiftUI views, organized by feature
   ├── History/
   ├── Search/
   ├── Collections/
+  ├── SmartLists/     → Smart List sidebar, editor, rule rows
   ├── PasteStack/
   ├── Settings/
   ├── Onboarding/
@@ -99,6 +102,8 @@ final class StorageService: StorageServiceProtocol { ... }
 | `SearchServiceProtocol` | Full-text search |
 | `SecurityServiceProtocol` | Sensitive content detection |
 | `OCRServiceProtocol` | Image text extraction |
+| `SmartListServiceProtocol` | Smart List CRUD, evaluate, count, presets, import/export |
+| `SyncServiceProtocol` | iCloud sync lifecycle (start/stop/reset/status) |
 
 ---
 
@@ -239,7 +244,7 @@ The app supports deterministic end-to-end UI automation via launch environment v
 ```
 
 **Types:** `feat`, `fix`, `docs`, `refactor`, `test`, `chore`, `perf`, `ci`  
-**Scopes:** `clipboard`, `search`, `storage`, `security`, `ui`, `settings`, `onboarding`, `build`
+**Scopes:** `clipboard`, `search`, `storage`, `security`, `ui`, `settings`, `onboarding`, `build`, `sync`, `smartLists`
 
 ---
 

@@ -53,4 +53,32 @@ extension SyncService {
             // ignore
         }
     }
+
+    // MARK: - B2: Zone-Not-Found Recovery
+
+    func recoverFromZoneNotFound() async {
+        do {
+            let container = CKContainer(identifier: CloudKitMapper.containerIdentifier)
+            try await ensureZoneExists(container: container)
+            syncLog.info("Zone recreated — re-enqueuing all local records")
+
+            // Re-enqueue all synced records as pending so they're re-sent
+            try await dbQueue.write { db in
+                try db.execute(
+                    sql: """
+                    UPDATE sync_metadata
+                    SET syncStatus = 'pending', lastError = NULL, retryCount = 0, updatedAt = ?
+                    WHERE syncStatus IN ('synced', 'error')
+                    """,
+                    arguments: [Date()]
+                )
+            }
+            if let engine = currentEngineSnapshot() {
+                await schedulePendingOutboxWithEngine(engine)
+            }
+        } catch {
+            syncLog.error("Zone recovery failed: \(error.localizedDescription)")
+            setStatus(.error("Zone recovery failed"))
+        }
+    }
 }

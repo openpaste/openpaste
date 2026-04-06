@@ -6,6 +6,7 @@ final class ClipboardMonitor: Sendable {
     private let onChange: @Sendable (NSPasteboard) -> Void
     nonisolated(unsafe) private var lastChangeCount: Int = 0
     nonisolated(unsafe) private var timer: Timer?
+    nonisolated(unsafe) var isPaused: Bool = false
 
     init(interval: TimeInterval = 0.5, onChange: @escaping @Sendable (NSPasteboard) -> Void) {
         self.interval = interval
@@ -27,6 +28,7 @@ final class ClipboardMonitor: Sendable {
     }
 
     private func checkPasteboard() {
+        guard !isPaused else { return }
         let pasteboard = NSPasteboard.general
         let currentCount = pasteboard.changeCount
         guard currentCount != lastChangeCount else { return }
