@@ -1,8 +1,9 @@
-import SwiftUI
 import AppKit
+import SwiftUI
 
 struct ShortcutsSettingsView: View {
     @Bindable var viewModel: SettingsViewModel
+    @State private var recordingSuspensionToken = UUID()
 
     var body: some View {
         Form {
@@ -31,13 +32,15 @@ struct ShortcutsSettingsView: View {
                         .padding(.vertical, 5)
                         .background(
                             RoundedRectangle(cornerRadius: 6)
-                                .fill(viewModel.isRecordingHotkey
-                                      ? Color.red.opacity(0.08)
-                                      : Color(nsColor: .controlBackgroundColor))
+                                .fill(
+                                    viewModel.isRecordingHotkey
+                                        ? Color.red.opacity(0.08)
+                                        : Color(nsColor: .controlBackgroundColor))
                         )
                         .overlay(
                             RoundedRectangle(cornerRadius: 6)
-                                .stroke(viewModel.isRecordingHotkey
+                                .stroke(
+                                    viewModel.isRecordingHotkey
                                         ? Color.red.opacity(0.3)
                                         : Color(nsColor: .separatorColor), lineWidth: 1)
                         )
@@ -71,6 +74,12 @@ struct ShortcutsSettingsView: View {
         }
         .formStyle(.grouped)
         .focusable()
+        .onChange(of: viewModel.isRecordingHotkey, initial: true) { _, isRecording in
+            HotkeyManager.setHotkeyRecordingSuspended(isRecording, token: recordingSuspensionToken)
+        }
+        .onDisappear {
+            HotkeyManager.setHotkeyRecordingSuspended(false, token: recordingSuspensionToken)
+        }
         .onKeyPress(phases: .down) { keyPress in
             guard viewModel.isRecordingHotkey else { return .ignored }
             var nsModifiers: NSEvent.ModifierFlags = []

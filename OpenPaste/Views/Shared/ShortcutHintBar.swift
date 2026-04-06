@@ -7,11 +7,16 @@ struct ShortcutHintBar: View {
             hintItem("⇧↵", "Plain Text")
             hintItem("⇥ / Space", "Preview")
             hintItem("⌘1-9", "Quick Paste")
+            hintItem("Drag", "To App")
+                .accessibilityIdentifier("bottomShelf.hint.dragToApp")
+                .accessibilityLabel("Drag To App")
             Spacer()
         }
         .padding(.horizontal, DS.Shelf.horizontalPadding)
         .padding(.vertical, 5)
         .frame(height: DS.Shelf.hintBarHeight)
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("bottomShelf.hintBar")
         // Blur handled by NSVisualEffectView at panel level — no extra material needed
     }
 
@@ -24,5 +29,6 @@ struct ShortcutHintBar: View {
                 .font(.system(size: 10))
                 .foregroundStyle(.tertiary)
         }
+        .accessibilityElement(children: .combine)
     }
 }

@@ -43,8 +43,9 @@ extension BottomShelfView {
         }
 
         if keyPress.modifiers.contains(.command),
-           let n = Int(keyPress.characters),
-           n >= 1, n <= 9 {
+            let n = Int(keyPress.characters),
+            n >= 1, n <= 9
+        {
             pasteByIndex(n - 1)
             return .handled
         }
@@ -82,7 +83,8 @@ extension BottomShelfView {
     func moveSelection(by offset: Int) {
         guard !displayItems.isEmpty else { return }
         guard let current = selectedId,
-              let idx = displayItems.firstIndex(where: { $0.id == current }) else {
+            let idx = displayItems.firstIndex(where: { $0.id == current })
+        else {
             selectedId = displayItems.first?.id
             return
         }
@@ -194,6 +196,6 @@ struct CardDropDelegate: DropDelegate {
     }
 
     func validateDrop(info: DropInfo) -> Bool {
-        draggedItemId != nil
+        draggedItemId != nil && info.hasItemsConforming(to: [UTType.openPasteReorderItem])
     }
 }

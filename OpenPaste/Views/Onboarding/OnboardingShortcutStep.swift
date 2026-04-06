@@ -1,19 +1,21 @@
-import SwiftUI
 import AppKit
+import SwiftUI
 
 struct OnboardingShortcutStep: View {
     let viewModel: OnboardingViewModel
     @State private var bounceKey = false
+    @State private var recordingSuspensionToken = UUID()
 
     var body: some View {
         VStack(spacing: 24) {
             Image(systemName: "command.circle.fill")
                 .font(.system(size: 48))
-                .foregroundStyle(.linearGradient(
-                    colors: [.blue, .cyan],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                ))
+                .foregroundStyle(
+                    .linearGradient(
+                        colors: [.blue, .cyan],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    ))
 
             Text("Set Your Shortcut")
                 .font(.system(size: 24, weight: .bold, design: .rounded))
@@ -55,18 +57,29 @@ struct OnboardingShortcutStep: View {
                 .padding(.horizontal, 20)
                 .background(
                     RoundedRectangle(cornerRadius: 12)
-                        .fill(viewModel.isRecordingHotkey
-                              ? Color.red.opacity(0.08)
-                              : Color(nsColor: .controlBackgroundColor))
+                        .fill(
+                            viewModel.isRecordingHotkey
+                                ? Color.red.opacity(0.08)
+                                : Color(nsColor: .controlBackgroundColor)
+                        )
                         .shadow(color: .black.opacity(0.1), radius: 4, y: 2)
                 )
                 .overlay(
                     RoundedRectangle(cornerRadius: 12)
-                        .stroke(viewModel.isRecordingHotkey ? Color.red.opacity(0.3) : Color.clear, lineWidth: 2)
+                        .stroke(
+                            viewModel.isRecordingHotkey ? Color.red.opacity(0.3) : Color.clear,
+                            lineWidth: 2)
                 )
             }
             .buttonStyle(.plain)
             .focusable()
+            .onChange(of: viewModel.isRecordingHotkey, initial: true) { _, isRecording in
+                HotkeyManager.setHotkeyRecordingSuspended(
+                    isRecording, token: recordingSuspensionToken)
+            }
+            .onDisappear {
+                HotkeyManager.setHotkeyRecordingSuspended(false, token: recordingSuspensionToken)
+            }
             .onKeyPress(phases: .down) { keyPress in
                 guard viewModel.isRecordingHotkey else { return .ignored }
                 // Convert KeyPress to NSEvent-like data

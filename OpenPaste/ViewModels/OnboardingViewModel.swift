@@ -1,5 +1,5 @@
-import Foundation
 import AppKit
+import Foundation
 import ServiceManagement
 
 enum OnboardingStep: Int, CaseIterable {
@@ -18,7 +18,7 @@ final class OnboardingViewModel {
 
     // Hotkey configuration
     var hotkeyModifiers: NSEvent.ModifierFlags = [.shift, .command]
-    var hotkeyKeyCode: UInt16 = 0x09 // V key
+    var hotkeyKeyCode: UInt16 = 0x09  // V key
     var hotkeyDisplayString: String = "⇧⌘V"
     var isRecordingHotkey: Bool = false
 
@@ -36,7 +36,7 @@ final class OnboardingViewModel {
         case .welcome, .preferences, .ready:
             return true
         case .permissions:
-            return true // allow skip even without permission
+            return true  // allow skip even without permission
         case .shortcut:
             return hotkeyKeyCode != 0
         }
@@ -75,16 +75,17 @@ final class OnboardingViewModel {
     // MARK: - Permissions
 
     func openAccessibilitySettings() {
-        // Register this binary in the TCC database with its current code signature
-        let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue(): true] as CFDictionary
-        let trusted = AXIsProcessTrustedWithOptions(options)
-
-        // If the system prompt was suppressed (already prompted once), open Settings directly
-        if !trusted {
-            if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility") {
-                NSWorkspace.shared.open(url)
-            }
+        // Note: kAXTrustedCheckOptionPrompt is suppressed for sandboxed apps
+        // (App Sandbox prevents the system prompt from appearing).
+        // Open System Settings directly so the user can add the app via "+".
+        if let url = URL(
+            string:
+                "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")
+        {
+            NSWorkspace.shared.open(url)
         }
+        // Reveal the app bundle in Finder so user can easily select it via "+"
+        NSWorkspace.shared.activateFileViewerSelecting([Bundle.main.bundleURL])
     }
 
     func checkAccessibilityPermission() {
@@ -93,7 +94,8 @@ final class OnboardingViewModel {
 
     func startPermissionPolling() {
         stopPermissionPolling()
-        permissionTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
+        permissionTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) {
+            [weak self] _ in
             Task { @MainActor in
                 self?.checkAccessibilityPermission()
             }
@@ -101,7 +103,9 @@ final class OnboardingViewModel {
 
         // Instantly re-check when user toggles any Accessibility permission
         accessibilityObserver = DistributedNotificationCenter.default()
-            .addObserver(forName: Notification.Name("com.apple.accessibility.api"), object: nil, queue: .main) { [weak self] _ in
+            .addObserver(
+                forName: Notification.Name("com.apple.accessibility.api"), object: nil, queue: .main
+            ) { [weak self] _ in
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
                     self?.checkAccessibilityPermission()
                 }
@@ -109,7 +113,9 @@ final class OnboardingViewModel {
 
         // Re-check when user returns to the app from System Settings
         activationObserver = NotificationCenter.default
-            .addObserver(forName: NSApplication.didBecomeActiveNotification, object: nil, queue: .main) { [weak self] _ in
+            .addObserver(
+                forName: NSApplication.didBecomeActiveNotification, object: nil, queue: .main
+            ) { [weak self] _ in
                 self?.checkAccessibilityPermission()
             }
     }
@@ -168,14 +174,16 @@ final class OnboardingViewModel {
     }
 
     private func saveHotkey() {
-        UserDefaults.standard.set(Int(hotkeyModifiers.rawValue), forKey: Constants.customHotkeyModifiersKey)
+        UserDefaults.standard.set(
+            Int(hotkeyModifiers.rawValue), forKey: Constants.customHotkeyModifiersKey)
         UserDefaults.standard.set(Int(hotkeyKeyCode), forKey: Constants.customHotkeyKeyCodeKey)
     }
 
     private func loadSavedHotkey() {
-        let savedMods = UserDefaults.standard.integer(forKey: Constants.customHotkeyModifiersKey)
-        let savedKey = UserDefaults.standard.integer(forKey: Constants.customHotkeyKeyCodeKey)
-        if savedMods != 0 && savedKey != 0 {
+        let defaults = UserDefaults.standard
+        if let savedMods = defaults.object(forKey: Constants.customHotkeyModifiersKey) as? Int,
+            let savedKey = defaults.object(forKey: Constants.customHotkeyKeyCodeKey) as? Int
+        {
             hotkeyModifiers = NSEvent.ModifierFlags(rawValue: UInt(savedMods))
             hotkeyKeyCode = UInt16(savedKey)
             hotkeyDisplayString = formatHotkey(modifiers: hotkeyModifiers, keyCode: hotkeyKeyCode)

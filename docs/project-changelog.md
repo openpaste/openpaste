@@ -4,7 +4,20 @@ All notable changes to the OpenPaste project are documented in this file. Format
 
 ## [Unreleased]
 
-*No unreleased changes.*
+## [1.6.0] — 2026-04-06
+
+### Added
+- `feat(bottomShelf)`: Bottom Shelf cards can now be dragged directly into other macOS apps while still supporting in-shelf reordering via a private reorder payload (`BottomShelfView`, `ClipboardTransferSupport`, `BottomShelfPanel`)
+- `feat(uitest)`: Configurable window mode, shortcut hints, and text seed items for E2E test scenarios (`AppController`)
+
+### Fixed
+- `fix(hotkey)`: Replace NSEvent global/local monitors with a session-scoped `CGEvent` tap that swallows the configured hotkey before it reaches the foreground app, preventing `⇧⌘V` from triggering "Paste and Match Style" in Safari, Notes, and Pages (`HotkeyManager`)
+- `fix(permissions)`: Open System Settings Accessibility pane directly and reveal the app bundle in Finder, working around App Sandbox suppressing `kAXTrustedCheckOptionPrompt` (`OnboardingViewModel`, `GeneralSettingsView`)
+- `fix(statusBar)`: Build status bar menu synchronously in `menuWillOpen` so AppKit sees items before displaying (`StatusBarController`)
+
+### Testing
+- `test(drag)`: Unit, integration, and E2E coverage for drag payload generation, pasteboard export, drag-session lifecycle, and Bottom Shelf reorder / drag-hint flows (`ClipboardTransferSupportTests`, `ClipboardCopyIntegrationTests`, `BottomShelfPanelDragSessionTests`, `HistoryViewModelReorderTests`, `OpenPasteE2EBottomShelfDragTests`)
+- `test(hotkey)`: CGEvent flag matching, auto-repeat rejection, and recording suspension token tests (`HotkeyManagerTests`)
 
 ## [1.5.1] — 2026-04-06
 

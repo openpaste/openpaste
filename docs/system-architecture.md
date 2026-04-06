@@ -50,7 +50,7 @@ Services   ViewModels                Views
 | `StatusBarController` | `NSStatusItem` + `NSMenu` management — dynamic icon, pause/resume, recent copies, quick actions, help submenu. Split into 3 files: core, `+MenuBuilder`, `+Actions` |
 | `NewTextItemWindow` | Floating `NSPanel` (400×250) for creating clipboard items from scratch (⌘N) |
 | `WindowManager` | Creates/shows/hides floating panel, cursor-positioned mode, focus management |
-| `HotkeyManager` | Carbon-based global hotkey registration and callback |
+| `HotkeyManager` | Session-scoped `CGEvent` tap that swallows the configured hotkey before it reaches foreground apps, preventing unintended actions (e.g., "Paste and Match Style" in Safari/Notes) while toggling Bottom Shelf mode |
 | `OnboardingWindowManager` | Separate window for first-launch onboarding flow |
 
 ### 2. Model Layer (`Models/`)
@@ -331,7 +331,7 @@ for await event in await eventBus.stream() {
 ## Window System
 
 - **Type:** `NSPanel` (floating, non-activating) via custom `FloatingPanel`
-- **Activation:** Global hotkey (Carbon) → `WindowManager.toggle()`
+- **Activation:** Global hotkey (`CGEvent` tap) → `WindowManager.toggle()`
 - **Position modes:** Center screen or cursor-positioned (clamped to visible frame)
 - **Size:** Resizable 350×400 to 700×900
 - **Behavior:** LSUIElement (no Dock icon), activates/deactivates previous app on show/hide
@@ -361,4 +361,4 @@ See [release-guide.md](release-guide.md) for full release procedure.
 |---------|---------|---------|
 | GRDB.swift | 7.10.0 | SQLite ORM, migrations, FTS5 |
 
-**Apple Frameworks:** SwiftUI, AppKit, CryptoKit, Vision, CoreGraphics, Carbon, Security
+**Apple Frameworks:** SwiftUI, AppKit, CryptoKit, Vision, CoreGraphics, Security
