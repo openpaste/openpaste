@@ -3,14 +3,14 @@
 Strategic roadmap for OpenPaste development phases, milestones, and feature priorities.
 
 **Last Updated:** April 2026  
-**Current Phase:** Foundation (95% → feature-complete for iCloud Sync + Smart Lists)  
+**Current Phase:** Foundation (96% → feature-complete for iCloud Sync + Smart Lists)  
 **Active Go-to-Market Track:** First-users validation roadmap — see `../plans/260403-first-users-roadmap/plan.md`
 
 ---
 
 ## Phase 1: Foundation – Core Clipboard Management ⚙️
 
-**Status:** In Progress (95% complete)
+**Status:** In Progress (96% complete)
 **Target Completion:** Q2 2026
 
 ### Completed Milestones ✅
@@ -65,6 +65,7 @@ Strategic roadmap for OpenPaste development phases, milestones, and feature prio
    - Smart filter bar (Last 24h, Last 7 days, Last 30 days, Pinned, Starred)
    - Cursor-positioned window mode (open near mouse, clamped to screen)
    - Bottom Shelf (Paste-style) window mode (Appearance setting)
+   - Bottom Shelf drag-and-drop: drag cards into other macOS apps while preserving in-shelf reorder
    - Resizable window support (350×400 to 700×900)
 
    **Code Quality Fixes:**

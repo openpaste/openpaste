@@ -4,7 +4,14 @@ All notable changes to the OpenPaste project are documented in this file. Format
 
 ## [Unreleased]
 
-*No unreleased changes.*
+### Added
+- `feat(bottomShelf)`: Bottom Shelf cards can now be dragged directly into other macOS apps while still supporting in-shelf reordering via a private reorder payload (`BottomShelfView`, `ClipboardTransferSupport`, `BottomShelfPanel`)
+
+### Testing
+- `test(bottomShelf)`: Added unit, integration, and UI automation coverage for drag payload generation, pasteboard export behavior, drag-session lifecycle, and Bottom Shelf reorder / drag-hint flows (`ClipboardTransferSupportTests`, `ClipboardCopyIntegrationTests`, `BottomShelfPanelDragSessionTests`, `OpenPasteE2EBottomShelfDragTests`)
+
+### Fixed
+- `fix(bottomShelf)`: Swallow the configured global hotkey before it reaches the foreground app, preventing Bottom Shelf `⇧⌘V` from triggering “Paste and Match Style” in apps like Safari, Notes, and Pages (`HotkeyManager`)
 
 ## [1.5.1] — 2026-04-06
 
