@@ -206,6 +206,18 @@ final class AppController {
         isUITestMode && uiTestEnvironment["OPENPASTE_UI_TEST_SEED_IMAGE"] == "1"
     }
 
+    private var uiTestSeedTextItems: [String] {
+        guard let raw = uiTestEnvironment["OPENPASTE_UI_TEST_SEED_TEXT_ITEMS"], !raw.isEmpty else {
+            return []
+        }
+
+        return
+            raw
+            .split(separator: "|")
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+    }
+
     private var shouldOpenPanelForUITests: Bool {
         isUITestMode && uiTestEnvironment["OPENPASTE_UI_TEST_OPEN_PANEL"] == "1"
     }
@@ -219,16 +231,30 @@ final class AppController {
     }
 
     private func configureDefaultsForUITests() {
-        // Override preferences in-memory (non-persistent) so UI tests don't leak settings.
+        let windowMode =
+            uiTestEnvironment["OPENPASTE_UI_TEST_WINDOW_MODE"]
+            ?? Constants.windowPositionModeBottomShelf
+        let showShortcutHints = uiTestEnvironment["OPENPASTE_UI_TEST_SHOW_SHORTCUT_HINTS"] == "1"
+
+        // Override preferences in-memory with highest precedence so AppStorage/UserDefaults
+        // observe the test values without persisting changes to the developer's real settings.
         let overrides: [String: Any] = [
-            Constants.windowPositionModeKey: "center",
-            Constants.showShortcutHintsKey: false,
+            Constants.windowPositionModeKey: windowMode,
+            Constants.showShortcutHintsKey: showShortcutHints,
         ]
-        UserDefaults.standard.setVolatileDomain(overrides, forName: "OpenPasteUITestOverrides")
-        UserDefaults.standard.register(defaults: overrides)
+        var argumentDomain = UserDefaults.standard.volatileDomain(
+            forName: UserDefaults.argumentDomain)
+        argumentDomain.merge(overrides) { _, new in new }
+        UserDefaults.standard.setVolatileDomain(
+            argumentDomain,
+            forName: UserDefaults.argumentDomain
+        )
     }
 
     private func seedAndOpenPanelIfNeeded(container: DependencyContainer) async {
+        if !uiTestSeedTextItems.isEmpty {
+            await seedTestTextItems(uiTestSeedTextItems, storageService: container.storageService)
+        }
         if shouldSeedImageForUITests {
             await seedTestImageItem(storageService: container.storageService)
         }
@@ -284,6 +310,32 @@ final class AppController {
         )
 
         try? await storageService.save(item)
+    }
+
+    private func seedTestTextItems(_ texts: [String], storageService: StorageServiceProtocol) async
+    {
+        let baseDate = Date()
+
+        for (index, text) in texts.enumerated() {
+            let createdAt = baseDate.addingTimeInterval(-Double(index))
+            let data = Data(text.utf8)
+            let item = ClipboardItem(
+                type: .text,
+                content: data,
+                plainTextContent: text,
+                sourceApp: AppInfo(
+                    bundleId: "dev.tuanle.OpenPaste.uitests",
+                    name: "UI Tests",
+                    iconPath: nil
+                ),
+                createdAt: createdAt,
+                modifiedAt: createdAt,
+                accessedAt: createdAt,
+                contentHash: ContentHasher().hash(data)
+            )
+
+            try? await storageService.save(item)
+        }
     }
 
     private static func makeUITestTIFFData(width: Int, height: Int) -> Data? {
