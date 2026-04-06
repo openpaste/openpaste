@@ -4,6 +4,78 @@ All notable changes to the OpenPaste project are documented in this file. Format
 
 ## [Unreleased]
 
+### Added
+
+#### Menubar Overhaul — Native AppKit Status Bar (April 2026)
+Complete replacement of the SwiftUI `MenuBarExtra` with a full AppKit `NSStatusItem` + `NSMenu` system, adding pause/resume controls, smart auto-pause, a recent-copies submenu, quick actions, and a floating text-creation panel.
+
+**Architecture — StatusBarController (App/):**
+- `feat(menubar)`: `StatusBarController` — `@MainActor` `NSObject` managing `NSStatusItem` + `NSMenu`, split into 3 extensions: core (~100 LOC), `+MenuBuilder` (~200 LOC), `+Actions` (~140 LOC)
+- `feat(menubar)`: Dynamic menubar icon — switches between `clipboard` (active) and `clipboard.badge.clock` (paused) SF Symbols; tooltip reflects pause state and reason
+- `feat(menubar)`: Menu rebuilt on every open via `NSMenuDelegate.menuWillOpen(_:)` with async cache refresh for recent items and storage count
+
+**Pause / Resume Monitoring:**
+- `feat(monitoring)`: `MonitoringState` — `@MainActor @Observable` model tracking `isPaused`, `pauseReason`, `pauseEndDate`, with computed `remainingTimeString`
+- `feat(monitoring)`: `PauseReason` enum — `.manual`, `.timed(duration:)`, `.smartDetect(appName:)` (`Sendable`, `Equatable`)
+- `feat(monitoring)`: Manual pause/resume toggle in Pause Monitoring submenu
+- `feat(monitoring)`: Timed pause presets — 15 min, 30 min, 1 hour, 3 hours, 8 hours with auto-resume via `Task.sleep`
+- `feat(monitoring)`: `ClipboardServiceProtocol` extended with `pauseMonitoring()` / `resumeMonitoring()` async API; `ClipboardMonitor.isPaused` guard skips pasteboard polling when paused
+
+**Smart Auto-Pause:**
+- `feat(security)`: `SmartPauseDetector` — `@MainActor` class using `NSWorkspace.didActivateApplicationNotification` / `didDeactivateApplicationNotification` to detect sensitive apps in foreground
+- `feat(security)`: Sensitive app bundle ID list — 1Password (v7 + v8), Bitwarden, LastPass, Keychain Access, Apple Passwords, Dashlane, Keeper
+- `feat(security)`: Auto-pauses clipboard monitoring when a sensitive app activates; auto-resumes when it deactivates (guarded by `smartAutoPauseEnabled` UserDefaults key)
+
+**Recent Copies Submenu:**
+- `feat(menubar)`: Recent Copies submenu showing last N items (configurable via `recentItemsCount` key, default 5) with content-type SF Symbol icons and truncated previews
+- `feat(menubar)`: Click-to-paste from recent copies via `ClipboardService.copyToClipboard(_:)`
+- `feat(menubar)`: Configurable via `showRecentItemsInMenu` UserDefaults key
+
+**New Text Item (⌘N):**
+- `feat(menubar)`: `NewTextItemWindow` — floating `NSPanel` (400×250) hosting a SwiftUI `TextEditor` for creating clipboard items from scratch
+- `feat(menubar)`: Saves via `StorageService` with `ContentHasher` for dedup; source app set to OpenPaste itself
+
+**Quick Actions Submenu:**
+- `feat(menubar)`: Clear All History with `NSAlert` confirmation dialog (destructive action)
+- `feat(menubar)`: Force Sync Now — triggers `SyncService.triggerManualSync()`
+- `feat(menubar)`: Storage Stats — displays current item count (read-only)
+
+**Help & Community Submenu:**
+- `feat(menubar)`: Getting Started, Documentation, and Keyboard Shortcuts links
+- `feat(menubar)`: Report Bug and Feature Request links (GitHub issue templates)
+- `feat(menubar)`: Star on GitHub link
+
+### Changed
+
+- `refactor(app)`: Removed `MenuBarExtra` from `OpenPasteApp.swift`; menu bar is now fully managed by `StatusBarController` via AppKit
+- `refactor(app)`: `AppDelegate` no longer manages the status item; LSUIElement activation policy and APNs registration remain
+- `refactor(app)`: `AppController` now owns `StatusBarController`, `SmartPauseDetector`, `MonitoringState`, and `NewTextItemWindow`; wires callbacks for panel toggle and new-text-item window
+- `refactor(clipboard)`: `ClipboardMonitor.checkPasteboard()` now guards on `isPaused` flag before polling `NSPasteboard`
+- `refactor(constants)`: Added 3 new `Constants` keys: `smartAutoPauseEnabledKey`, `showRecentItemsInMenuKey`, `recentItemsCountKey`
+
+**New Files:**
+
+| File | Purpose |
+|------|---------|
+| `App/StatusBarController.swift` | Core controller — NSStatusItem, NSMenu, dynamic icon, NSMenuDelegate, smart-pause handlers |
+| `App/StatusBarController+MenuBuilder.swift` | `rebuildMenu()` and all submenu builders (recent copies, pause, quick actions, help) |
+| `App/StatusBarController+Actions.swift` | `@objc` action methods, truncated preview helper, content-type icon mapping |
+| `App/NewTextItemWindow.swift` | Floating NSPanel + SwiftUI `NewTextItemView` for creating text items |
+| `Models/PauseReason.swift` | `PauseReason` enum (manual, timed, smartDetect) |
+| `Models/MonitoringState.swift` | `MonitoringState` @Observable class (isPaused, reason, remaining time) |
+| `Services/Security/SmartPauseDetector.swift` | NSWorkspace notification observer for sensitive app detection |
+
+**Modified Files:**
+
+| File | Changes |
+|------|---------|
+| `Services/Protocols/ClipboardServiceProtocol.swift` | Added `pauseMonitoring()` and `resumeMonitoring()` async methods |
+| `Services/Clipboard/ClipboardService.swift` | Implemented `pauseMonitoring()` / `resumeMonitoring()` |
+| `Services/Clipboard/ClipboardMonitor.swift` | Added `isPaused` guard in `checkPasteboard()` |
+| `Utilities/Constants.swift` | Added `smartAutoPauseEnabledKey`, `showRecentItemsInMenuKey`, `recentItemsCountKey` |
+| `OpenPasteApp.swift` | Removed `MenuBarExtra` view |
+| `App/AppController.swift` | Wired `StatusBarController`, `SmartPauseDetector`, `MonitoringState`, `NewTextItemWindow` |
+
 ## [1.5.0] — 2026-04-06
 
 ### Added

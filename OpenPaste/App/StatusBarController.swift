@@ -1,0 +1,112 @@
+//
+//  StatusBarController.swift
+//  OpenPaste
+//
+
+import AppKit
+import Foundation
+
+@MainActor
+final class StatusBarController: NSObject, NSMenuDelegate {
+
+    let statusItem: NSStatusItem
+    let menu: NSMenu
+
+    // Dependencies
+    let monitoringState: MonitoringState
+    let clipboardService: ClipboardServiceProtocol
+    let storageService: StorageServiceProtocol
+    let syncService: SyncServiceProtocol
+    let updaterService: UpdaterServiceProtocol
+
+    // Callbacks
+    var onTogglePanel: (() -> Void)?
+    var onShowNewTextItem: (() -> Void)?
+
+    // Cached data for synchronous menu building
+    var cachedRecentItems: [ClipboardItem] = []
+    var cachedItemCount: Int = 0
+    var timedResumeTask: Task<Void, Never>?
+
+    init(
+        monitoringState: MonitoringState,
+        clipboardService: ClipboardServiceProtocol,
+        storageService: StorageServiceProtocol,
+        syncService: SyncServiceProtocol,
+        updaterService: UpdaterServiceProtocol
+    ) {
+        self.monitoringState = monitoringState
+        self.clipboardService = clipboardService
+        self.storageService = storageService
+        self.syncService = syncService
+        self.updaterService = updaterService
+        self.statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
+        self.menu = NSMenu()
+        super.init()
+
+        menu.delegate = self
+        statusItem.menu = menu
+        updateIcon()
+        statusItem.button?.toolTip = "OpenPaste"
+
+        Task { await refreshCaches() }
+    }
+
+    // MARK: - Dynamic Icon
+
+    func updateIcon() {
+        let imageName = monitoringState.isPaused ? "clipboard.badge.clock" : "clipboard"
+        statusItem.button?.image = NSImage(
+            systemSymbolName: imageName,
+            accessibilityDescription: "OpenPaste"
+        )
+        statusItem.button?.image?.size = NSSize(width: 18, height: 18)
+
+        if monitoringState.isPaused, let appName = monitoringState.pausedAppName {
+            statusItem.button?.toolTip = "OpenPaste — Paused (\(appName))"
+        } else if monitoringState.isPaused {
+            statusItem.button?.toolTip = "OpenPaste — Paused"
+        } else {
+            statusItem.button?.toolTip = "OpenPaste"
+        }
+    }
+
+    // MARK: - NSMenuDelegate
+
+    nonisolated func menuWillOpen(_ menu: NSMenu) {
+        Task { @MainActor in
+            self.rebuildMenu()
+            await self.refreshCaches()
+            self.rebuildMenu()
+        }
+    }
+
+    // MARK: - Data
+
+    func refreshCaches() async {
+        let count = max(UserDefaults.standard.integer(forKey: Constants.recentItemsCountKey), 5)
+        cachedRecentItems = (try? await storageService.fetch(limit: count, offset: 0)) ?? []
+        cachedItemCount = (try? await storageService.itemCount()) ?? 0
+    }
+
+    // MARK: - Smart Pause
+
+    func handleSensitiveAppActivated(appName: String) {
+        guard UserDefaults.standard.bool(forKey: Constants.smartAutoPauseEnabledKey) else { return }
+        Task { @MainActor in
+            await clipboardService.pauseMonitoring()
+            monitoringState.pause(reason: .smartDetect(appName: appName))
+            updateIcon()
+        }
+    }
+
+    func handleSensitiveAppDeactivated() {
+        guard monitoringState.isPaused,
+              case .smartDetect = monitoringState.pauseReason else { return }
+        Task { @MainActor in
+            await clipboardService.resumeMonitoring()
+            monitoringState.resume()
+            updateIcon()
+        }
+    }
+}

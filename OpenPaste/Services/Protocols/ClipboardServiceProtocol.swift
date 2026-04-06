@@ -3,6 +3,8 @@ import Foundation
 protocol ClipboardServiceProtocol: Sendable {
     func startMonitoring() async
     func stopMonitoring() async
+    func pauseMonitoring() async
+    func resumeMonitoring() async
     func pasteItem(_ item: ClipboardItem) async
     /// Copy item content to the system clipboard without simulating paste.
     func copyToClipboard(_ item: ClipboardItem) async

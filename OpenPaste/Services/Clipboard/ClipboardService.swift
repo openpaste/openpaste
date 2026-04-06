@@ -37,6 +37,16 @@ final class ClipboardService: ClipboardServiceProtocol, @unchecked Sendable {
         monitor = nil
     }
 
+    @MainActor
+    func pauseMonitoring() async {
+        monitor?.isPaused = true
+    }
+
+    @MainActor
+    func resumeMonitoring() async {
+        monitor?.isPaused = false
+    }
+
     /// Legacy method used by PasteInterceptor — copies and immediately simulates paste.
     func pasteItem(_ item: ClipboardItem) async {
         await copyToClipboard(item)

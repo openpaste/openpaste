@@ -32,6 +32,10 @@ final class AppController {
     private var onboardingWindowManager: OnboardingWindowManager?
     private var pasteInterceptor: PasteInterceptor?
     private var screenSharingDetector: ScreenSharingDetector?
+    private var statusBarController: StatusBarController?
+    private var smartPauseDetector: SmartPauseDetector?
+    private var newTextItemWindow: NewTextItemWindow?
+    private let monitoringState = MonitoringState()
     private let isRunningTests =
         ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
     private let isUITestMode: Bool = {
@@ -144,6 +148,8 @@ final class AppController {
                 setupHotkey()
                 setupPasteInterceptor()
                 setupScreenSharingDetector()
+                setupStatusBar(container: c)
+                setupSmartPauseDetector()
             } else {
                 configureDefaultsForUITests()
                 Task {
@@ -353,6 +359,43 @@ final class AppController {
                 self?.windowManager.hide()
             }
         }
+    }
+
+    private func setupStatusBar(container: DependencyContainer) {
+        let sbc = StatusBarController(
+            monitoringState: monitoringState,
+            clipboardService: container.clipboardService,
+            storageService: container.storageService,
+            syncService: container.syncService,
+            updaterService: updaterService
+        )
+        sbc.onTogglePanel = { [weak self] in
+            self?.togglePanel()
+        }
+        sbc.onShowNewTextItem = { [weak self] in
+            self?.showNewTextItemWindow()
+        }
+        statusBarController = sbc
+
+        newTextItemWindow = NewTextItemWindow(storageService: container.storageService)
+    }
+
+    private func setupSmartPauseDetector() {
+        let detector = SmartPauseDetector()
+        smartPauseDetector = detector
+
+        detector.onSensitiveAppActivated = { [weak self] appName in
+            self?.statusBarController?.handleSensitiveAppActivated(appName: appName)
+        }
+        detector.onSensitiveAppDeactivated = { [weak self] in
+            self?.statusBarController?.handleSensitiveAppDeactivated()
+        }
+
+        detector.startMonitoring()
+    }
+
+    private func showNewTextItemWindow() {
+        newTextItemWindow?.show()
     }
 
     func togglePanel() {

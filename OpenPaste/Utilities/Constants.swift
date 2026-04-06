@@ -49,4 +49,9 @@ enum Constants {
     // Paste Behavior
     static let pasteDirectlyKey = "pasteDirectly"
 
+    // Monitoring Pause
+    static let smartAutoPauseEnabledKey = "smartAutoPauseEnabled"
+    static let showRecentItemsInMenuKey = "showRecentItemsInMenu"
+    static let recentItemsCountKey = "recentItemsCount"
+
 }

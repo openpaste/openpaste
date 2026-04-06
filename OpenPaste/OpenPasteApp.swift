@@ -14,37 +14,6 @@ struct OpenPasteApp: App {
     @AppStorage(Constants.appearanceThemeKey) private var theme = "system"
 
     var body: some Scene {
-        MenuBarExtra("OpenPaste", systemImage: "clipboard") {
-            if let error = controller.initError {
-                Text("Error: \(error)")
-            } else {
-                Button("Show Clipboard History \(HotkeyManager.currentHotkeyDisplayString())") {
-                    controller.togglePanel()
-                }
-                .keyboardShortcut("v", modifiers: [.shift, .command])
-
-                Divider()
-
-                SettingsLink {
-                    Text("Settings…")
-                }
-                .keyboardShortcut(",", modifiers: .command)
-
-                Button("Check for Updates…") {
-                    controller.updaterService.checkForUpdates()
-                }
-                .disabled(!controller.updaterService.canCheckForUpdates)
-
-                Divider()
-
-                Button("Quit OpenPaste") {
-                    NSApplication.shared.terminate(nil)
-                }
-                .keyboardShortcut("q", modifiers: .command)
-            }
-        }
-        .menuBarExtraStyle(.menu)
-
         Settings {
             SettingsView(
                 viewModel: controller.settingsViewModel,

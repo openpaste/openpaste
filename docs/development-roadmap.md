@@ -77,6 +77,32 @@ Strategic roadmap for OpenPaste development phases, milestones, and feature prio
 
    **New files:** `DesignSystem.swift`, `HoverHighlightModifier.swift`, `PasteConfirmationOverlay.swift`, `KeyboardShortcutOverlay.swift`, `SmartFilterBar.swift`, `AppearanceSettingsView.swift`, `StorageSettingsView.swift`
 
+6. **Menubar Overhaul — Native AppKit Status Bar** ✅ NEW
+   Full replacement of SwiftUI `MenuBarExtra` with AppKit `NSStatusItem` + `NSMenu` via `StatusBarController`:
+
+   **Menu Bar Infrastructure:**
+   - `StatusBarController` split into core, `+MenuBuilder`, `+Actions` extensions
+   - Dynamic SF Symbol icon (`clipboard` / `clipboard.badge.clock`) reflects monitoring state
+   - Menu rebuilt on every open via `NSMenuDelegate` with async data refresh
+
+   **Pause / Resume Monitoring:**
+   - `MonitoringState` (`@MainActor @Observable`) + `PauseReason` enum (manual, timed, smartDetect)
+   - Manual toggle + timed presets (15m, 30m, 1h, 3h, 8h) with auto-resume
+   - `ClipboardServiceProtocol` extended with `pauseMonitoring()` / `resumeMonitoring()`
+   - `ClipboardMonitor.isPaused` guard skips pasteboard polling
+
+   **Smart Auto-Pause:**
+   - `SmartPauseDetector` uses `NSWorkspace` notifications to detect sensitive apps (1Password, Bitwarden, LastPass, Keychain Access, Apple Passwords, Dashlane, Keeper)
+   - Auto-pauses on sensitive app activation, auto-resumes on deactivation
+
+   **Submenus & Features:**
+   - Recent Copies submenu with content-type icons and click-to-paste
+   - New Text Item floating panel (`NSPanel`, ⌘N) to create items from scratch
+   - Quick Actions: Clear All History (with confirmation), Force Sync, Storage Stats
+   - Help & Community: Getting Started, Docs, Bug Report, Feature Request, Star on GitHub
+
+   **New files:** `StatusBarController.swift`, `StatusBarController+MenuBuilder.swift`, `StatusBarController+Actions.swift`, `NewTextItemWindow.swift`, `PauseReason.swift`, `MonitoringState.swift`, `SmartPauseDetector.swift`
+
 ### Active Milestones 🔄
 
 6. **Distribution & CI/CD** ✅
@@ -311,6 +337,13 @@ Strategic roadmap for OpenPaste development phases, milestones, and feature prio
 - [x] Smart Lists synced via iCloud with LWW conflict resolution
 - [x] 3-tab navigation (History / Smart Lists / Collections)
 - [x] Live badge counts with debounced 500ms refresh
+- [x] Native AppKit status bar replacing SwiftUI MenuBarExtra
+- [x] Pause/resume monitoring (manual + timed presets with auto-resume)
+- [x] Smart auto-pause when sensitive apps (password managers) in foreground
+- [x] Recent Copies submenu with content-type icons and click-to-paste
+- [x] New Text Item floating panel for creating items from scratch (⌘N)
+- [x] Quick Actions submenu (Clear All, Force Sync, Storage Stats)
+- [x] Dynamic menubar icon reflecting monitoring state
 
 ---
 
@@ -328,6 +361,8 @@ Strategic roadmap for OpenPaste development phases, milestones, and feature prio
 | CloudKit CKSyncEngine (macOS 14+) | Shipped | iCloud sync with retry, reachability, progress ✅ |
 | NWPathMonitor (Network framework) | Shipped | Network reachability for sync auto-recovery ✅ |
 | GRDB v7.10.0 Smart List support | Shipped | v8 migration, SmartListRecord, upsert ✅ |
+| AppKit NSStatusItem + NSMenu | Shipped | Native menubar replacing SwiftUI MenuBarExtra ✅ |
+| NSWorkspace app notifications | Shipped | Smart auto-pause for sensitive app detection ✅ |
 
 ---
 
@@ -337,6 +372,7 @@ Strategic roadmap for OpenPaste development phases, milestones, and feature prio
 - **Q2 2026 Go-to-Market Focus:** Run the first-users roadmap in `../plans/260403-first-users-roadmap/plan.md` before expanding AI/plugin claims publicly
 - **Distribution:** v1.0.0 released — signed, notarized, Homebrew installable. See [release-guide.md](release-guide.md)
 - **UI/UX Overhaul:** Complete — design system (`DS` enum), Liquid Glass, spring animations, vim navigation, and settings redesign shipped
+- **Menubar Overhaul:** Complete — native AppKit `StatusBarController` with pause/resume, smart auto-pause, recent copies, quick actions, new text item panel shipped
 - **iCloud Sync:** Production-hardened — retry engine, NWPathMonitor reachability, account change handling, rate limits, zone recovery, progress reporting, tombstone/metadata cleanup shipped in v1.5.0
 - **Smart Lists:** Shipped — 11-field rules engine, 5 built-in presets, iCloud sync, import/export, 3-tab navigation, live badge counts shipped in v1.5.0
 - **Onboarding Release:** Ready for initial user feedback loop

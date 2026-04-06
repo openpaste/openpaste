@@ -44,16 +44,18 @@ Services   ViewModels                Views
 | Component | Responsibility |
 |-----------|---------------|
 | `OpenPasteApp` | SwiftUI `@main` entry, creates `AppDelegate` and root `ContentView` |
-| `AppDelegate` | NSApplicationDelegate — LSUIElement (menu bar app), status item |
-| `AppController` | Coordinator — creates DI container, wires ViewModels, starts services |
+| `AppDelegate` | NSApplicationDelegate — LSUIElement (menu bar app), APNs registration |
+| `AppController` | Coordinator — creates DI container, wires ViewModels, owns StatusBarController/SmartPauseDetector/MonitoringState |
 | `DependencyContainer` | Pure composition root — instantiates all services with their dependencies |
+| `StatusBarController` | `NSStatusItem` + `NSMenu` management — dynamic icon, pause/resume, recent copies, quick actions, help submenu. Split into 3 files: core, `+MenuBuilder`, `+Actions` |
+| `NewTextItemWindow` | Floating `NSPanel` (400×250) for creating clipboard items from scratch (⌘N) |
 | `WindowManager` | Creates/shows/hides floating panel, cursor-positioned mode, focus management |
 | `HotkeyManager` | Carbon-based global hotkey registration and callback |
 | `OnboardingWindowManager` | Separate window for first-launch onboarding flow |
 
 ### 2. Model Layer (`Models/`)
 
-All models are value types (`struct`) conforming to `Sendable`.
+All models are value types (`struct`/`enum`) conforming to `Sendable`, except `MonitoringState` which is a `@MainActor @Observable` reference type.
 
 | Model | Purpose |
 |-------|---------|
@@ -61,6 +63,8 @@ All models are value types (`struct`) conforming to `Sendable`.
 | `ContentType` | Enum: `text`, `richText`, `image`, `file`, `link`, `color`, `code` |
 | `SmartList` | Rule-based dynamic filter — name, icon, color, rules (JSON), matchMode, sortOrder |
 | `SmartListRule` | Individual filter rule — field, comparison operator, value |
+| `PauseReason` | Enum: `.manual`, `.timed(duration:)`, `.smartDetect(appName:)` — reason for monitoring pause |
+| `MonitoringState` | `@MainActor @Observable` — tracks `isPaused`, `pauseReason`, `pauseEndDate`, computed `remainingTimeString` |
 | `AppEvent` | Enum for EventBus messages (clipboard changed, item pasted, OCR completed, sync completed, etc.) |
 | `AppInfo` | Source application metadata (name, bundle ID, icon) |
 | `Collection` | User-created collection/folder for organizing items |
@@ -73,7 +77,7 @@ All services expose protocols (defined in `Services/Protocols/`). Implementation
 ```
 Services/
 ├── Clipboard/
-│   ├── ClipboardService        — NSPasteboard polling loop, dedup, normalize, emit events
+│   ├── ClipboardService        — NSPasteboard polling loop, dedup, normalize, emit events, pause/resume API
 │   └── PasteInterceptor        — Programmatic paste via CGEvent
 ├── Processing/
 │   ├── ContentHasher           — SHA-256 content hashing for deduplication
@@ -83,7 +87,8 @@ Services/
 ├── Security/
 │   ├── SensitiveContentDetector — Regex patterns + entropy analysis for secrets
 │   ├── SecurityService          — Auto-expiry cleanup for sensitive items
-│   └── ScreenSharingDetector    — Pause capture during screen sharing
+│   ├── ScreenSharingDetector    — Pause capture during screen sharing
+│   └── SmartPauseDetector       — NSWorkspace notification observer; auto-pauses monitoring when sensitive apps (1Password, Bitwarden, LastPass, etc.) are in foreground
 ├── SmartList/
 │   ├── SmartListService         — CRUD, evaluate, countMatches, presets, import/export
 │   └── SmartListQueryBuilder    — Rule → SQL predicate translation, regex post-filter
@@ -110,7 +115,7 @@ Services/
 ├── Update/
 │   └── UpdaterService           — Sparkle 2.9.1 (@Observable wrapper), in-app update checks and installation
 └── Protocols/
-    ├── ClipboardServiceProtocol
+    ├── ClipboardServiceProtocol   — includes pauseMonitoring() / resumeMonitoring() async API
     ├── StorageServiceProtocol
     ├── SearchServiceProtocol
     ├── SecurityServiceProtocol
@@ -160,6 +165,10 @@ Views/
 
 ```
 NSPasteboard (polling every 0.5s)
+  │
+  ▼
+ClipboardMonitor
+  ├── isPaused? (skip if monitoring paused — manual, timed, or smart auto-pause)
   │
   ▼
 ClipboardService
@@ -297,6 +306,8 @@ for await event in await eventBus.stream() {
 ┌─ Capture Time ─────────────────────────────┐
 │ App blacklist check (password managers)     │
 │ Screen sharing detection (pause capture)    │
+│ Smart auto-pause (sensitive app in fg)      │
+│ Manual / timed pause via StatusBarController│
 │ Sensitive content detection (regex/entropy) │
 │ → Flag isSensitive + set expiresAt          │
 └─────────────────────────────────────────────┘
