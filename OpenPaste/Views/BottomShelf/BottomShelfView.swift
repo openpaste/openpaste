@@ -6,9 +6,11 @@ struct BottomShelfView: View {
     @Bindable var searchViewModel: SearchViewModel
     var pasteStackViewModel: PasteStackViewModel?
     var collectionViewModel: CollectionViewModel?
+    var smartListViewModel: SmartListViewModel?
 
     @State var selectedId: UUID?
     @State var selectedCollectionId: UUID?
+    @State var selectedSmartListId: UUID?
     @State var showPreview = false
     @State private var showNewCollectionSheet = false
     @State private var newCollectionName = ""
@@ -131,7 +133,9 @@ struct BottomShelfView: View {
             // Tab bar (fills center)
             PinboardTabBar(
                 collectionViewModel: collectionViewModel,
+                smartListViewModel: smartListViewModel,
                 selectedCollectionId: $selectedCollectionId,
+                selectedSmartListId: $selectedSmartListId,
                 onAddCollection: {
                     newCollectionName = ""
                     showNewCollectionSheet = true
@@ -144,6 +148,15 @@ struct BottomShelfView: View {
         .padding(.vertical, 8)
         .onChange(of: selectedCollectionId) { _, newValue in
             applyCollectionFilter(newValue)
+            if newValue != nil { selectedSmartListId = nil }
+        }
+        .onChange(of: selectedSmartListId) { _, newValue in
+            if let id = newValue {
+                selectedCollectionId = nil
+                Task { await smartListViewModel?.selectSmartList(id) }
+            } else {
+                Task { await smartListViewModel?.selectSmartList(nil) }
+            }
         }
     }
 

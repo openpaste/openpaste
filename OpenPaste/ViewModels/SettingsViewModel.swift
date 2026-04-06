@@ -54,10 +54,19 @@ final class SettingsViewModel {
         }
     }
 
+    var iCloudSyncMaxItemSizeBytes: Int {
+        didSet {
+            UserDefaults.standard.set(iCloudSyncMaxItemSizeBytes, forKey: Constants.iCloudSyncMaxItemSizeBytesKey)
+        }
+    }
+
     var syncStatus: SyncStatus = .disabled
     var syncLastSyncDate: Date?
     var syncPendingChangesCount: Int = 0
     var syncSyncedCount: Int = 0
+    var syncErrorCount: Int = 0
+    var syncLastError: String?
+    var syncDeviceName: String = ""
     var isSyncing: Bool = false
 
     var syncService: SyncServiceProtocol?
@@ -84,6 +93,7 @@ final class SettingsViewModel {
 
         iCloudSyncEnabled = defaults.object(forKey: Constants.iCloudSyncEnabledKey) as? Bool ?? false
         iCloudSyncIncludeSensitive = defaults.object(forKey: Constants.iCloudSyncIncludeSensitiveKey) as? Bool ?? false
+        iCloudSyncMaxItemSizeBytes = defaults.object(forKey: Constants.iCloudSyncMaxItemSizeBytesKey) as? Int ?? 0
 
         loadBlacklist()
     }

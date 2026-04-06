@@ -18,4 +18,7 @@ protocol SyncServiceProtocol: Sendable {
     func getLastSyncDate() async -> Date?
     func getPendingChangesCount() async -> Int
     func getSyncedCount() async -> Int
+    func getErrorCount() async -> Int
+    func getLastErrorMessage() async -> String?
+    func getDeviceName() async -> String
 }

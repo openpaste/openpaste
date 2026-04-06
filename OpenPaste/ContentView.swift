@@ -5,13 +5,14 @@ struct ContentView: View {
     let searchViewModel: SearchViewModel
     var pasteStackViewModel: PasteStackViewModel?
     var collectionViewModel: CollectionViewModel?
+    var smartListViewModel: SmartListViewModel?
 
     @AppStorage(Constants.windowPositionModeKey) private var windowMode = Constants.windowPositionModeBottomShelf
 
     @State private var selectedTab: Tab = .history
     @State private var appeared = false
 
-    enum Tab { case history, collections }
+    enum Tab { case history, smartLists, collections }
 
     var body: some View {
         Group {
@@ -20,7 +21,8 @@ struct ContentView: View {
                     historyViewModel: historyViewModel,
                     searchViewModel: searchViewModel,
                     pasteStackViewModel: pasteStackViewModel,
-                    collectionViewModel: collectionViewModel
+                    collectionViewModel: collectionViewModel,
+                    smartListViewModel: smartListViewModel
                 )
             } else {
                 verticalLayout
@@ -44,6 +46,10 @@ struct ContentView: View {
                         viewModel: historyViewModel,
                         pasteStackViewModel: pasteStackViewModel
                     )
+                case .smartLists:
+                    if let slvm = smartListViewModel {
+                        SmartListSidebarView(viewModel: slvm, historyViewModel: historyViewModel)
+                    }
                 case .collections:
                     if let cvm = collectionViewModel {
                         CollectionListView(viewModel: cvm)
@@ -70,6 +76,7 @@ struct ContentView: View {
     private var tabPicker: some View {
         Picker("", selection: $selectedTab) {
             Text("History").tag(Tab.history)
+            Text("Smart Lists").tag(Tab.smartLists)
             Text("Collections").tag(Tab.collections)
         }
         .pickerStyle(.segmented)

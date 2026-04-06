@@ -42,7 +42,7 @@ final class SyncChangeTracker: TransactionObserver {
     func observes(eventsOfKind eventKind: DatabaseEventKind) -> Bool {
         switch eventKind {
         case .insert(let tableName):
-            return tableName == "clipboardItems" || tableName == "collections"
+            return tableName == "clipboardItems" || tableName == "collections" || tableName == "smartLists"
 
         case .update(let tableName, let columnNames):
             if tableName == "clipboardItems" {
@@ -50,6 +50,9 @@ final class SyncChangeTracker: TransactionObserver {
             }
             if tableName == "collections" {
                 return columnNames.contains("modifiedAt") || columnNames.contains("isDeleted") || columnNames.contains("name") || columnNames.contains("color")
+            }
+            if tableName == "smartLists" {
+                return columnNames.contains("modifiedAt") || columnNames.contains("isDeleted") || columnNames.contains("name") || columnNames.contains("rules")
             }
             return false
 
@@ -61,7 +64,7 @@ final class SyncChangeTracker: TransactionObserver {
 
     func databaseDidChange(with event: DatabaseEvent) {
         guard !isSuspended() else { return }
-        guard event.tableName == "clipboardItems" || event.tableName == "collections" else { return }
+        guard event.tableName == "clipboardItems" || event.tableName == "collections" || event.tableName == "smartLists" else { return }
 
         lock.lock()
         pendingEvents.append(event.copy())
@@ -84,6 +87,7 @@ final class SyncChangeTracker: TransactionObserver {
 
         let clipboardRowIDs = Set(events.filter { $0.tableName == "clipboardItems" }.map { $0.rowID })
         let collectionRowIDs = Set(events.filter { $0.tableName == "collections" }.map { $0.rowID })
+        let smartListRowIDs = Set(events.filter { $0.tableName == "smartLists" }.map { $0.rowID })
 
         if !clipboardRowIDs.isEmpty {
             let ids = Array(clipboardRowIDs)
@@ -116,6 +120,27 @@ final class SyncChangeTracker: TransactionObserver {
                 let recordName = "collection_" + id
                 let operation: SyncOutboxOperation = isDeleted ? .delete : .upsert
                 Self.enqueueOutbox(db, recordName: recordName, tableName: "collections", localId: id, operation: operation, updatedAt: now)
+                enqueuedNames.append(recordName)
+            }
+        }
+
+        // Smart Lists: skip built-in presets (recreated on each device)
+        if !smartListRowIDs.isEmpty {
+            let ids = Array(smartListRowIDs)
+            let placeholders = Array(repeating: "?", count: ids.count).joined(separator: ",")
+            let sql = "SELECT rowid, id, isDeleted, isBuiltIn FROM smartLists WHERE rowid IN (\(placeholders))"
+            let rows = try? Row.fetchAll(db, sql: sql, arguments: StatementArguments(ids))
+            rows?.forEach { row in
+                let id: String = row["id"]
+                let isDeleted: Bool = row["isDeleted"]
+                let isBuiltIn: Bool = row["isBuiltIn"]
+
+                // Don't sync built-in presets
+                guard !isBuiltIn else { return }
+
+                let recordName = "smartlist_" + id
+                let operation: SyncOutboxOperation = isDeleted ? .delete : .upsert
+                Self.enqueueOutbox(db, recordName: recordName, tableName: "smartLists", localId: id, operation: operation, updatedAt: now)
                 enqueuedNames.append(recordName)
             }
         }

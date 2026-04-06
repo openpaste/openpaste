@@ -8,6 +8,8 @@ extension SyncService {
         modifications: [CKDatabase.RecordZoneChange.Modification],
         deletions: [CKDatabase.RecordZoneChange.Deletion]
     ) async {
+        var appliedClipboardItems: [ClipboardItemRecord] = []
+
         await databaseManager.withSyncTrackingSuspended {
             do {
                 for mod in modifications {
@@ -23,8 +25,10 @@ extension SyncService {
                             remote.accessCount = existing.accessCount
                             let merged = ConflictResolver.resolve(local: existing, remote: remote)
                             try await upsertClipboardItem(merged)
+                            appliedClipboardItems.append(merged)
                         } else {
                             try await upsertClipboardItem(remote)
+                            appliedClipboardItems.append(remote)
                         }
                     } else if record.recordType == CloudKitMapper.RecordType.collection {
                         var remote = try CloudKitMapper.decodeCollection(from: record, encryption: encryption)
@@ -35,6 +39,17 @@ extension SyncService {
                             try await upsertCollection(merged)
                         } else {
                             try await upsertCollection(remote)
+                        }
+                    } else if record.recordType == CloudKitMapper.RecordType.smartList {
+                        var remote = try CloudKitMapper.decodeSmartList(from: record, encryption: encryption)
+                        remote.ckSystemFields = system
+
+                        if let existing = try await fetchSmartListRecord(id: remote.id) {
+                            // LWW: use most recently modified
+                            let merged = remote.modifiedAt >= existing.modifiedAt ? remote : existing
+                            try await upsertSmartList(merged)
+                        } else {
+                            try await upsertSmartList(remote)
                         }
                     }
                 }
@@ -47,6 +62,9 @@ extension SyncService {
                     } else if recordName.hasPrefix("collection_") {
                         let id = String(recordName.dropFirst("collection_".count))
                         try await softDeleteCollection(id: id)
+                    } else if recordName.hasPrefix("smartlist_") {
+                        let id = String(recordName.dropFirst("smartlist_".count))
+                        try await softDeleteSmartList(id: id)
                     }
                 }
 
@@ -54,6 +72,12 @@ extension SyncService {
             } catch {
                 setStatus(.error(error.localizedDescription))
             }
+        }
+
+        // B4: Notify UI about remote changes so HistoryViewModel refreshes
+        for record in appliedClipboardItems {
+            let item = record.toClipboardItem()
+            await eventBus.emit(.clipboardChanged(item))
         }
     }
 
@@ -71,13 +95,13 @@ extension SyncService {
 
     func upsertClipboardItem(_ record: ClipboardItemRecord) async throws {
         try await dbQueue.write { db in
-            do { try record.insert(db) } catch { try record.update(db) }
+            try record.save(db)
         }
     }
 
     func upsertCollection(_ record: CollectionRecord) async throws {
         try await dbQueue.write { db in
-            do { try record.insert(db) } catch { try record.update(db) }
+            try record.save(db)
         }
     }
 
@@ -96,6 +120,28 @@ extension SyncService {
         try await dbQueue.write { db in
             try db.execute(
                 sql: "UPDATE collections SET isDeleted = 1, modifiedAt = ?, deviceId = ? WHERE id = ?",
+                arguments: [now, DeviceID.current, id]
+            )
+        }
+    }
+
+    func fetchSmartListRecord(id: String) async throws -> SmartListRecord? {
+        try await dbQueue.read { db in
+            try SmartListRecord.fetchOne(db, key: id)
+        }
+    }
+
+    func upsertSmartList(_ record: SmartListRecord) async throws {
+        try await dbQueue.write { db in
+            try record.save(db)
+        }
+    }
+
+    func softDeleteSmartList(id: String) async throws {
+        let now = Date()
+        try await dbQueue.write { db in
+            try db.execute(
+                sql: "UPDATE smartLists SET isDeleted = 1, modifiedAt = ?, deviceId = ? WHERE id = ?",
                 arguments: [now, DeviceID.current, id]
             )
         }

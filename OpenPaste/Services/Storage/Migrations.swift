@@ -191,5 +191,24 @@ struct DatabaseMigrations: Sendable {
             try db.execute(sql: "DROP TRIGGER IF EXISTS trg_collections_sync_insert")
             try db.execute(sql: "DROP TRIGGER IF EXISTS trg_collections_sync_update")
         }
+
+        migrator.registerMigration("v8_createSmartLists") { db in
+            try db.create(table: "smartLists") { t in
+                t.column("id", .text).primaryKey()
+                t.column("name", .text).notNull()
+                t.column("icon", .text).notNull().defaults(to: "list.bullet")
+                t.column("color", .text).notNull().defaults(to: "#007AFF")
+                t.column("rules", .text).notNull().defaults(to: "[]")
+                t.column("matchMode", .text).notNull().defaults(to: "all")
+                t.column("sortOrder", .text).notNull().defaults(to: "newestFirst")
+                t.column("isBuiltIn", .boolean).notNull().defaults(to: false)
+                t.column("position", .integer).notNull().defaults(to: 0)
+                t.column("createdAt", .datetime).notNull()
+                t.column("modifiedAt", .datetime).notNull()
+                t.column("deviceId", .text).notNull().defaults(to: "")
+                t.column("isDeleted", .boolean).notNull().defaults(to: false)
+                t.column("ckSystemFields", .blob)
+            }
+        }
     }
 }

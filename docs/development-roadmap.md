@@ -3,7 +3,7 @@
 Strategic roadmap for OpenPaste development phases, milestones, and feature priorities.
 
 **Last Updated:** April 2026  
-**Current Phase:** Foundation (In Progress)  
+**Current Phase:** Foundation (95% → feature-complete for iCloud Sync + Smart Lists)  
 **Active Go-to-Market Track:** First-users validation roadmap — see `../plans/260403-first-users-roadmap/plan.md`
 
 ---
@@ -79,7 +79,7 @@ Strategic roadmap for OpenPaste development phases, milestones, and feature prio
 
 ### Active Milestones 🔄
 
-6. **Distribution & CI/CD** ✅ NEW
+6. **Distribution & CI/CD** ✅
    - Bundle ID: `dev.tuanle.OpenPaste` (unique, no conflicts)
    - Developer ID Application certificate for code signing
    - Apple notarization (notarytool + stapler) — Gatekeeper pass
@@ -89,7 +89,7 @@ Strategic roadmap for OpenPaste development phases, milestones, and feature prio
    - `brew tap openpaste/tap && brew install --cask openpaste` verified working
    - See [Release Guide](release-guide.md) for full procedure
 
-7. **Sparkle Auto-Update Framework** ✅ NEW
+7. **Sparkle Auto-Update Framework** ✅
    - Sparkle 2.9.1 SPM dependency integrated
    - `UpdaterService` (@Observable wrapper) for in-app updates
    - EdDSA code signing pipeline in `release.yml`
@@ -97,12 +97,61 @@ Strategic roadmap for OpenPaste development phases, milestones, and feature prio
    - MenuBar "Check for Updates…" + Settings UI toggle for auto-check
    - See [Release Guide](release-guide.md) — EdDSA key setup section
 
-8. **Advanced Search & Filtering**
+8. **iCloud Sync Stabilization** ✅ NEW
+   Production-hardening of CloudKit sync — 16 tasks across 3 tracks:
+
+   **Reliability & Network:**
+   - Retry engine with exponential backoff (60s periodic, max 5 retries, capped at 3600s)
+   - `NWPathMonitor` network reachability — auto-starts sync on reconnect
+   - iCloud account status validation before engine creation
+   - Account change event handling (signIn / signOut / switchAccounts)
+   - CloudKit rate limit handling (`requestRateLimited`, `zoneBusy`, `serviceUnavailable`)
+   - Max item size picker in Settings (Unlimited / 1 MB / 5 MB / 10 MB)
+
+   **Data Integrity:**
+   - Proper GRDB upsert (`record.save(db)`) replacing insert-catch-update
+   - Zone-not-found recovery — auto-recreate zone + re-enqueue all records
+   - Sync progress reporting (`SyncStatus.syncing(progress:)` with percentage)
+   - `EventBus.emit` after remote apply for immediate UI refresh
+   - Tombstone cleanup — 30-day purge of soft-deleted synced items
+   - `sync_metadata` pruning — caps table at 10,000 synced entries
+
+   **UI & Observability:**
+   - First sync progress indicator with `ProgressView` in Settings
+   - Sync conflict notification logging (LWW merge with field-level semantics)
+   - Sync health dashboard (synced/pending/error counts, last error, last sync date)
+   - Device name display in sync settings
+
+9. **Smart Lists / Rules Engine** ✅ NEW
+   Dynamic rule-based clipboard filtering — 14 tasks across 3 tracks:
+
+   **Data Model & Service:**
+   - `SmartList` + `SmartListRule` models (11 rule fields, 10 comparison operators, AND/OR match modes)
+   - Database migration `v8_createSmartLists` with full schema
+   - `SmartListService` — CRUD, evaluate, countMatches, seedPresets, import/export
+   - `SmartListQueryBuilder` — rule → SQL predicate translation, regex post-filter, relative date parsing
+   - 5 built-in presets: Today, Images, Links, Code Snippets, Sensitive
+
+   **UI:**
+   - 3-tab picker in vertical mode (History / Smart Lists / Collections)
+   - `SmartListSidebarView` — list with SF Symbol icons, count badges, context menus
+   - `PinboardTabBar` extension — Smart List tabs in bottom shelf mode
+   - `SmartListEditorView` — full rule builder sheet with icon/color pickers
+   - `SmartListViewModel` — @Observable with EventBus integration
+
+   **Integration:**
+   - Live badge counts (debounced 500ms event-driven refresh)
+   - iCloud sync for Smart Lists (full CK pipeline, LWW conflict resolution)
+   - Import/export Smart Lists as JSON
+   - Event-driven count refresh via EventBus subscription
+
+10. **Advanced Search & Filtering**
    - Full-text search with Spotlight integration
    - Filtering by content type (text, image, URL)
    - Time-based filtering (today, this week, older) — ✅ partially done via SmartFilterBar
+   - Rule-based dynamic filtering — ✅ done via Smart Lists engine
 
-9. **Image Support & Preview**
+11. **Image Support & Preview**
    - Capture clipboard images
    - Image preview in history — ✅ partially done via ContentPreviewView improvements
    - Image metadata (dimensions, format)
@@ -195,10 +244,11 @@ Strategic roadmap for OpenPaste development phases, milestones, and feature prio
    - Database query optimization
    - Memory footprint reduction for large histories
 
-2. **Cloud Sync (iCloud / CloudKit)**
-   - Implemented using CloudKit `CKSyncEngine` (macOS 14+), syncing clipboard items + collections
+2. **Cloud Sync (iCloud / CloudKit)** ✅ SHIPPED
+   - Implemented using CloudKit `CKSyncEngine` (macOS 14+), syncing clipboard items + collections + Smart Lists
    - Encrypted payload assets (AES-GCM) with keys stored in Keychain (synchronizable)
    - User controls for excluding sensitive items from upload
+   - Production-hardened: retry engine, NWPathMonitor reachability, account change handling, rate limit handling, zone-not-found recovery, progress reporting, tombstone/metadata cleanup
 
 3. **Advanced UI**
    - Inline editing for clipboard items ✅ (QuickEditView)
@@ -252,6 +302,15 @@ Strategic roadmap for OpenPaste development phases, milestones, and feature prio
 - [x] Signed + notarized release via GitHub Actions CI/CD
 - [x] Homebrew Cask installable (`brew install --cask openpaste`)
 - [x] Automated Homebrew tap update on every release
+- [x] iCloud sync retry engine with exponential backoff operational
+- [x] Network reachability auto-recovery for sync
+- [x] iCloud account change handling (sign in/out/switch)
+- [x] Sync health dashboard in Settings (synced/pending/error counts)
+- [x] Smart Lists CRUD with 5 built-in presets
+- [x] Smart List rules engine with 11 fields and 10 comparisons
+- [x] Smart Lists synced via iCloud with LWW conflict resolution
+- [x] 3-tab navigation (History / Smart Lists / Collections)
+- [x] Live badge counts with debounced 500ms refresh
 
 ---
 
@@ -266,6 +325,9 @@ Strategic roadmap for OpenPaste development phases, milestones, and feature prio
 | Liquid Glass API (macOS 26+) | Integrated | `.glassEffect` on filter chips & tab picker ✅ |
 | NavigationSplitView (macOS 13+) | Integrated | Settings redesign ✅ |
 | SwiftUI `symbolEffect` API | Integrated | Empty state and paste confirmation animations ✅ |
+| CloudKit CKSyncEngine (macOS 14+) | Shipped | iCloud sync with retry, reachability, progress ✅ |
+| NWPathMonitor (Network framework) | Shipped | Network reachability for sync auto-recovery ✅ |
+| GRDB v7.10.0 Smart List support | Shipped | v8 migration, SmartListRecord, upsert ✅ |
 
 ---
 
@@ -275,6 +337,8 @@ Strategic roadmap for OpenPaste development phases, milestones, and feature prio
 - **Q2 2026 Go-to-Market Focus:** Run the first-users roadmap in `../plans/260403-first-users-roadmap/plan.md` before expanding AI/plugin claims publicly
 - **Distribution:** v1.0.0 released — signed, notarized, Homebrew installable. See [release-guide.md](release-guide.md)
 - **UI/UX Overhaul:** Complete — design system (`DS` enum), Liquid Glass, spring animations, vim navigation, and settings redesign shipped
+- **iCloud Sync:** Production-hardened — retry engine, NWPathMonitor reachability, account change handling, rate limits, zone recovery, progress reporting, tombstone/metadata cleanup shipped in v1.5.0
+- **Smart Lists:** Shipped — 11-field rules engine, 5 built-in presets, iCloud sync, import/export, 3-tab navigation, live badge counts shipped in v1.5.0
 - **Onboarding Release:** Ready for initial user feedback loop
 - **Testing Strategy:** Unit tests prioritized for ViewModel logic; integration tests for permission detection
 - **Future:** Consider OAuth-based cloud sync if community demand exists

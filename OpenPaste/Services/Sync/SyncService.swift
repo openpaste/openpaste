@@ -1,6 +1,7 @@
 import Foundation
 @preconcurrency import CloudKit
 import GRDB
+import Network
 import os.log
 
 private let syncLog = Logger(subsystem: "dev.tuanle.OpenPaste", category: "Sync")
@@ -38,6 +39,19 @@ final class SyncService: NSObject, SyncServiceProtocol, CKSyncEngineDelegate, @u
     private var manualSyncTask: Task<Void, Never>?
     private var manualSyncToken: UUID?
 
+    private var retryTask: Task<Void, Never>?
+
+    // B3: Progress tracking
+    private var syncTotalPending: Int = 0
+    private var syncCompletedCount: Int = 0
+
+    // Network reachability
+    private var networkMonitor = NWPathMonitor()
+    private let networkQueue = DispatchQueue(label: "dev.tuanle.OpenPaste.NetworkMonitor")
+    private var isNetworkAvailable: Bool = true
+    private var isNetworkMonitorStarted: Bool = false
+    private let networkLock = NSLock()
+
     private var engine: CKSyncEngine?
 
     init(
@@ -65,6 +79,15 @@ final class SyncService: NSObject, SyncServiceProtocol, CKSyncEngineDelegate, @u
         guard UserDefaults.standard.bool(forKey: Constants.iCloudSyncEnabledKey) else {
             syncLog.warning("SyncService.start() aborted: iCloud sync disabled")
             setStatus(.disabled)
+            return
+        }
+
+        // Always start the network monitor so we can auto-recover when connectivity returns
+        startNetworkMonitor()
+
+        guard getNetworkAvailable() else {
+            syncLog.warning("SyncService.start() deferred: network unavailable — monitor will auto-start when online")
+            setStatus(.error("No network connection"))
             return
         }
 
@@ -119,11 +142,44 @@ final class SyncService: NSObject, SyncServiceProtocol, CKSyncEngineDelegate, @u
             return
         }
 
+        // A3: Validate iCloud account status before creating engine
+        let container = CKContainer(identifier: CloudKitMapper.containerIdentifier)
+        do {
+            let accountStatus = try await container.accountStatus()
+            switch accountStatus {
+            case .available:
+                break
+            case .noAccount:
+                syncLog.warning("iCloud account not found")
+                setStatus(.error("Sign in to iCloud to enable sync"))
+                return
+            case .restricted:
+                syncLog.warning("iCloud account restricted")
+                setStatus(.error("iCloud access is restricted"))
+                return
+            case .temporarilyUnavailable:
+                syncLog.warning("iCloud temporarily unavailable")
+                setStatus(.error("iCloud temporarily unavailable"))
+                return
+            case .couldNotDetermine:
+                syncLog.warning("Could not determine iCloud account status")
+                setStatus(.error("Could not determine iCloud status"))
+                return
+            @unknown default:
+                syncLog.warning("Unknown iCloud account status")
+                setStatus(.error("Unknown iCloud status"))
+                return
+            }
+        } catch {
+            syncLog.error("Failed to check iCloud account status: \(error.localizedDescription)")
+            setStatus(.error("Cannot verify iCloud account"))
+            return
+        }
+
         await recoverInFlightOutbox()
 
         do {
             let stateSerialization = try await loadEngineStateSerialization()
-            let container = CKContainer(identifier: CloudKitMapper.containerIdentifier)
 
             var configuration = CKSyncEngine.Configuration(
                 database: container.privateCloudDatabase,
@@ -158,12 +214,20 @@ final class SyncService: NSObject, SyncServiceProtocol, CKSyncEngineDelegate, @u
 
             loadLastSyncDate()
             setStatus(.idle)
+            startNetworkMonitor()
+            startRetryLoop()
+
             syncLog.info("SyncService engine created, ensuring zone exists…")
             try await ensureZoneExists(container: container)
             syncLog.info("Zone ensured. Seeding existing records if needed…")
             await enqueueExistingRecordsIfNeeded()
             syncLog.info("Scheduling pending outbox with engine…")
             await schedulePendingOutboxWithEngine(newEngine)
+
+            // B5/B6: Run cleanup tasks on start (non-blocking)
+            await cleanupTombstones()
+            await pruneSyncMetadata()
+
             syncLog.info("Fetching remote changes…")
             try await newEngine.fetchChanges()
             syncLog.info("Sending local changes…")
@@ -215,6 +279,7 @@ final class SyncService: NSObject, SyncServiceProtocol, CKSyncEngineDelegate, @u
 
         let startToCancel: Task<Void, Never>?
         let manualToCancel: Task<Void, Never>?
+        let retryToCancel: Task<Void, Never>?
         let engineToCancel: CKSyncEngine?
 
         lifecycleLock.lock()
@@ -228,13 +293,18 @@ final class SyncService: NSObject, SyncServiceProtocol, CKSyncEngineDelegate, @u
         manualSyncTask = nil
         manualSyncToken = nil
 
+        retryToCancel = retryTask
+        retryTask = nil
+
         isStopping = true
         engineToCancel = engine
         lifecycleLock.unlock()
 
         startToCancel?.cancel()
         manualToCancel?.cancel()
+        retryToCancel?.cancel()
 
+        stopNetworkMonitor()
         setStatus(.disabled)
         databaseManager.setSyncOutboxCallback { _ in }
 
@@ -267,7 +337,7 @@ final class SyncService: NSObject, SyncServiceProtocol, CKSyncEngineDelegate, @u
         return isStopping
     }
 
-    private func currentEngineSnapshot() -> CKSyncEngine? {
+    func currentEngineSnapshot() -> CKSyncEngine? {
         lifecycleLock.lock(); defer { lifecycleLock.unlock() }
         guard !isStopping else { return nil }
         return engine
@@ -325,6 +395,11 @@ final class SyncService: NSObject, SyncServiceProtocol, CKSyncEngineDelegate, @u
         guard UserDefaults.standard.bool(forKey: Constants.iCloudSyncEnabledKey) else {
             syncLog.warning("triggerManualSync aborted: iCloud sync disabled")
             setStatus(.disabled)
+            return
+        }
+        guard getNetworkAvailable() else {
+            syncLog.warning("triggerManualSync deferred: network unavailable")
+            setStatus(.error("No network connection"))
             return
         }
 
@@ -420,6 +495,30 @@ final class SyncService: NSObject, SyncServiceProtocol, CKSyncEngineDelegate, @u
         }) ?? 0
     }
 
+    func getErrorCount() async -> Int {
+        (try? await dbQueue.read { db in
+            try Int.fetchOne(
+                db,
+                sql: "SELECT COUNT(*) FROM sync_metadata WHERE syncStatus = ?",
+                arguments: [SyncOutboxStatus.error.rawValue]
+            ) ?? 0
+        }) ?? 0
+    }
+
+    func getLastErrorMessage() async -> String? {
+        try? await dbQueue.read { db in
+            try String.fetchOne(
+                db,
+                sql: "SELECT lastError FROM sync_metadata WHERE syncStatus = ? AND lastError IS NOT NULL ORDER BY updatedAt DESC LIMIT 1",
+                arguments: [SyncOutboxStatus.error.rawValue]
+            )
+        }
+    }
+
+    func getDeviceName() async -> String {
+        DeviceID.current
+    }
+
     func handleEvent(_ event: CKSyncEngine.Event, syncEngine: CKSyncEngine) async {
         guard isCurrentEngine(syncEngine) else { return }
 
@@ -436,7 +535,15 @@ final class SyncService: NSObject, SyncServiceProtocol, CKSyncEngineDelegate, @u
         case .willSendChanges:
             syncLog.info("CKSyncEngine: willSendChanges")
             if !isStoppingSnapshot() {
-                setStatus(.syncing(progress: nil))
+                // B3: Capture total pending count at start of send session
+                let pending = (try? await dbQueue.read { db in
+                    try Int.fetchOne(db, sql: "SELECT COUNT(*) FROM sync_metadata WHERE syncStatus IN ('pending', 'inFlight')")
+                }) ?? 0
+                statusLock.lock()
+                syncTotalPending = pending
+                syncCompletedCount = 0
+                statusLock.unlock()
+                setStatus(.syncing(progress: 0))
                 await eventBus.emit(.syncStarted)
             }
         case .fetchedRecordZoneChanges(let changes):
@@ -445,8 +552,17 @@ final class SyncService: NSObject, SyncServiceProtocol, CKSyncEngineDelegate, @u
         case .sentRecordZoneChanges(let results):
             syncLog.info("CKSyncEngine: sent \(results.savedRecords.count) saved, \(results.failedRecordSaves.count) failed")
             await handleSent(saved: results.savedRecords, failed: results.failedRecordSaves)
-        case .accountChange:
-            syncLog.info("CKSyncEngine: accountChange")
+            // B3: Update progress after each batch
+            statusLock.lock()
+            syncCompletedCount += results.savedRecords.count + results.failedRecordSaves.count
+            let progress = syncTotalPending > 0
+                ? min(Double(syncCompletedCount) / Double(syncTotalPending), 1.0)
+                : nil
+            statusLock.unlock()
+            setStatus(.syncing(progress: progress))
+        case .accountChange(let event):
+            syncLog.info("CKSyncEngine: accountChange — \(String(describing: event.changeType))")
+            await handleAccountChange(event)
         case .didFetchChanges:
             syncLog.info("CKSyncEngine: didFetchChanges")
             setStatus(.idle)
@@ -565,5 +681,178 @@ final class SyncService: NSObject, SyncServiceProtocol, CKSyncEngineDelegate, @u
         stagedAssetURLs.removeAll()
         assetLock.unlock()
         for url in urls { try? FileManager.default.removeItem(at: url) }
+    }
+
+    // MARK: - Network Reachability (A2)
+
+    func getNetworkAvailable() -> Bool {
+        networkLock.lock(); defer { networkLock.unlock() }
+        return isNetworkAvailable
+    }
+
+    private func setNetworkAvailable(_ available: Bool) {
+        networkLock.lock(); defer { networkLock.unlock() }
+        isNetworkAvailable = available
+    }
+
+    private func startNetworkMonitor() {
+        networkLock.lock()
+        guard !isNetworkMonitorStarted else {
+            networkLock.unlock()
+            return
+        }
+        isNetworkMonitorStarted = true
+        // Create a fresh monitor (NWPathMonitor can't be restarted after cancel)
+        networkMonitor = NWPathMonitor()
+        networkLock.unlock()
+
+        networkMonitor.pathUpdateHandler = { [weak self] path in
+            guard let self else { return }
+            let wasAvailable = self.getNetworkAvailable()
+            let nowAvailable = path.status == .satisfied
+            self.setNetworkAvailable(nowAvailable)
+
+            if !wasAvailable && nowAvailable {
+                syncLog.info("Network restored — triggering sync")
+                Task { [weak self] in
+                    guard let self else { return }
+                    guard self.currentEngineSnapshot() != nil else {
+                        await self.start()
+                        return
+                    }
+                    await self.triggerManualSync()
+                }
+            } else if wasAvailable && !nowAvailable {
+                syncLog.info("Network lost")
+            }
+        }
+        networkMonitor.start(queue: networkQueue)
+    }
+
+    private func stopNetworkMonitor() {
+        networkMonitor.cancel()
+        networkLock.lock()
+        isNetworkMonitorStarted = false
+        networkLock.unlock()
+    }
+
+    // MARK: - Retry Engine (A1)
+
+    private func startRetryLoop() {
+        retryTask?.cancel()
+        retryTask = Task.detached { [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(Constants.syncRetryCheckInterval))
+                guard !Task.isCancelled else { break }
+                await self?.retryFailedOutboxEntries()
+            }
+        }
+    }
+
+    private func retryFailedOutboxEntries() async {
+        guard let engine = currentEngineSnapshot() else { return }
+        guard getNetworkAvailable() else { return }
+
+        // Don't retry while a manual sync is in-flight — avoid concurrent sendChanges
+        lifecycleLock.lock()
+        let manualActive = manualSyncTask != nil
+        lifecycleLock.unlock()
+        guard !manualActive else { return }
+
+        do {
+            let now = Date()
+            let retried = try await dbQueue.write { db -> [String] in
+                let rows = try Row.fetchAll(db, sql: """
+                    SELECT recordName, retryCount, updatedAt
+                    FROM sync_metadata
+                    WHERE syncStatus = ?
+                      AND retryCount < ?
+                    ORDER BY updatedAt ASC
+                    LIMIT 20
+                    """,
+                    arguments: [
+                        SyncOutboxStatus.error.rawValue,
+                        Constants.syncMaxRetries
+                    ]
+                )
+
+                var retriedNames: [String] = []
+                for row in rows {
+                    let recordName: String = row["recordName"]
+                    let retryCount: Int = row["retryCount"]
+                    let updatedAt: Date = row["updatedAt"]
+
+                    // Exponential backoff: wait min(60 * 2^retryCount, 3600) seconds
+                    let delay = min(
+                        Constants.syncRetryBaseInterval * pow(2.0, Double(retryCount)),
+                        Constants.syncRetryMaxInterval
+                    )
+                    guard now.timeIntervalSince(updatedAt) >= delay else { continue }
+
+                    try db.execute(
+                        sql: """
+                        UPDATE sync_metadata
+                        SET syncStatus = ?, lastError = NULL, updatedAt = ?
+                        WHERE recordName = ?
+                        """,
+                        arguments: [SyncOutboxStatus.pending.rawValue, now, recordName]
+                    )
+                    retriedNames.append(recordName)
+                }
+
+                return retriedNames
+            }
+
+            if !retried.isEmpty {
+                syncLog.info("Retry engine: reset \(retried.count) entries to pending")
+                let changes = retried.map { name in
+                    CKSyncEngine.PendingRecordZoneChange.saveRecord(
+                        CKRecord.ID(recordName: name, zoneID: CloudKitMapper.zoneID)
+                    )
+                }
+                engine.state.add(pendingRecordZoneChanges: changes)
+            }
+
+            // Remove records that exceeded max retries from engine's pending queue
+            // to prevent infinite retry loops
+            let stuckNames = try await dbQueue.read { db -> [String] in
+                try String.fetchAll(db, sql: """
+                    SELECT recordName FROM sync_metadata
+                    WHERE syncStatus = ? AND retryCount >= ?
+                    """,
+                    arguments: [SyncOutboxStatus.error.rawValue, Constants.syncMaxRetries]
+                )
+            }
+            if !stuckNames.isEmpty {
+                syncLog.warning("Retry engine: \(stuckNames.count) records exceeded max retries")
+                let stuckChanges = stuckNames.map { name in
+                    CKSyncEngine.PendingRecordZoneChange.saveRecord(
+                        CKRecord.ID(recordName: name, zoneID: CloudKitMapper.zoneID)
+                    )
+                }
+                engine.state.remove(pendingRecordZoneChanges: stuckChanges)
+            }
+        } catch {
+            syncLog.error("Retry engine failed: \(error.localizedDescription)")
+        }
+    }
+
+    // MARK: - Account Change Handling (A4)
+
+    private func handleAccountChange(_ event: CKSyncEngine.Event.AccountChange) async {
+        switch event.changeType {
+        case .signIn:
+            syncLog.info("iCloud account signed in — resetting and restarting sync")
+            await reset()
+        case .signOut:
+            syncLog.info("iCloud account signed out — stopping sync")
+            await stop()
+            setStatus(.error("Signed out of iCloud"))
+        case .switchAccounts:
+            syncLog.info("iCloud account switched — resetting sync data")
+            await reset()
+        @unknown default:
+            syncLog.warning("Unknown account change type")
+        }
     }
 }
