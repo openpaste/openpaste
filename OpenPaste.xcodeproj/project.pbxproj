@@ -35,21 +35,21 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
-		D0AC71F12F7D2A100088575B /* Info.plist Resources Exception */ = {
+		D0AC71F12F7D2A100088575B /* Exceptions for "OpenPaste" folder in "OpenPaste" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
-			target = D0AC711E2F7D0D170088575B /* OpenPaste */;
 			membershipExceptions = (
 				Info.plist,
 			);
+			target = D0AC711E2F7D0D170088575B /* OpenPaste */;
 		};
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		D0AC71212F7D0D170088575B /* OpenPaste */ = {
-			exceptions = (
-				D0AC71F12F7D2A100088575B /* Info.plist Resources Exception */,
-			);
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				D0AC71F12F7D2A100088575B /* Exceptions for "OpenPaste" folder in "OpenPaste" target */,
+			);
 			path = OpenPaste;
 			sourceTree = "<group>";
 		};
