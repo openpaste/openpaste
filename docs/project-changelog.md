@@ -4,6 +4,8 @@ All notable changes to the OpenPaste project are documented in this file. Format
 
 ## [Unreleased]
 
+## [1.6.0] — 2026-04-06
+
 ### Added
 - `feat(bottomShelf)`: Bottom Shelf cards can now be dragged directly into other macOS apps while still supporting in-shelf reordering via a private reorder payload (`BottomShelfView`, `ClipboardTransferSupport`, `BottomShelfPanel`)
 - `feat(uitest)`: Configurable window mode, shortcut hints, and text seed items for E2E test scenarios (`AppController`)

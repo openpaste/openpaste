@@ -1,10 +1,7 @@
+### Added
+• Drag clipboard cards from the Bottom Shelf directly into external apps — text, rich text, images, files, and links are exported via standard pasteboard types so they land correctly in any target application (0984c18)
+
 ### Fixed
-• Settings window now opens reliably using SwiftUI `openSettings` environment instead of `NSApp.sendAction` (4a7a319)
-• Prevented infinite loop in iCloud sync when `CKSyncEngine` fires `accountChange(.signIn)` on init — added re-entrancy guard (a37bc40)
-• Resolved repeated `didChangeImage` warnings by caching menu bar items (4a7a319)
-
-### Changed
-• Simplified storage path resolution using standard `FileManager` API instead of manual container path construction (1752eb0)
-
-### Testing
-• Added E2E tests for Settings window: verifies all sections appear and navigation works (fd8cb37)
+• Global hotkey no longer triggers unintended actions in the foreground app (e.g. Paste and Match Style in Safari/Notes) — replaced NSEvent monitors with a CGEvent tap that swallows the configured shortcut before it reaches other apps (deba1d9)
+• Accessibility permission prompt now works reliably on first launch — opens System Settings directly and reveals the app bundle for easy drag-and-drop granting, bypassing the silent App Sandbox suppression of the system dialog (ae550b9)
+• Status bar menu items appear instantly on click — menu is now built synchronously in menuWillOpen, with caches refreshed asynchronously afterward (86c0ec1)
