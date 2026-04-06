@@ -96,8 +96,13 @@ final class StatusBarController: NSObject, NSMenuDelegate {
     // MARK: - NSMenuDelegate
 
     nonisolated func menuWillOpen(_ menu: NSMenu) {
-        Task { @MainActor in
+        // Build menu synchronously so AppKit sees items before displaying.
+        // menuWillOpen is always called on the main thread by AppKit.
+        MainActor.assumeIsolated {
             self.rebuildMenu()
+        }
+        // Refresh caches in background, then rebuild with fresh data
+        Task { @MainActor in
             await self.refreshCaches()
             self.rebuildMenu()
         }
