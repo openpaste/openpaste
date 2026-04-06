@@ -1,6 +1,7 @@
-import Testing
-import Foundation
 import AppKit
+import Foundation
+import Testing
+
 @testable import OpenPaste
 
 @Suite(.serialized)
@@ -46,9 +47,9 @@ struct OnboardingViewModelTests {
 
     @Test func previousStepGoesBack() {
         let vm = OnboardingViewModel()
-        vm.nextStep() // -> permissions
-        vm.nextStep() // -> shortcut
-        vm.previousStep() // -> permissions
+        vm.nextStep()  // -> permissions
+        vm.nextStep()  // -> shortcut
+        vm.previousStep()  // -> permissions
         #expect(vm.currentStep == .permissions)
     }
 
@@ -69,7 +70,9 @@ struct OnboardingViewModelTests {
 
     @Test func canNavigateThroughAllSteps() {
         let vm = OnboardingViewModel()
-        let expectedSteps: [OnboardingStep] = [.welcome, .permissions, .shortcut, .preferences, .ready]
+        let expectedSteps: [OnboardingStep] = [
+            .welcome, .permissions, .shortcut, .preferences, .ready,
+        ]
         for (i, expected) in expectedSteps.enumerated() {
             #expect(vm.currentStep == expected)
             if i < expectedSteps.count - 1 {
@@ -87,7 +90,7 @@ struct OnboardingViewModelTests {
 
     @Test func canProceedTrueForPermissionsEvenWithoutGrant() {
         let vm = OnboardingViewModel()
-        vm.nextStep() // permissions
+        vm.nextStep()  // permissions
         #expect(vm.canProceed == true)
     }
 
@@ -141,7 +144,7 @@ struct OnboardingViewModelTests {
         UserDefaults.standard.synchronize()
 
         let vm = OnboardingViewModel()
-        vm.hotkeyKeyCode = 0x08 // C key
+        vm.hotkeyKeyCode = 0x08  // C key
         vm.hotkeyModifiers = [.command, .option]
         vm.completeOnboarding()
         UserDefaults.standard.synchronize()
@@ -161,7 +164,7 @@ struct OnboardingViewModelTests {
         let modsKey = Constants.customHotkeyModifiersKey
         let keyCodeKey = Constants.customHotkeyKeyCodeKey
         UserDefaults.standard.set(Int(NSEvent.ModifierFlags.command.rawValue), forKey: modsKey)
-        UserDefaults.standard.set(0x0C, forKey: keyCodeKey) // Q key
+        UserDefaults.standard.set(0x0C, forKey: keyCodeKey)  // Q key
         UserDefaults.standard.synchronize()
 
         let vm = OnboardingViewModel()
@@ -173,13 +176,31 @@ struct OnboardingViewModelTests {
         UserDefaults.standard.synchronize()
     }
 
+    @Test func loadsSavedHotkeyForAKeyCode() {
+        let modsKey = Constants.customHotkeyModifiersKey
+        let keyCodeKey = Constants.customHotkeyKeyCodeKey
+        UserDefaults.standard.set(Int(NSEvent.ModifierFlags.command.rawValue), forKey: modsKey)
+        UserDefaults.standard.set(0x00, forKey: keyCodeKey)  // A key
+        UserDefaults.standard.synchronize()
+
+        let vm = OnboardingViewModel()
+        #expect(vm.hotkeyModifiers == [.command])
+        #expect(vm.hotkeyKeyCode == 0x00)
+        #expect(vm.hotkeyDisplayString == "⌘A")
+
+        UserDefaults.standard.removeObject(forKey: modsKey)
+        UserDefaults.standard.removeObject(forKey: keyCodeKey)
+        UserDefaults.standard.synchronize()
+    }
+
     // MARK: - HotkeyManager Integration
 
     @Test func hotkeyManagerLoadsCustomHotkey() {
         let modsKey = Constants.customHotkeyModifiersKey
         let keyCodeKey = Constants.customHotkeyKeyCodeKey
-        UserDefaults.standard.set(Int(NSEvent.ModifierFlags([.command, .shift]).rawValue), forKey: modsKey)
-        UserDefaults.standard.set(0x09, forKey: keyCodeKey) // V key
+        UserDefaults.standard.set(
+            Int(NSEvent.ModifierFlags([.command, .shift]).rawValue), forKey: modsKey)
+        UserDefaults.standard.set(0x09, forKey: keyCodeKey)  // V key
         UserDefaults.standard.synchronize()
 
         let (mods, keyCode) = HotkeyManager.loadCustomHotkey()
