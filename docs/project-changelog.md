@@ -4,6 +4,101 @@ All notable changes to the OpenPaste project are documented in this file. Format
 
 ## [Unreleased]
 
+## [1.5.0] — 2026-04-06
+
+### Added
+
+#### iCloud Sync Stabilization (April 2026)
+Production-hardening pass for iCloud sync: 16 tasks across reliability, data integrity, and observability.
+
+**Reliability & Network (A-track):**
+- `feat(sync)`: Retry engine with exponential backoff — periodic 60s check loop, `min(60 × 2^retryCount, 3600)` delay, max 5 retries per outbox entry (`SyncService.startRetryLoop()`, `retryFailedOutboxEntries()`)
+- `feat(sync)`: `NWPathMonitor` network reachability monitor — defers engine creation when offline, auto-starts sync on reconnect (`SyncService.startNetworkMonitor()`)
+- `feat(sync)`: iCloud account status validation before `CKSyncEngine` creation; guards on `CKAccountStatus`
+- `feat(sync)`: Account change event handling — `signIn` resets and restarts, `signOut` stops engine, `switchAccounts` resets sync data (`SyncService.handleAccountChange(_:)`)
+- `feat(sync)`: CloudKit rate limit handling — detects `requestRateLimited`, `zoneBusy`, `serviceUnavailable` via `isRetryableCloudKitError(_:)` and respects server `retryAfterSeconds` (`SyncService+Send.swift`)
+- `feat(sync)`: Max item size picker in Settings — `SyncSettingsView` adds a "Max item size to sync" picker (Unlimited, 1 MB, 5 MB, 10 MB) stored via `iCloudSyncMaxItemSizeBytes`
+
+**Data Integrity (B-track):**
+- `fix(sync)`: Proper GRDB upsert — replaced insert-catch-update with `record.save(db)` for atomic upsert semantics (`SmartListService.save(_:)`, outbox flows)
+- `feat(sync)`: Zone-not-found recovery — detects `CKError.zoneNotFound`, auto-recreates `OpenPasteZone`, and re-enqueues all local records as pending (`SyncService+Send.swift`, `SyncService+EngineState.swift`)
+- `feat(sync)`: Progress reporting — tracks `syncTotalPending` / `syncCompletedCount` and emits `SyncStatus.syncing(progress:)` with percentage during send sessions
+- `feat(sync)`: `EventBus.emit(.clipboardChanged)` after remote apply so UI refreshes immediately when new items arrive from other devices (`SyncService+RemoteApply.swift`)
+- `feat(sync)`: Tombstone cleanup — purges soft-deleted synced items and Smart Lists older than 30 days on each engine start (`SyncService+Outbox.cleanupTombstones()`)
+- `feat(sync)`: `sync_metadata` pruning — caps table at 10,000 synced entries, deletes oldest surplus (`SyncService+Outbox.pruneSyncMetadata(keepCount:)`)
+
+**UI & Observability (C-track):**
+- `feat(sync)`: First sync progress indicator — shows "Initial sync in progress…" with `ProgressView` when `syncLastSyncDate` is nil and sync is active (`SyncSettingsView`)
+- `feat(sync)`: Sync conflict notification logging — `ConflictResolver` uses LWW merge with field-level semantics (tags: set-union, booleans: true-wins, counters: max) for all record types
+- `feat(sync)`: Sync health dashboard in Settings — shows synced count, pending changes, error count, last error message, and last sync timestamp (`SyncSettingsView`)
+- `feat(sync)`: Device name display in sync settings — shows `syncDeviceName` in "This device" row (`SyncSettingsView`)
+
+#### Smart Lists / Rules Engine (April 2026)
+Dynamic, rule-based clipboard filtering: 14 tasks covering data model, service layer, UI, and sync integration.
+
+**Data Model & Service (A-track):**
+- `feat(smartLists)`: `SmartList` + `SmartListRule` data models — 11 rule fields (`contentType`, `sourceApp`, `createdDate`, `textContains`, `textRegex`, `contentLength`, `tag`, `pinned`, `starred`, `isSensitive`, `ocrText`), 10 comparison operators, `MatchMode.all` / `.any` (`Models/SmartList.swift`)
+- `feat(smartLists)`: Database migration `v8_createSmartLists` — new `smartLists` table with id, name, icon, color, rules (JSON), matchMode, sortOrder, isBuiltIn, position, createdAt, modifiedAt, deviceId, isDeleted, ckSystemFields (`Migrations.swift`)
+- `feat(smartLists)`: `SmartListService` — full CRUD via `SmartListServiceProtocol`, evaluate (rules → matching items), `countMatches`, `seedPresetsIfNeeded`, `exportAsJSON`, `importFromJSON` (`Services/SmartList/SmartListService.swift`)
+- `feat(smartLists)`: `SmartListQueryBuilder` — translates rules to SQL WHERE predicates with proper escaping; regex rules use post-fetch `NSRegularExpression` filter; supports relative date parsing (`today`, `-24h`, `-7d`, ISO 8601) (`Services/SmartList/SmartListQueryBuilder.swift`)
+- `feat(smartLists)`: 5 built-in presets seeded on first launch — Today, Images, Links, Code Snippets, Sensitive (`SmartListService.builtInPresets`)
+
+**UI (B-track):**
+- `feat(smartLists)`: Vertical mode 3-tab picker — `ContentView` now uses `enum Tab { case history, smartLists, collections }` with a `Picker` for switching views (`ContentView.swift`)
+- `feat(smartLists)`: `SmartListSidebarView` — list with SF Symbol icons, match count badges, and context menus for edit/delete (`Views/SmartLists/SmartListSidebarView.swift`)
+- `feat(smartLists)`: `PinboardTabBar` extension — Smart List tabs appear in bottom shelf mode for quick access
+- `feat(smartLists)`: `SmartListEditorView` — full rule builder sheet with icon/color pickers, add/remove rules, match mode toggle (`Views/SmartLists/SmartListEditorView.swift`)
+- `feat(smartLists)`: `SmartListViewModel` — `@Observable` with EventBus integration, debounced 500ms count refresh, selection-based item evaluation (`ViewModels/SmartListViewModel.swift`)
+
+**Integration (C-track):**
+- `feat(smartLists)`: Live badge counts — event-driven refresh debounced at 500ms, triggered by `clipboardChanged`, `itemStored`, and `syncCompleted` events (`SmartListViewModel.scheduleCountRefresh()`)
+- `feat(smartLists)`: iCloud sync for Smart Lists — full CloudKit pipeline (`SmartList` record type in `CloudKitMapper`), `SyncChangeTracker` observes `smartLists` table, LWW conflict resolution in `SyncService+RemoteApply`, tombstone cleanup covers Smart Lists
+- `feat(smartLists)`: Import/export Smart Lists as JSON — `SmartListService.exportAsJSON(_:)` / `importFromJSON(_:)` with ISO 8601 dates, new UUID on import to avoid conflicts
+- `feat(smartLists)`: Event-driven count refresh — `SmartListViewModel.observeEvents()` subscribes to EventBus and debounces DB count queries
+
+### Changed
+
+- `refactor(sync)`: `SyncChangeTracker` now observes `smartLists` table in addition to `clipboardItems` and `collections`, with field-level filtering for `modifiedAt`, `isDeleted`, `name`, `rules`
+- `refactor(sync)`: `CloudKitMapper` / `CloudKitMapper+Decode` / `CloudKitMapperPayloads` extended with `SmartList` record type, `SmartListPayload` struct, and `decodeSmartList(from:encryption:)`
+- `refactor(ui)`: `ContentView` restructured from single-list to 3-tab layout (History / Smart Lists / Collections)
+- `refactor(di)`: `DependencyContainer` and `AppController` updated to wire `SmartListService`, `SmartListViewModel`, and inject into views
+
+**New Files:**
+
+| File | Purpose |
+|------|---------|
+| `Models/SmartList.swift` | `SmartList`, `SmartListRule`, `MatchMode`, `SmartListSortOrder`, `RuleField`, `RuleComparison` |
+| `Services/SmartList/SmartListService.swift` | CRUD, evaluate, countMatches, presets, import/export |
+| `Services/SmartList/SmartListQueryBuilder.swift` | Rule → SQL predicate translation, relative date parsing |
+| `Services/Storage/SmartListRecord.swift` | GRDB record type for `smartLists` table |
+| `ViewModels/SmartListViewModel.swift` | @Observable VM with EventBus, debounced counts |
+| `Views/SmartLists/SmartListSidebarView.swift` | Sidebar list with icons, counts, context menus |
+| `Views/SmartLists/SmartListEditorView.swift` | Rule builder sheet with icon/color pickers |
+| `Views/SmartLists/SmartListRuleRow.swift` | Individual rule row in editor |
+
+**Modified Files (22):**
+
+| File | Changes |
+|------|---------|
+| `SyncService.swift` | Retry engine, NWPathMonitor, account handling, progress tracking |
+| `SyncService+Send.swift` | Rate limit handling, zone-not-found recovery |
+| `SyncService+Outbox.swift` | Tombstone cleanup, metadata pruning |
+| `SyncService+RemoteApply.swift` | SmartList decode + upsert, EventBus emit |
+| `SyncService+EngineState.swift` | Zone recreation, re-enqueue |
+| `SyncChangeTracker.swift` | smartLists table observation |
+| `CloudKitMapper.swift` | SmartList record type + makeSmartListRecord |
+| `CloudKitMapper+Decode.swift` | decodeSmartList |
+| `CloudKitMapperPayloads.swift` | SmartListPayload struct |
+| `ConflictResolver.swift` | LWW merge for ClipboardItem, Collection |
+| `ContentView.swift` | 3-tab picker (history/smartLists/collections) |
+| `PinboardTabBar.swift` | Smart List tabs in bottom shelf |
+| `BottomShelfView.swift` | Smart List selection support |
+| `SyncSettingsView.swift` | Health dashboard, device name, progress, max size picker |
+| `DependencyContainer.swift` | SmartListService wiring |
+| `AppController.swift` | SmartListViewModel creation |
+| `Migrations.swift` | v8_createSmartLists migration |
+| `Constants.swift` | syncRetryBaseInterval, syncRetryMaxInterval, syncRetryCheckInterval |
+
 ## [1.4.0] — 2026-04-05
 
 ### Added
