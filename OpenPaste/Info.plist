@@ -9,5 +9,18 @@
 	<true/>
 	<key>SUPublicEDKey</key>
 	<string>k+n1mXiTIIqt/Fytb92Pr1AQP1Ap4ByEdwLHLYOUJWA=</string>
+	<key>UTImportedTypeDeclarations</key>
+	<array>
+		<dict>
+			<key>UTTypeConformsTo</key>
+			<array>
+				<string>public.data</string>
+			</array>
+			<key>UTTypeIdentifier</key>
+			<string>dev.tuanle.OpenPaste.reorder-item</string>
+			<key>UTTypeDescription</key>
+			<string>OpenPaste Bottom Shelf Reorder Item</string>
+		</dict>
+	</array>
 </dict>
 </plist>

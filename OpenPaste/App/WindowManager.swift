@@ -1,7 +1,7 @@
-import Foundation
 import AppKit
-import SwiftUI
+import Foundation
 import QuartzCore
+import SwiftUI
 
 final class FloatingPanel: NSPanel {
     override var canBecomeKey: Bool { true }
@@ -47,9 +47,15 @@ final class FloatingPanel: NSPanel {
 }
 
 final class BottomShelfPanel: NSPanel {
+    static let dragSessionDidEndNotification = Notification.Name(
+        "BottomShelfPanel.dragSessionDidEnd")
+
     override var canBecomeKey: Bool { true }
 
     var onRequestClose: (() -> Void)?
+    private var localMouseUpMonitor: Any?
+    private var globalMouseUpMonitor: Any?
+    private(set) var isDragSessionActive = false
 
     init(contentView hostingView: NSView, frame: NSRect) {
         super.init(
@@ -114,6 +120,9 @@ final class BottomShelfPanel: NSPanel {
 
     override func resignKey() {
         super.resignKey()
+        if isDragSessionActive {
+            return
+        }
         // Don't close when a child sheet/dialog takes key focus
         if let keyWindow = NSApp.keyWindow, keyWindow.isSheet || keyWindow.sheetParent === self {
             return
@@ -127,6 +136,59 @@ final class BottomShelfPanel: NSPanel {
 
     override func cancelOperation(_ sender: Any?) {
         onRequestClose?()
+    }
+
+    deinit {
+        removeDragSessionMonitors()
+    }
+
+    func beginDragSession() {
+        guard !isDragSessionActive else { return }
+        isDragSessionActive = true
+        installDragSessionMonitors()
+    }
+
+    func endDragSession(closeIfNeeded: Bool = true) {
+        guard isDragSessionActive else { return }
+        isDragSessionActive = false
+        removeDragSessionMonitors()
+
+        NotificationCenter.default.post(name: Self.dragSessionDidEndNotification, object: self)
+
+        guard closeIfNeeded else { return }
+        guard !isKeyWindow, NSApp.keyWindow !== self else { return }
+        guard sheets.isEmpty else { return }
+        if let keyWindow = NSApp.keyWindow, keyWindow.isSheet || keyWindow.sheetParent === self {
+            return
+        }
+        onRequestClose?()
+    }
+
+    private func installDragSessionMonitors() {
+        localMouseUpMonitor = NSEvent.addLocalMonitorForEvents(matching: [.leftMouseUp]) {
+            [weak self] event in
+            self?.endDragSession(closeIfNeeded: true)
+            return event
+        }
+
+        globalMouseUpMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseUp]) {
+            [weak self] _ in
+            Task { @MainActor [weak self] in
+                self?.endDragSession(closeIfNeeded: true)
+            }
+        }
+    }
+
+    private func removeDragSessionMonitors() {
+        if let localMouseUpMonitor {
+            NSEvent.removeMonitor(localMouseUpMonitor)
+            self.localMouseUpMonitor = nil
+        }
+
+        if let globalMouseUpMonitor {
+            NSEvent.removeMonitor(globalMouseUpMonitor)
+            self.globalMouseUpMonitor = nil
+        }
     }
 }
 
@@ -145,7 +207,8 @@ final class WindowManager {
             return
         }
 
-        let mode = UserDefaults.standard.string(forKey: Constants.windowPositionModeKey)
+        let mode =
+            UserDefaults.standard.string(forKey: Constants.windowPositionModeKey)
             ?? Constants.windowPositionModeBottomShelf
 
         if mode == Constants.windowPositionModeBottomShelf {
@@ -198,7 +261,9 @@ final class WindowManager {
         }
 
         previousApp = NSWorkspace.shared.frontmostApplication
-        print("[WindowManager] showBottomShelf: captured previousApp = \(previousApp?.bundleIdentifier ?? "nil"), isActive = \(previousApp?.isActive ?? false)")
+        print(
+            "[WindowManager] showBottomShelf: captured previousApp = \(previousApp?.bundleIdentifier ?? "nil"), isActive = \(previousApp?.isActive ?? false)"
+        )
 
         guard let screen = screenForMouse() ?? NSScreen.main else { return }
         let visibleFrame = screen.visibleFrame  // Area above Dock
@@ -272,7 +337,8 @@ final class WindowManager {
         }
 
         if let shelfPanel = currentPanel as? BottomShelfPanel,
-           let screen = shelfPanel.screen ?? NSScreen.main {
+            let screen = shelfPanel.screen ?? NSScreen.main
+        {
             shelfPanel.onRequestClose = nil
             let visibleFrame = screen.visibleFrame
             let currentFrame = shelfPanel.frame
@@ -301,13 +367,16 @@ final class WindowManager {
 
     /// Trả focus về app trước đó
     func reactivatePreviousApp() {
-        print("[WindowManager] reactivatePreviousApp: \(previousApp?.bundleIdentifier ?? "nil"), isActive = \(previousApp?.isActive ?? false)")
+        print(
+            "[WindowManager] reactivatePreviousApp: \(previousApp?.bundleIdentifier ?? "nil"), isActive = \(previousApp?.isActive ?? false)"
+        )
         previousApp?.activate()
     }
 
     private func positionNearCursor(_ panel: NSPanel) {
         let mouseLocation = NSEvent.mouseLocation
-        guard let screen = NSScreen.screens.first(where: { $0.frame.contains(mouseLocation) }) else {
+        guard let screen = NSScreen.screens.first(where: { $0.frame.contains(mouseLocation) })
+        else {
             panel.center()
             return
         }
@@ -329,13 +398,15 @@ final class WindowManager {
 
     private func repositionBottomShelf() {
         guard let shelfPanel = panel as? BottomShelfPanel,
-              let screen = shelfPanel.screen ?? NSScreen.main else { return }
+            let screen = shelfPanel.screen ?? NSScreen.main
+        else { return }
         let visibleFrame = screen.visibleFrame
         let height = shelfPanel.frame.height
         let inset = DS.Shelf.edgeInset
         shelfPanel.setFrame(
-            NSRect(x: visibleFrame.minX + inset, y: visibleFrame.minY,
-                   width: visibleFrame.width - inset * 2, height: height),
+            NSRect(
+                x: visibleFrame.minX + inset, y: visibleFrame.minY,
+                width: visibleFrame.width - inset * 2, height: height),
             display: true
         )
     }

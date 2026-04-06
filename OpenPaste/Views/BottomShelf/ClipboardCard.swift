@@ -19,6 +19,11 @@ struct ClipboardCard: View {
             cardBody
         }
         .buttonStyle(.plain)
+        .accessibilityIdentifier("bottomShelf.card.\(item.id.uuidString)")
+        .accessibilityLabel(
+            "Clipboard item \(item.plainTextContent?.truncated(to: 60) ?? typeName)"
+        )
+        .accessibilityHint("Double-click to paste or drag to another app")
         .contextMenu {
             Button("Paste") { onPaste() }
             Divider()
@@ -74,8 +79,9 @@ struct ClipboardCard: View {
         onSelect()
 
         guard let event = NSApp.currentEvent,
-              event.type == .leftMouseUp,
-              event.clickCount == 2 else {
+            event.type == .leftMouseUp,
+            event.clickCount == 2
+        else {
             return
         }
 
@@ -183,8 +189,9 @@ struct ClipboardCard: View {
             sensitiveWrapper {
                 VStack(alignment: .leading, spacing: 4) {
                     if let urlStr = item.plainTextContent,
-                       let url = URL(string: urlStr),
-                       let host = url.host {
+                        let url = URL(string: urlStr),
+                        let host = url.host
+                    {
                         HStack(spacing: 4) {
                             Image(systemName: "link")
                                 .font(.system(size: 9))
@@ -280,7 +287,8 @@ struct ClipboardCard: View {
 
     private var imageDimensionsText: String? {
         if let width = item.metadata["imageWidth"],
-           let height = item.metadata["imageHeight"] {
+            let height = item.metadata["imageHeight"]
+        {
             return "\(width) × \(height)"
         }
 
@@ -316,7 +324,9 @@ struct ClipboardCard: View {
     // MARK: - Sensitive Wrapper
 
     @ViewBuilder
-    private func sensitiveWrapper<Content: View>(@ViewBuilder content: @escaping () -> Content) -> some View {
+    private func sensitiveWrapper<Content: View>(@ViewBuilder content: @escaping () -> Content)
+        -> some View
+    {
         if item.isSensitive {
             SensitiveContentOverlay { content() }
         } else {
@@ -352,13 +362,13 @@ struct ClipboardCard: View {
 
     private var typeColor: Color {
         switch item.type {
-        case .text: DS.Colors.richText       // Blue
-        case .richText: DS.Colors.richText   // Blue
-        case .image: DS.Colors.image         // Green
-        case .link: DS.Colors.link           // Purple
-        case .code: DS.Colors.code           // Teal
-        case .file: DS.Colors.file           // Orange
-        case .color: DS.Colors.colorType     // Pink
+        case .text: DS.Colors.richText  // Blue
+        case .richText: DS.Colors.richText  // Blue
+        case .image: DS.Colors.image  // Green
+        case .link: DS.Colors.link  // Purple
+        case .code: DS.Colors.code  // Teal
+        case .file: DS.Colors.file  // Orange
+        case .color: DS.Colors.colorType  // Pink
         }
     }
 }

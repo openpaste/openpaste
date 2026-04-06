@@ -94,6 +94,13 @@ struct BottomShelfView: View {
         .sheet(isPresented: $showNewCollectionSheet) {
             newCollectionSheet
         }
+        .onReceive(
+            NotificationCenter.default.publisher(
+                for: BottomShelfPanel.dragSessionDidEndNotification)
+        ) { _ in
+            draggedItemId = nil
+        }
+        .accessibilityIdentifier("bottomShelf.root")
     }
 
     // MARK: - Top Bar (Paste-style: search left, tabs center, + right)
@@ -219,13 +226,16 @@ struct BottomShelfView: View {
                         .animation(.easeInOut(duration: 0.2), value: draggedItemId)
                         .onDrag {
                             draggedItemId = item.id
-                            return NSItemProvider(object: item.id.uuidString as NSString)
+                            (NSApp.keyWindow as? BottomShelfPanel)?.beginDragSession()
+                            return ClipboardTransferSupport.makeDragItemProvider(for: item)
                         }
-                        .onDrop(of: [.text], delegate: CardDropDelegate(
-                            targetId: item.id,
-                            draggedItemId: $draggedItemId,
-                            historyViewModel: historyViewModel
-                        ))
+                        .onDrop(
+                            of: [UTType.openPasteReorderItem],
+                            delegate: CardDropDelegate(
+                                targetId: item.id,
+                                draggedItemId: $draggedItemId,
+                                historyViewModel: historyViewModel
+                            ))
                     }
 
                     if shouldShowLoadingMore {
@@ -237,7 +247,7 @@ struct BottomShelfView: View {
                 .padding(.horizontal, DS.Shelf.horizontalPadding)
                 .padding(.vertical, DS.Spacing.xl)
             }
-            .onDrop(of: [.text], isTargeted: nil) { providers in
+            .onDrop(of: [UTType.openPasteReorderItem], isTargeted: nil) { _ in
                 // Catch-all: reset drag state when dropped on empty area
                 draggedItemId = nil
                 return false
@@ -269,7 +279,9 @@ struct BottomShelfView: View {
                 .keyboardShortcut(.cancelAction)
 
                 Button("Create") {
-                    guard !newCollectionName.trimmingCharacters(in: .whitespaces).isEmpty else { return }
+                    guard !newCollectionName.trimmingCharacters(in: .whitespaces).isEmpty else {
+                        return
+                    }
                     Task {
                         await collectionViewModel?.createCollection(name: newCollectionName)
                         showNewCollectionSheet = false

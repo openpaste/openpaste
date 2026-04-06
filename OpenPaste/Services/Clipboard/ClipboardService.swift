@@ -1,5 +1,5 @@
-import Foundation
 import AppKit
+import Foundation
 
 final class ClipboardService: ClipboardServiceProtocol, @unchecked Sendable {
     private let normalizer = ContentNormalizer()
@@ -56,26 +56,7 @@ final class ClipboardService: ClipboardServiceProtocol, @unchecked Sendable {
     /// Copy item content to the system clipboard without simulating paste.
     func copyToClipboard(_ item: ClipboardItem) async {
         let pasteboard = NSPasteboard.general
-        pasteboard.clearContents()
-
-        switch item.type {
-        case .text, .code, .link, .color:
-            if let text = item.plainTextContent {
-                pasteboard.setString(text, forType: .string)
-            }
-        case .richText:
-            pasteboard.setData(item.content, forType: .rtf)
-            if let text = item.plainTextContent {
-                pasteboard.setString(text, forType: .string)
-            }
-        case .image:
-            pasteboard.setData(item.content, forType: .tiff)
-        case .file:
-            if let text = item.plainTextContent {
-                let urls = text.components(separatedBy: "\n").compactMap { URL(fileURLWithPath: $0) }
-                pasteboard.writeObjects(urls as [NSPasteboardWriting])
-            }
-        }
+        ClipboardTransferSupport.writeToPasteboard(item, pasteboard: pasteboard)
 
         try? await storageService.updateAccessCount(item.id)
         await eventBus.emit(.itemPasted(item))
@@ -87,9 +68,9 @@ final class ClipboardService: ClipboardServiceProtocol, @unchecked Sendable {
     /// - Parameter targetBundleId: If provided, waits for this specific app to become active.
     func simulatePasteToFrontApp(targetBundleId: String? = nil) async {
         #if DEBUG
-        if ProcessInfo.processInfo.environment["OPENPASTE_UI_TEST_MODE"] == "1" {
-            return
-        }
+            if ProcessInfo.processInfo.environment["OPENPASTE_UI_TEST_MODE"] == "1" {
+                return
+            }
         #endif
 
         print("[SimulatePaste] Starting, targetBundleId = \(targetBundleId ?? "nil")")
@@ -98,8 +79,9 @@ final class ClipboardService: ClipboardServiceProtocol, @unchecked Sendable {
         var found = false
         while Date() < deadline {
             if let frontApp = NSWorkspace.shared.frontmostApplication,
-               frontApp.isActive,
-               frontApp.bundleIdentifier != Bundle.main.bundleIdentifier {
+                frontApp.isActive,
+                frontApp.bundleIdentifier != Bundle.main.bundleIdentifier
+            {
                 // Nếu có target cụ thể, chờ ĐÚNG app đó
                 if let target = targetBundleId {
                     if frontApp.bundleIdentifier == target {
@@ -107,10 +89,14 @@ final class ClipboardService: ClipboardServiceProtocol, @unchecked Sendable {
                         found = true
                         break
                     } else {
-                        print("[SimulatePaste] Polling... front=\(frontApp.bundleIdentifier ?? "?"), waiting for \(target)")
+                        print(
+                            "[SimulatePaste] Polling... front=\(frontApp.bundleIdentifier ?? "?"), waiting for \(target)"
+                        )
                     }
                 } else {
-                    print("[SimulatePaste] Non-OpenPaste app active: \(frontApp.bundleIdentifier ?? "?")")
+                    print(
+                        "[SimulatePaste] Non-OpenPaste app active: \(frontApp.bundleIdentifier ?? "?")"
+                    )
                     found = true
                     break
                 }
@@ -199,7 +185,8 @@ final class ClipboardService: ClipboardServiceProtocol, @unchecked Sendable {
         )
 
         guard let keyDown = CGEvent(keyboardEventSource: source, virtualKey: 0x09, keyDown: true),
-              let keyUp = CGEvent(keyboardEventSource: source, virtualKey: 0x09, keyDown: false) else {
+            let keyUp = CGEvent(keyboardEventSource: source, virtualKey: 0x09, keyDown: false)
+        else {
             print("[SimulatePaste] ❌ Failed to create CGEvent")
             return
         }
@@ -211,7 +198,7 @@ final class ClipboardService: ClipboardServiceProtocol, @unchecked Sendable {
         // Post to annotated session tap (not HID tap) — this ensures
         // the event is routed to the correct application at session level
         keyDown.post(tap: .cgAnnotatedSessionEventTap)
-        usleep(20_000) // 20ms delay for target app to process keyDown
+        usleep(20_000)  // 20ms delay for target app to process keyDown
         keyUp.post(tap: .cgAnnotatedSessionEventTap)
     }
 
@@ -219,14 +206,18 @@ final class ClipboardService: ClipboardServiceProtocol, @unchecked Sendable {
     private func showAccessibilityAlert() {
         let alert = NSAlert()
         alert.messageText = "Cần cấp quyền Accessibility"
-        alert.informativeText = "OpenPaste cần quyền Accessibility để paste trực tiếp vào ứng dụng khác.\n\nVào System Settings → Privacy & Security → Accessibility → Bật OpenPaste."
+        alert.informativeText =
+            "OpenPaste cần quyền Accessibility để paste trực tiếp vào ứng dụng khác.\n\nVào System Settings → Privacy & Security → Accessibility → Bật OpenPaste."
         alert.alertStyle = .warning
         alert.addButton(withTitle: "Mở System Settings")
         alert.addButton(withTitle: "Để sau")
 
         let response = alert.runModal()
         if response == .alertFirstButtonReturn {
-            if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility") {
+            if let url = URL(
+                string:
+                    "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")
+            {
                 NSWorkspace.shared.open(url)
             }
         }
