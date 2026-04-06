@@ -15,32 +15,44 @@ struct GeneralSettingsView: View {
                     Label {
                         VStack(alignment: .leading, spacing: 2) {
                             Text("Accessibility")
-                            Text(accessibilityGranted
-                                 ? "Global shortcuts and paste are working."
-                                 : "Required for global shortcuts and paste to other apps.")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
+                            Text(
+                                accessibilityGranted
+                                    ? "Global shortcuts and paste are working."
+                                    : "Required for global shortcuts and paste to other apps."
+                            )
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            if !accessibilityGranted {
+                                Text(
+                                    "Click \"Grant Access\" → press + in Settings → select OpenPaste from Finder."
+                                )
+                                .font(.caption2)
+                                .foregroundStyle(.orange)
+                            }
                         }
                     } icon: {
-                        Image(systemName: accessibilityGranted ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
-                            .foregroundStyle(accessibilityGranted ? .green : .orange)
+                        Image(
+                            systemName: accessibilityGranted
+                                ? "checkmark.circle.fill" : "exclamationmark.triangle.fill"
+                        )
+                        .foregroundStyle(accessibilityGranted ? .green : .orange)
                     }
 
                     Spacer()
 
                     if !accessibilityGranted {
                         Button("Grant Access…") {
-                            // Register this binary in TCC with its current code signature
-                            let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue(): true] as CFDictionary
-                            let trusted = AXIsProcessTrustedWithOptions(options)
-                            if trusted {
-                                accessibilityGranted = true
-                            } else {
-                                // If prompt was suppressed, open Settings directly
-                                if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility") {
-                                    NSWorkspace.shared.open(url)
-                                }
+                            // Note: kAXTrustedCheckOptionPrompt is suppressed for sandboxed apps
+                            // (App Sandbox prevents the system prompt from appearing).
+                            // Open System Settings directly so the user can add the app via "+".
+                            if let url = URL(
+                                string:
+                                    "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility"
+                            ) {
+                                NSWorkspace.shared.open(url)
                             }
+                            // Reveal this app in Finder so user can find it for "+"
+                            NSWorkspace.shared.activateFileViewerSelecting([Bundle.main.bundleURL])
                         }
                     }
                 }
@@ -65,10 +77,12 @@ struct GeneralSettingsView: View {
             Section("Startup") {
                 Toggle("Open at login", isOn: $viewModel.launchAtLogin)
 
-                Toggle("Automatically check for updates", isOn: Binding(
-                    get: { updaterService.automaticallyChecksForUpdates },
-                    set: { updaterService.automaticallyChecksForUpdates = $0 }
-                ))
+                Toggle(
+                    "Automatically check for updates",
+                    isOn: Binding(
+                        get: { updaterService.automaticallyChecksForUpdates },
+                        set: { updaterService.automaticallyChecksForUpdates = $0 }
+                    ))
             }
 
             Section("Clipboard Monitoring") {
@@ -91,9 +105,11 @@ struct GeneralSettingsView: View {
                 Toggle(isOn: $pasteDirectly) {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Paste directly to active app")
-                        Text("When enabled, selecting an item pastes it directly into the previously active app. When disabled, items are only copied to the clipboard.")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
+                        Text(
+                            "When enabled, selecting an item pastes it directly into the previously active app. When disabled, items are only copied to the clipboard."
+                        )
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                     }
                 }
             }
