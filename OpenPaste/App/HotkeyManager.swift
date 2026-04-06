@@ -1,9 +1,14 @@
-import Foundation
 import AppKit
+import CoreGraphics
+import Foundation
 
 final class HotkeyManager: @unchecked Sendable {
-    private var globalMonitor: Any?
-    private var localMonitor: Any?
+    private static let accessibilityNotification = Notification.Name("com.apple.accessibility.api")
+    private static var hotkeyRecordingSuspensionTokens = Set<UUID>()
+
+    private var eventTap: CFMachPort?
+    private var runLoopSource: CFRunLoopSource?
+    private var accessibilityObserver: NSObjectProtocol?
     private let onToggle: @Sendable () -> Void
 
     init(onToggle: @escaping @Sendable () -> Void) {
@@ -12,42 +17,170 @@ final class HotkeyManager: @unchecked Sendable {
 
     @MainActor
     func register() {
-        globalMonitor = NSEvent.addGlobalMonitorForEvents(matching: .keyDown) { [weak self] event in
-            self?.handleKeyEvent(event)
-        }
-        localMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
-            self?.handleKeyEvent(event)
-            return event
-        }
+        observeAccessibilityChangesIfNeeded()
+        installEventTapIfPossible()
     }
 
     @MainActor
     func unregister() {
-        if let globalMonitor {
-            NSEvent.removeMonitor(globalMonitor)
+        if let accessibilityObserver {
+            DistributedNotificationCenter.default().removeObserver(accessibilityObserver)
+            self.accessibilityObserver = nil
         }
-        if let localMonitor {
-            NSEvent.removeMonitor(localMonitor)
-        }
-        globalMonitor = nil
-        localMonitor = nil
+        removeEventTap()
     }
 
-    private func handleKeyEvent(_ event: NSEvent) {
+    private func handleEventTap(type: CGEventType, event: CGEvent) -> Unmanaged<CGEvent>? {
+        if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
+            if let eventTap {
+                CGEvent.tapEnable(tap: eventTap, enable: true)
+            }
+            return Unmanaged.passUnretained(event)
+        }
+
         let (modifiers, keyCode) = Self.loadCustomHotkey()
-        let eventMods = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
-        guard eventMods == modifiers, event.keyCode == keyCode else { return }
-        onToggle()
+        let eventKeyCode = UInt16(event.getIntegerValueField(.keyboardEventKeycode))
+        let isAutoRepeat = event.getIntegerValueField(.keyboardEventAutorepeat) != 0
+
+        guard
+            Self.shouldInterceptHotkey(
+                modifiers: modifiers,
+                keyCode: keyCode,
+                eventFlags: event.flags,
+                eventKeyCode: eventKeyCode,
+                isAutoRepeat: isAutoRepeat
+            )
+        else {
+            return Unmanaged.passUnretained(event)
+        }
+
+        DispatchQueue.main.async { [weak self] in
+            self?.onToggle()
+        }
+        return nil
+    }
+
+    @MainActor
+    private func observeAccessibilityChangesIfNeeded() {
+        guard accessibilityObserver == nil else { return }
+
+        accessibilityObserver = DistributedNotificationCenter.default().addObserver(
+            forName: Self.accessibilityNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                self?.handleAccessibilityStatusChange()
+            }
+        }
+    }
+
+    @MainActor
+    private func handleAccessibilityStatusChange() {
+        if AXIsProcessTrusted() {
+            installEventTapIfPossible()
+        } else {
+            removeEventTap()
+        }
+    }
+
+    @MainActor
+    private func installEventTapIfPossible() {
+        guard eventTap == nil else { return }
+        guard AXIsProcessTrusted() else { return }
+
+        let refcon = Unmanaged.passUnretained(self).toOpaque()
+        let mask = CGEventMask(1 << CGEventType.keyDown.rawValue)
+
+        guard
+            let tap = CGEvent.tapCreate(
+                tap: .cgSessionEventTap,
+                place: .headInsertEventTap,
+                options: .defaultTap,
+                eventsOfInterest: mask,
+                callback: { _, type, event, refcon -> Unmanaged<CGEvent>? in
+                    guard let refcon else {
+                        return Unmanaged.passUnretained(event)
+                    }
+
+                    let manager = Unmanaged<HotkeyManager>.fromOpaque(refcon).takeUnretainedValue()
+                    return manager.handleEventTap(type: type, event: event)
+                },
+                userInfo: refcon
+            )
+        else {
+            return
+        }
+
+        let source = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, tap, 0)
+        eventTap = tap
+        runLoopSource = source
+        CFRunLoopAddSource(CFRunLoopGetMain(), source, .commonModes)
+        CGEvent.tapEnable(tap: tap, enable: true)
+    }
+
+    @MainActor
+    private func removeEventTap() {
+        if let runLoopSource {
+            CFRunLoopRemoveSource(CFRunLoopGetMain(), runLoopSource, .commonModes)
+            self.runLoopSource = nil
+        }
+
+        if let eventTap {
+            CGEvent.tapEnable(tap: eventTap, enable: false)
+            self.eventTap = nil
+        }
     }
 
     static func loadCustomHotkey() -> (NSEvent.ModifierFlags, UInt16) {
-        let savedMods = UserDefaults.standard.integer(forKey: Constants.customHotkeyModifiersKey)
-        let savedKey = UserDefaults.standard.integer(forKey: Constants.customHotkeyKeyCodeKey)
-        if savedMods != 0 && savedKey != 0 {
-            return (NSEvent.ModifierFlags(rawValue: UInt(savedMods)), UInt16(savedKey))
+        let defaults = UserDefaults.standard
+        if let savedMods = defaults.object(forKey: Constants.customHotkeyModifiersKey) as? Int,
+            let savedKey = defaults.object(forKey: Constants.customHotkeyKeyCodeKey) as? Int
+        {
+            return (
+                normalizedModifierFlags(NSEvent.ModifierFlags(rawValue: UInt(savedMods))),
+                UInt16(savedKey)
+            )
         }
         // Default: ⇧⌘V
         return ([.shift, .command], 0x09)
+    }
+
+    static func hotkeyMatches(
+        modifiers: NSEvent.ModifierFlags,
+        keyCode: UInt16,
+        eventFlags: CGEventFlags,
+        eventKeyCode: UInt16,
+        isAutoRepeat: Bool = false
+    ) -> Bool {
+        guard !isAutoRepeat else { return false }
+        return normalizedModifierFlags(modifiers) == modifierFlags(from: eventFlags)
+            && eventKeyCode == keyCode
+    }
+
+    static func shouldInterceptHotkey(
+        modifiers: NSEvent.ModifierFlags,
+        keyCode: UInt16,
+        eventFlags: CGEventFlags,
+        eventKeyCode: UInt16,
+        isAutoRepeat: Bool = false
+    ) -> Bool {
+        guard hotkeyRecordingSuspensionTokens.isEmpty else { return false }
+        return hotkeyMatches(
+            modifiers: modifiers,
+            keyCode: keyCode,
+            eventFlags: eventFlags,
+            eventKeyCode: eventKeyCode,
+            isAutoRepeat: isAutoRepeat
+        )
+    }
+
+    static func setHotkeyRecordingSuspended(_ isSuspended: Bool, token: UUID) {
+        if isSuspended {
+            hotkeyRecordingSuspensionTokens.insert(token)
+        } else {
+            hotkeyRecordingSuspensionTokens.remove(token)
+        }
     }
 
     static func currentHotkeyDisplayString() -> String {
@@ -56,11 +189,12 @@ final class HotkeyManager: @unchecked Sendable {
     }
 
     static func displayString(modifiers: NSEvent.ModifierFlags, keyCode: UInt16) -> String {
+        let normalizedModifiers = normalizedModifierFlags(modifiers)
         var parts: [String] = []
-        if modifiers.contains(.control) { parts.append("⌃") }
-        if modifiers.contains(.option) { parts.append("⌥") }
-        if modifiers.contains(.shift) { parts.append("⇧") }
-        if modifiers.contains(.command) { parts.append("⌘") }
+        if normalizedModifiers.contains(.control) { parts.append("⌃") }
+        if normalizedModifiers.contains(.option) { parts.append("⌥") }
+        if normalizedModifiers.contains(.shift) { parts.append("⇧") }
+        if normalizedModifiers.contains(.command) { parts.append("⌘") }
         parts.append(keyName(for: keyCode))
         return parts.joined()
     }
@@ -97,7 +231,24 @@ final class HotkeyManager: @unchecked Sendable {
     }
 
     static func saveHotkey(modifiers: NSEvent.ModifierFlags, keyCode: UInt16) {
-        UserDefaults.standard.set(Int(modifiers.rawValue), forKey: Constants.customHotkeyModifiersKey)
+        let normalizedModifiers = normalizedModifierFlags(modifiers)
+        UserDefaults.standard.set(
+            Int(normalizedModifiers.rawValue), forKey: Constants.customHotkeyModifiersKey)
         UserDefaults.standard.set(Int(keyCode), forKey: Constants.customHotkeyKeyCodeKey)
+    }
+
+    private static func normalizedModifierFlags(_ modifiers: NSEvent.ModifierFlags)
+        -> NSEvent.ModifierFlags
+    {
+        modifiers.intersection([.control, .option, .shift, .command])
+    }
+
+    private static func modifierFlags(from eventFlags: CGEventFlags) -> NSEvent.ModifierFlags {
+        var flags: NSEvent.ModifierFlags = []
+        if eventFlags.contains(.maskControl) { flags.insert(.control) }
+        if eventFlags.contains(.maskAlternate) { flags.insert(.option) }
+        if eventFlags.contains(.maskShift) { flags.insert(.shift) }
+        if eventFlags.contains(.maskCommand) { flags.insert(.command) }
+        return flags
     }
 }
