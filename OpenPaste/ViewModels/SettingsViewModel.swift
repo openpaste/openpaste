@@ -151,25 +151,15 @@ final class SettingsViewModel {
 
     func loadStorageInfo() async {
         let fileManager = FileManager.default
-        let bundleId = Bundle.main.bundleIdentifier ?? "dev.tuanle.OpenPaste"
+        // Use standard API — resolves to container path when sandboxed
+        let appSupportURL = fileManager.urls(
+            for: .applicationSupportDirectory, in: .userDomainMask
+        ).first
 
-        let containerDB = fileManager.homeDirectoryForCurrentUser
-            .appendingPathComponent("Library", isDirectory: true)
-            .appendingPathComponent("Containers", isDirectory: true)
-            .appendingPathComponent(bundleId, isDirectory: true)
-            .appendingPathComponent("Data", isDirectory: true)
-            .appendingPathComponent("Library", isDirectory: true)
-            .appendingPathComponent("Application Support", isDirectory: true)
+        let dbPath = appSupportURL?
             .appendingPathComponent("OpenPaste", isDirectory: true)
             .appendingPathComponent("clipboard.sqlite")
-
-        let legacyDB = fileManager.homeDirectoryForCurrentUser
-            .appendingPathComponent("Library", isDirectory: true)
-            .appendingPathComponent("Application Support", isDirectory: true)
-            .appendingPathComponent("OpenPaste", isDirectory: true)
-            .appendingPathComponent("clipboard.sqlite")
-
-        let dbPath = fileManager.fileExists(atPath: containerDB.path) ? containerDB : legacyDB
+            ?? URL(fileURLWithPath: "/dev/null")
 
         if let attrs = try? fileManager.attributesOfItem(atPath: dbPath.path) {
             let size = attrs[.size] as? Int64 ?? 0
