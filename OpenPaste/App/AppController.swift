@@ -36,6 +36,7 @@ final class AppController {
     private var smartPauseDetector: SmartPauseDetector?
     private var newTextItemWindow: NewTextItemWindow?
     private let monitoringState = MonitoringState()
+    @ObservationIgnored private var _openSettingsAction: (() -> Void)?
     private let isRunningTests =
         ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
     private let isUITestMode: Bool = {
@@ -94,7 +95,8 @@ final class AppController {
             searchViewModel = searchVm
 
             collectionViewModel = CollectionViewModel(storageService: c.storageService)
-            smartListViewModel = SmartListViewModel(smartListService: c.smartListService, eventBus: c.eventBus)
+            smartListViewModel = SmartListViewModel(
+                smartListService: c.smartListService, eventBus: c.eventBus)
 
             pasteStackViewModel.configure(clipboardService: c.clipboardService)
             pasteStackViewModel.dismissAction = { [weak self] in
@@ -375,9 +377,25 @@ final class AppController {
         sbc.onShowNewTextItem = { [weak self] in
             self?.showNewTextItemWindow()
         }
+        sbc.onOpenSettings = { [weak self] in
+            self?.openSettings()
+        }
         statusBarController = sbc
 
         newTextItemWindow = NewTextItemWindow(storageService: container.storageService)
+    }
+
+    func setOpenSettingsAction(_ action: @escaping () -> Void) {
+        _openSettingsAction = action
+    }
+
+    private func openSettings() {
+        NSApp.setActivationPolicy(.regular)
+        NSApp.activate()
+        _openSettingsAction?()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+            NSApp.setActivationPolicy(.accessory)
+        }
     }
 
     private func setupSmartPauseDetector() {

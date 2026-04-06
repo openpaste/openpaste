@@ -22,11 +22,33 @@ final class StatusBarController: NSObject, NSMenuDelegate {
     // Callbacks
     var onTogglePanel: (() -> Void)?
     var onShowNewTextItem: (() -> Void)?
+    var onOpenSettings: (() -> Void)?
 
     // Cached data for synchronous menu building
     var cachedRecentItems: [ClipboardItem] = []
     var cachedItemCount: Int = 0
     var timedResumeTask: Task<Void, Never>?
+
+    // Cached static menu items (avoids didChangeImage warnings)
+    private(set) lazy var settingsMenuItem: NSMenuItem = {
+        let item = NSMenuItem(
+            title: "Settings…", action: #selector(openSettings), keyEquivalent: ",")
+        item.keyEquivalentModifierMask = .command
+        item.target = self
+        return item
+    }()
+    private(set) lazy var updateMenuItem: NSMenuItem = {
+        let item = NSMenuItem(
+            title: "Check for Updates…", action: #selector(checkUpdates), keyEquivalent: "")
+        item.target = self
+        return item
+    }()
+    private(set) lazy var quitMenuItem: NSMenuItem = {
+        let item = NSMenuItem(title: "Quit OpenPaste", action: #selector(quit), keyEquivalent: "q")
+        item.keyEquivalentModifierMask = .command
+        item.target = self
+        return item
+    }()
 
     init(
         monitoringState: MonitoringState,
@@ -102,7 +124,8 @@ final class StatusBarController: NSObject, NSMenuDelegate {
 
     func handleSensitiveAppDeactivated() {
         guard monitoringState.isPaused,
-              case .smartDetect = monitoringState.pauseReason else { return }
+            case .smartDetect = monitoringState.pauseReason
+        else { return }
         Task { @MainActor in
             await clipboardService.resumeMonitoring()
             monitoringState.resume()

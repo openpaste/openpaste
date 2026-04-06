@@ -18,12 +18,7 @@ extension StatusBarController {
     }
 
     @objc func openSettings() {
-        if #available(macOS 14.0, *) {
-            NSApp.activate()
-        } else {
-            NSApp.activate(ignoringOtherApps: true)
-        }
-        NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
+        onOpenSettings?()
     }
 
     @objc func checkUpdates() {
@@ -75,7 +70,8 @@ extension StatusBarController {
     @objc func clearHistory() {
         let alert = NSAlert()
         alert.messageText = "Clear All History?"
-        alert.informativeText = "This will permanently delete all clipboard history items. This action cannot be undone."
+        alert.informativeText =
+            "This will permanently delete all clipboard history items. This action cannot be undone."
         alert.alertStyle = .warning
         alert.addButton(withTitle: "Delete All")
         alert.addButton(withTitle: "Cancel")
@@ -100,7 +96,8 @@ extension StatusBarController {
 
     @objc func openURL(_ sender: NSMenuItem) {
         guard let urlString = sender.representedObject as? String,
-              let url = URL(string: urlString) else { return }
+            let url = URL(string: urlString)
+        else { return }
         NSWorkspace.shared.open(url)
     }
 
@@ -115,10 +112,12 @@ extension StatusBarController {
         case .image:
             return "[Image] from \(item.sourceApp.name ?? "Unknown")"
         case .file:
-            return "[File] \(item.plainTextContent?.components(separatedBy: "\n").first ?? "Unknown")"
+            return
+                "[File] \(item.plainTextContent?.components(separatedBy: "\n").first ?? "Unknown")"
         default:
             let text = item.plainTextContent ?? ""
-            let cleaned = text.replacingOccurrences(of: "\n", with: " ").trimmingCharacters(in: .whitespaces)
+            let cleaned = text.replacingOccurrences(of: "\n", with: " ").trimmingCharacters(
+                in: .whitespaces)
             if cleaned.count > 60 { return String(cleaned.prefix(57)) + "…" }
             return cleaned.isEmpty ? "[Empty]" : cleaned
         }

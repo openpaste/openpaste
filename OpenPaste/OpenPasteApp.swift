@@ -12,8 +12,12 @@ struct OpenPasteApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     @State private var controller = AppController()
     @AppStorage(Constants.appearanceThemeKey) private var theme = "system"
+    @Environment(\.openSettings) private var openSettings
 
     var body: some Scene {
+        let _ = controller.setOpenSettingsAction { [openSettings] in
+            openSettings()
+        }
         Settings {
             SettingsView(
                 viewModel: controller.settingsViewModel,
@@ -21,8 +25,8 @@ struct OpenPasteApp: App {
                 feedbackRouter: controller.feedbackRouter
             )
             .onAppear {
-                    NSApp.activate(ignoringOtherApps: true)
-                }
+                NSApp.activate(ignoringOtherApps: true)
+            }
         }
         .defaultLaunchBehavior(.suppressed)
     }
