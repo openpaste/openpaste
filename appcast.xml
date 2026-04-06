@@ -124,5 +124,16 @@
         length="6981767"
         type="application/octet-stream"/>
     </item>
+    <item>
+      <title>Version 1.6.0</title>
+      <pubDate>Mon, 06 Apr 2026 16:33:07 +0000</pubDate>
+      <sparkle:version>1.6.0</sparkle:version>
+      <sparkle:shortVersionString>1.6.0</sparkle:shortVersionString>
+      <enclosure
+        url="https://github.com/openpaste/openpaste/releases/download/v1.6.0/OpenPaste-1.6.0.dmg"
+        sparkle:edSignature="c36R0Z8f0IIaHMRTHfgecx4ptDCea39sL0NcC9gUWlLtUr42sMycJmBpPgg0l8uyP0Fm7thBZmz3Eyk+rxbXDw=="
+        length="7019865"
+        type="application/octet-stream"/>
+    </item>
   </channel>
 </rss>
