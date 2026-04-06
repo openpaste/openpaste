@@ -21,39 +21,37 @@ actor DatabaseManager {
             dbDirectory = override
             try fileManager.createDirectory(at: dbDirectory, withIntermediateDirectories: true)
         } else {
-            // Prefer a sandbox-compatible location so enabling App Sandbox later doesn't reset user data.
-            // - Legacy (pre-sandbox): ~/Library/Application Support/OpenPaste/
-            // - Sandbox: ~/Library/Containers/<bundleId>/Data/Library/Application Support/OpenPaste/
-            // NOTE: We compute the legacy path explicitly so it remains correct even when App Sandbox is enabled
-            // (where `.applicationSupportDirectory` resolves inside the app container).
-            let realHomeDirectory: URL = {
-                if let pw = getpwuid(getuid()),
-                    let homePath = String(validatingUTF8: pw.pointee.pw_dir)
-                {
-                    return URL(fileURLWithPath: homePath, isDirectory: true)
-                }
-                return fileManager.homeDirectoryForCurrentUser
-            }()
+            // Use standard API — macOS automatically resolves to the correct location:
+            // - Sandbox ON:  ~/Library/Containers/<bundleId>/Data/Library/Application Support/
+            // - Sandbox OFF: ~/Library/Application Support/
+            guard let appSupportURL = fileManager.urls(
+                for: .applicationSupportDirectory, in: .userDomainMask
+            ).first else {
+                throw CocoaError(.fileNoSuchFile, userInfo: [
+                    NSLocalizedDescriptionKey: "Could not locate Application Support directory"
+                ])
+            }
 
-            let legacyDirectory =
-                realHomeDirectory
-                .appendingPathComponent("Library", isDirectory: true)
-                .appendingPathComponent("Application Support", isDirectory: true)
-                .appendingPathComponent("OpenPaste", isDirectory: true)
-
-            let bundleId = Bundle.main.bundleIdentifier ?? "dev.tuanle.OpenPaste"
-            let preferredAppSupportURL =
-                realHomeDirectory
-                .appendingPathComponent("Library", isDirectory: true)
-                .appendingPathComponent("Containers", isDirectory: true)
-                .appendingPathComponent(bundleId, isDirectory: true)
-                .appendingPathComponent("Data", isDirectory: true)
-                .appendingPathComponent("Library", isDirectory: true)
-                .appendingPathComponent("Application Support", isDirectory: true)
-
-            dbDirectory = preferredAppSupportURL.appendingPathComponent(
-                "OpenPaste", isDirectory: true)
+            dbDirectory = appSupportURL.appendingPathComponent("OpenPaste", isDirectory: true)
             try fileManager.createDirectory(at: dbDirectory, withIntermediateDirectories: true)
+
+            // One-time migration: copy DB from pre-sandbox legacy path if it exists.
+            // Use getpwuid() here ONLY to resolve the real home (bypassing sandbox redirect)
+            // so we can locate the legacy directory outside the container.
+            let legacyDirectory: URL = {
+                let realHome: URL = {
+                    if let pw = getpwuid(getuid()),
+                        let homePath = String(validatingUTF8: pw.pointee.pw_dir)
+                    {
+                        return URL(fileURLWithPath: homePath, isDirectory: true)
+                    }
+                    return fileManager.homeDirectoryForCurrentUser
+                }()
+                return realHome
+                    .appendingPathComponent("Library", isDirectory: true)
+                    .appendingPathComponent("Application Support", isDirectory: true)
+                    .appendingPathComponent("OpenPaste", isDirectory: true)
+            }()
 
             try Self.copyLegacyDatabaseIfNeeded(
                 legacyDirectory: legacyDirectory,

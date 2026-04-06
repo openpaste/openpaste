@@ -1,5 +1,5 @@
-import Foundation
 @preconcurrency import CloudKit
+import Foundation
 import GRDB
 import Network
 import os.log
@@ -20,7 +20,7 @@ final class SyncService: NSObject, SyncServiceProtocol, CKSyncEngineDelegate, @u
     let encryption: SyncEncryptionServiceProtocol
 
     private let assetLock = NSLock()
-    private var stagedAssetURLs: [String: URL] = [:] // recordName -> fileURL
+    private var stagedAssetURLs: [String: URL] = [:]  // recordName -> fileURL
 
     private let statusLock = NSLock()
     private var status: SyncStatus = .disabled
@@ -32,6 +32,7 @@ final class SyncService: NSObject, SyncServiceProtocol, CKSyncEngineDelegate, @u
     private var stopTask: Task<Void, Never>?
     private var stopToken: UUID?
     private var isStopping: Bool = false
+    private var isResetting: Bool = false
 
     private var startTask: Task<Void, Never>?
     private var startToken: UUID?
@@ -86,7 +87,9 @@ final class SyncService: NSObject, SyncServiceProtocol, CKSyncEngineDelegate, @u
         startNetworkMonitor()
 
         guard getNetworkAvailable() else {
-            syncLog.warning("SyncService.start() deferred: network unavailable — monitor will auto-start when online")
+            syncLog.warning(
+                "SyncService.start() deferred: network unavailable — monitor will auto-start when online"
+            )
             setStatus(.error("No network connection"))
             return
         }
@@ -192,7 +195,8 @@ final class SyncService: NSObject, SyncServiceProtocol, CKSyncEngineDelegate, @u
             let newEngine = CKSyncEngine(configuration)
 
             lifecycleLock.lock()
-            let canInstallEngine = (lifecycleGeneration == expectedGeneration && startToken == token && engine == nil)
+            let canInstallEngine =
+                (lifecycleGeneration == expectedGeneration && startToken == token && engine == nil)
             if canInstallEngine {
                 engine = newEngine
             }
@@ -208,8 +212,9 @@ final class SyncService: NSObject, SyncServiceProtocol, CKSyncEngineDelegate, @u
                     )
                 }
                 engine.state.add(pendingRecordZoneChanges: changes)
-                syncLog.info("Outbox callback: scheduled \(recordNames.count) new records with engine")
-                _ = self // prevent unused capture warning
+                syncLog.info(
+                    "Outbox callback: scheduled \(recordNames.count) new records with engine")
+                _ = self  // prevent unused capture warning
             }
 
             loadLastSyncDate()
@@ -238,7 +243,9 @@ final class SyncService: NSObject, SyncServiceProtocol, CKSyncEngineDelegate, @u
             return
         } catch {
             syncLog.error("SyncService.start() failed: \(error.localizedDescription)")
-            guard isStartStillValid(expectedGeneration: expectedGeneration, token: token) else { return }
+            guard isStartStillValid(expectedGeneration: expectedGeneration, token: token) else {
+                return
+            }
             setStatus(.error(error.localizedDescription))
         }
     }
@@ -328,28 +335,34 @@ final class SyncService: NSObject, SyncServiceProtocol, CKSyncEngineDelegate, @u
 
     private func waitForStopIfNeeded() async {
         let task: Task<Void, Never>?
-        lifecycleLock.lock(); task = stopTask; lifecycleLock.unlock()
+        lifecycleLock.lock()
+        task = stopTask
+        lifecycleLock.unlock()
         if let task { await task.value }
     }
 
     private func isStoppingSnapshot() -> Bool {
-        lifecycleLock.lock(); defer { lifecycleLock.unlock() }
+        lifecycleLock.lock()
+        defer { lifecycleLock.unlock() }
         return isStopping
     }
 
     func currentEngineSnapshot() -> CKSyncEngine? {
-        lifecycleLock.lock(); defer { lifecycleLock.unlock() }
+        lifecycleLock.lock()
+        defer { lifecycleLock.unlock() }
         guard !isStopping else { return nil }
         return engine
     }
 
     private func isStartStillValid(expectedGeneration: UInt64, token: UUID) -> Bool {
-        lifecycleLock.lock(); defer { lifecycleLock.unlock() }
+        lifecycleLock.lock()
+        defer { lifecycleLock.unlock() }
         return lifecycleGeneration == expectedGeneration && startToken == token
     }
 
     private func isCurrentEngine(_ candidate: CKSyncEngine) -> Bool {
-        lifecycleLock.lock(); defer { lifecycleLock.unlock() }
+        lifecycleLock.lock()
+        defer { lifecycleLock.unlock() }
         return engine === candidate
     }
 
@@ -447,6 +460,21 @@ final class SyncService: NSObject, SyncServiceProtocol, CKSyncEngineDelegate, @u
     }
 
     func reset() async {
+        lifecycleLock.lock()
+        let alreadyResetting = isResetting
+        isResetting = true
+        lifecycleLock.unlock()
+        guard !alreadyResetting else {
+            syncLog.info("reset() skipped — already resetting")
+            return
+        }
+
+        defer {
+            lifecycleLock.lock()
+            isResetting = false
+            lifecycleLock.unlock()
+        }
+
         await stop()
         do {
             try await dbQueue.write { db in
@@ -466,12 +494,14 @@ final class SyncService: NSObject, SyncServiceProtocol, CKSyncEngineDelegate, @u
     }
 
     func getStatus() async -> SyncStatus {
-        statusLock.lock(); defer { statusLock.unlock() }
+        statusLock.lock()
+        defer { statusLock.unlock() }
         return status
     }
 
     func getLastSyncDate() async -> Date? {
-        statusLock.lock(); defer { statusLock.unlock() }
+        statusLock.lock()
+        defer { statusLock.unlock() }
         return lastSyncDate
     }
 
@@ -509,7 +539,8 @@ final class SyncService: NSObject, SyncServiceProtocol, CKSyncEngineDelegate, @u
         try? await dbQueue.read { db in
             try String.fetchOne(
                 db,
-                sql: "SELECT lastError FROM sync_metadata WHERE syncStatus = ? AND lastError IS NOT NULL ORDER BY updatedAt DESC LIMIT 1",
+                sql:
+                    "SELECT lastError FROM sync_metadata WHERE syncStatus = ? AND lastError IS NOT NULL ORDER BY updatedAt DESC LIMIT 1",
                 arguments: [SyncOutboxStatus.error.rawValue]
             )
         }
@@ -536,9 +567,14 @@ final class SyncService: NSObject, SyncServiceProtocol, CKSyncEngineDelegate, @u
             syncLog.info("CKSyncEngine: willSendChanges")
             if !isStoppingSnapshot() {
                 // B3: Capture total pending count at start of send session
-                let pending = (try? await dbQueue.read { db in
-                    try Int.fetchOne(db, sql: "SELECT COUNT(*) FROM sync_metadata WHERE syncStatus IN ('pending', 'inFlight')")
-                }) ?? 0
+                let pending =
+                    (try? await dbQueue.read { db in
+                        try Int.fetchOne(
+                            db,
+                            sql:
+                                "SELECT COUNT(*) FROM sync_metadata WHERE syncStatus IN ('pending', 'inFlight')"
+                        )
+                    }) ?? 0
                 statusLock.lock()
                 syncTotalPending = pending
                 syncCompletedCount = 0
@@ -547,15 +583,20 @@ final class SyncService: NSObject, SyncServiceProtocol, CKSyncEngineDelegate, @u
                 await eventBus.emit(.syncStarted)
             }
         case .fetchedRecordZoneChanges(let changes):
-            syncLog.info("CKSyncEngine: fetched \(changes.modifications.count) mods, \(changes.deletions.count) dels")
+            syncLog.info(
+                "CKSyncEngine: fetched \(changes.modifications.count) mods, \(changes.deletions.count) dels"
+            )
             await applyRemote(modifications: changes.modifications, deletions: changes.deletions)
         case .sentRecordZoneChanges(let results):
-            syncLog.info("CKSyncEngine: sent \(results.savedRecords.count) saved, \(results.failedRecordSaves.count) failed")
+            syncLog.info(
+                "CKSyncEngine: sent \(results.savedRecords.count) saved, \(results.failedRecordSaves.count) failed"
+            )
             await handleSent(saved: results.savedRecords, failed: results.failedRecordSaves)
             // B3: Update progress after each batch
             statusLock.lock()
             syncCompletedCount += results.savedRecords.count + results.failedRecordSaves.count
-            let progress = syncTotalPending > 0
+            let progress =
+                syncTotalPending > 0
                 ? min(Double(syncCompletedCount) / Double(syncTotalPending), 1.0)
                 : nil
             statusLock.unlock()
@@ -571,7 +612,7 @@ final class SyncService: NSObject, SyncServiceProtocol, CKSyncEngineDelegate, @u
             setStatus(.idle)
             await eventBus.emit(.syncCompleted)
         case .fetchedDatabaseChanges, .sentDatabaseChanges,
-             .willFetchRecordZoneChanges, .didFetchRecordZoneChanges:
+            .willFetchRecordZoneChanges, .didFetchRecordZoneChanges:
             break
         @unknown default:
             syncLog.debug("CKSyncEngine: unknown event")
@@ -622,7 +663,8 @@ final class SyncService: NSObject, SyncServiceProtocol, CKSyncEngineDelegate, @u
                 syncLog.info("schedulePendingOutbox: no pending records")
                 return
             }
-            syncLog.info("schedulePendingOutbox: scheduling \(pendingNames.count) records with engine")
+            syncLog.info(
+                "schedulePendingOutbox: scheduling \(pendingNames.count) records with engine")
 
             let changes = pendingNames.map { name in
                 CKSyncEngine.PendingRecordZoneChange.saveRecord(
@@ -636,7 +678,8 @@ final class SyncService: NSObject, SyncServiceProtocol, CKSyncEngineDelegate, @u
     }
 
     func setStatus(_ new: SyncStatus) {
-        statusLock.lock(); defer { statusLock.unlock() }
+        statusLock.lock()
+        defer { statusLock.unlock() }
         status = new
     }
 
@@ -664,7 +707,8 @@ final class SyncService: NSObject, SyncServiceProtocol, CKSyncEngineDelegate, @u
     }
 
     func stageAsset(url: URL, recordName: String) {
-        assetLock.lock(); defer { assetLock.unlock() }
+        assetLock.lock()
+        defer { assetLock.unlock() }
         stagedAssetURLs[recordName] = url
     }
 
@@ -686,12 +730,14 @@ final class SyncService: NSObject, SyncServiceProtocol, CKSyncEngineDelegate, @u
     // MARK: - Network Reachability (A2)
 
     func getNetworkAvailable() -> Bool {
-        networkLock.lock(); defer { networkLock.unlock() }
+        networkLock.lock()
+        defer { networkLock.unlock() }
         return isNetworkAvailable
     }
 
     private func setNetworkAvailable(_ available: Bool) {
-        networkLock.lock(); defer { networkLock.unlock() }
+        networkLock.lock()
+        defer { networkLock.unlock() }
         isNetworkAvailable = available
     }
 
@@ -762,17 +808,19 @@ final class SyncService: NSObject, SyncServiceProtocol, CKSyncEngineDelegate, @u
         do {
             let now = Date()
             let retried = try await dbQueue.write { db -> [String] in
-                let rows = try Row.fetchAll(db, sql: """
-                    SELECT recordName, retryCount, updatedAt
-                    FROM sync_metadata
-                    WHERE syncStatus = ?
-                      AND retryCount < ?
-                    ORDER BY updatedAt ASC
-                    LIMIT 20
-                    """,
+                let rows = try Row.fetchAll(
+                    db,
+                    sql: """
+                        SELECT recordName, retryCount, updatedAt
+                        FROM sync_metadata
+                        WHERE syncStatus = ?
+                          AND retryCount < ?
+                        ORDER BY updatedAt ASC
+                        LIMIT 20
+                        """,
                     arguments: [
                         SyncOutboxStatus.error.rawValue,
-                        Constants.syncMaxRetries
+                        Constants.syncMaxRetries,
                     ]
                 )
 
@@ -791,10 +839,10 @@ final class SyncService: NSObject, SyncServiceProtocol, CKSyncEngineDelegate, @u
 
                     try db.execute(
                         sql: """
-                        UPDATE sync_metadata
-                        SET syncStatus = ?, lastError = NULL, updatedAt = ?
-                        WHERE recordName = ?
-                        """,
+                            UPDATE sync_metadata
+                            SET syncStatus = ?, lastError = NULL, updatedAt = ?
+                            WHERE recordName = ?
+                            """,
                         arguments: [SyncOutboxStatus.pending.rawValue, now, recordName]
                     )
                     retriedNames.append(recordName)
@@ -816,10 +864,12 @@ final class SyncService: NSObject, SyncServiceProtocol, CKSyncEngineDelegate, @u
             // Remove records that exceeded max retries from engine's pending queue
             // to prevent infinite retry loops
             let stuckNames = try await dbQueue.read { db -> [String] in
-                try String.fetchAll(db, sql: """
-                    SELECT recordName FROM sync_metadata
-                    WHERE syncStatus = ? AND retryCount >= ?
-                    """,
+                try String.fetchAll(
+                    db,
+                    sql: """
+                        SELECT recordName FROM sync_metadata
+                        WHERE syncStatus = ? AND retryCount >= ?
+                        """,
                     arguments: [SyncOutboxStatus.error.rawValue, Constants.syncMaxRetries]
                 )
             }
@@ -842,6 +892,13 @@ final class SyncService: NSObject, SyncServiceProtocol, CKSyncEngineDelegate, @u
     private func handleAccountChange(_ event: CKSyncEngine.Event.AccountChange) async {
         switch event.changeType {
         case .signIn:
+            lifecycleLock.lock()
+            let alreadyResetting = isResetting
+            lifecycleLock.unlock()
+            guard !alreadyResetting else {
+                syncLog.info("iCloud signIn event ignored — already resetting")
+                return
+            }
             syncLog.info("iCloud account signed in — resetting and restarting sync")
             await reset()
         case .signOut:

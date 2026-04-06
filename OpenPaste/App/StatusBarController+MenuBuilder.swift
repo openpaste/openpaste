@@ -14,7 +14,9 @@ extension StatusBarController {
         addNewTextItem()
         menu.addItem(.separator())
 
-        let showRecent = UserDefaults.standard.object(forKey: Constants.showRecentItemsInMenuKey) as? Bool ?? true
+        let showRecent =
+            UserDefaults.standard.object(forKey: Constants.showRecentItemsInMenuKey) as? Bool
+            ?? true
         if showRecent {
             addRecentItemsSubmenu()
             menu.addItem(.separator())
@@ -48,31 +50,24 @@ extension StatusBarController {
     }
 
     private func addNewTextItem() {
-        let item = NSMenuItem(title: "New Text Item", action: #selector(newTextItem), keyEquivalent: "n")
+        let item = NSMenuItem(
+            title: "New Text Item", action: #selector(newTextItem), keyEquivalent: "n")
         item.keyEquivalentModifierMask = .command
         item.target = self
         menu.addItem(item)
     }
 
     private func addSettingsItem() {
-        let item = NSMenuItem(title: "Settings…", action: #selector(openSettings), keyEquivalent: ",")
-        item.keyEquivalentModifierMask = .command
-        item.target = self
-        menu.addItem(item)
+        menu.addItem(settingsMenuItem)
     }
 
     private func addUpdateItem() {
-        let item = NSMenuItem(title: "Check for Updates…", action: #selector(checkUpdates), keyEquivalent: "")
-        item.target = self
-        item.isEnabled = updaterService.canCheckForUpdates
-        menu.addItem(item)
+        updateMenuItem.isEnabled = updaterService.canCheckForUpdates
+        menu.addItem(updateMenuItem)
     }
 
     private func addQuitItem() {
-        let item = NSMenuItem(title: "Quit OpenPaste", action: #selector(quit), keyEquivalent: "q")
-        item.keyEquivalentModifierMask = .command
-        item.target = self
-        menu.addItem(item)
+        menu.addItem(quitMenuItem)
     }
 
     // MARK: - Submenus
@@ -83,7 +78,8 @@ extension StatusBarController {
 
         for (index, item) in cachedRecentItems.prefix(maxItems).enumerated() {
             let title = truncatedPreview(for: item)
-            let menuItem = NSMenuItem(title: title, action: #selector(pasteRecentItem(_:)), keyEquivalent: "")
+            let menuItem = NSMenuItem(
+                title: title, action: #selector(pasteRecentItem(_:)), keyEquivalent: "")
             menuItem.target = self
             menuItem.tag = index
             menuItem.image = iconForContentType(item.type)
@@ -92,7 +88,8 @@ extension StatusBarController {
 
         if !cachedRecentItems.isEmpty { submenu.addItem(.separator()) }
 
-        let showAll = NSMenuItem(title: "Show All History", action: #selector(showHistory), keyEquivalent: "")
+        let showAll = NSMenuItem(
+            title: "Show All History", action: #selector(showHistory), keyEquivalent: "")
         showAll.target = self
         submenu.addItem(showAll)
 
@@ -105,7 +102,8 @@ extension StatusBarController {
         let submenu = NSMenu()
 
         let toggleTitle = monitoringState.isPaused ? "Resume Monitoring" : "Pause Monitoring"
-        let toggle = NSMenuItem(title: toggleTitle, action: #selector(togglePause), keyEquivalent: "")
+        let toggle = NSMenuItem(
+            title: toggleTitle, action: #selector(togglePause), keyEquivalent: "")
         toggle.target = self
         submenu.addItem(toggle)
 
@@ -122,7 +120,8 @@ extension StatusBarController {
             ("1 Hour", 3600), ("3 Hours", 10800), ("8 Hours", 28800),
         ]
         for (title, duration) in durations {
-            let item = NSMenuItem(title: "Pause for \(title)", action: #selector(timedPause(_:)), keyEquivalent: "")
+            let item = NSMenuItem(
+                title: "Pause for \(title)", action: #selector(timedPause(_:)), keyEquivalent: "")
             item.target = self
             item.representedObject = duration as NSNumber
             submenu.addItem(item)
@@ -137,17 +136,20 @@ extension StatusBarController {
     func addQuickActionsSubmenu() {
         let submenu = NSMenu()
 
-        let clear = NSMenuItem(title: "Clear All History", action: #selector(clearHistory), keyEquivalent: "")
+        let clear = NSMenuItem(
+            title: "Clear All History", action: #selector(clearHistory), keyEquivalent: "")
         clear.target = self
         submenu.addItem(clear)
 
-        let sync = NSMenuItem(title: "Force Sync Now", action: #selector(forceSync), keyEquivalent: "")
+        let sync = NSMenuItem(
+            title: "Force Sync Now", action: #selector(forceSync), keyEquivalent: "")
         sync.target = self
         submenu.addItem(sync)
 
         submenu.addItem(.separator())
 
-        let stats = NSMenuItem(title: "📊 Storage: \(cachedItemCount) items", action: nil, keyEquivalent: "")
+        let stats = NSMenuItem(
+            title: "📊 Storage: \(cachedItemCount) items", action: nil, keyEquivalent: "")
         stats.isEnabled = false
         submenu.addItem(stats)
 
@@ -167,12 +169,14 @@ extension StatusBarController {
         ]
         for (title, url) in links {
             if let url {
-                let item = NSMenuItem(title: title, action: #selector(openURL(_:)), keyEquivalent: "")
+                let item = NSMenuItem(
+                    title: title, action: #selector(openURL(_:)), keyEquivalent: "")
                 item.target = self
                 item.representedObject = url
                 submenu.addItem(item)
             } else {
-                let item = NSMenuItem(title: title, action: #selector(openKeyboardShortcuts), keyEquivalent: "")
+                let item = NSMenuItem(
+                    title: title, action: #selector(openKeyboardShortcuts), keyEquivalent: "")
                 item.target = self
                 submenu.addItem(item)
             }
@@ -192,7 +196,8 @@ extension StatusBarController {
 
         submenu.addItem(.separator())
 
-        let star = NSMenuItem(title: "Star on GitHub", action: #selector(openURL(_:)), keyEquivalent: "")
+        let star = NSMenuItem(
+            title: "Star on GitHub", action: #selector(openURL(_:)), keyEquivalent: "")
         star.target = self
         star.representedObject = baseURL
         submenu.addItem(star)

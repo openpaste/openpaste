@@ -6,6 +6,18 @@ All notable changes to the OpenPaste project are documented in this file. Format
 
 *No unreleased changes.*
 
+## [1.5.1] — 2026-04-06
+
+### Fixed
+- `fix(settings)`: Use SwiftUI `openSettings` environment for reliable Settings window opening; cache menu items to prevent repeated `didChangeImage` warnings (`SettingsViewModel`, `AppController`)
+- `fix(sync)`: Prevent infinite loop in SyncService `accountChange(.signIn)` handler — added `isResetting` re-entrancy guard (`SyncService`)
+
+### Changed
+- `refactor(storage)`: Simplify path resolution with standard `FileManager.urls(for:in:)` API instead of manual container path construction (`DatabaseManager`)
+
+### Testing
+- `test(e2e)`: Add Settings window E2E tests — verifies all sections appear and navigation between sections works (`OpenPasteE2ESettingsTests`)
+
 ## [1.5.0] — 2026-04-06
 
 ### Added
