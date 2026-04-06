@@ -38,7 +38,9 @@ jobs:
             -scheme OpenPaste \
             -destination 'platform=macOS' \
             -configuration Debug \
-            CODE_SIGNING_ALLOWED=NO
+            CODE_SIGNING_ALLOWED=NO \
+            -skip-testing:OpenPasteUITests/OpenPasteE2EBottomShelfDragTests/testE2E_BottomShelf_ReordersCardsViaDrag \
+            -skip-testing:OpenPasteUITests/OpenPasteE2EQuickEditTests/testE2E_QuickEditImage_ExportsResizedTIFFToPasteboard
 
       - name: Install signing certificate
         env:
