@@ -8,6 +8,7 @@ enum CloudKitMapper {
     enum RecordType {
         static let clipboardItem = "ClipboardItem"
         static let collection = "Collection"
+        static let smartList = "SmartList"
     }
 
     enum Field {
@@ -91,6 +92,42 @@ enum CloudKitMapper {
         record[Field.payloadKeyVersion] = keyVersion
 
         let payload = CloudKitMapperPayloads.CollectionPayload(name: local.name, color: local.color)
+        let (asset, url) = try stageEncryptedPayload(payload, keyVersion: keyVersion, encryption: encryption)
+        record[Field.payloadAsset] = asset
+        return (record, url)
+    }
+
+    static func makeSmartListRecord(
+        recordName: String,
+        local: SmartListRecord,
+        keyVersion: Int,
+        encryption: SyncEncryptionServiceProtocol
+    ) throws -> (record: CKRecord, stagedFileURL: URL) {
+        let recordID = CKRecord.ID(recordName: recordName, zoneID: zoneID)
+        let record: CKRecord
+        if let system = local.ckSystemFields {
+            record = try CloudKitSystemFields.decodeRecord(from: system)
+        } else {
+            record = CKRecord(recordType: RecordType.smartList, recordID: recordID)
+        }
+
+        record[Field.localId] = local.id
+        record[Field.createdAt] = local.createdAt
+        record[Field.modifiedAt] = local.modifiedAt
+        record[Field.deviceId] = local.deviceId
+        record[Field.isDeleted] = local.isDeleted
+        record[Field.payloadKeyVersion] = keyVersion
+
+        let payload = CloudKitMapperPayloads.SmartListPayload(
+            name: local.name,
+            icon: local.icon,
+            color: local.color,
+            rules: local.rules,
+            matchMode: local.matchMode,
+            sortOrder: local.sortOrder,
+            isBuiltIn: local.isBuiltIn,
+            position: local.position
+        )
         let (asset, url) = try stageEncryptedPayload(payload, keyVersion: keyVersion, encryption: encryption)
         record[Field.payloadAsset] = asset
         return (record, url)

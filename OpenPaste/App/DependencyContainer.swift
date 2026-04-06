@@ -15,6 +15,7 @@ final class DependencyContainer {
     let securityService: SecurityServiceProtocol
     let ocrService: OCRServiceProtocol
     let clipboardService: ClipboardServiceProtocol
+    let smartListService: SmartListServiceProtocol
 
     init(uiTestMode: Bool = false) throws {
         eventBus = EventBus()
@@ -32,6 +33,7 @@ final class DependencyContainer {
         let dbQueue = databaseManager.dbQueue
         storageService = StorageService(dbQueue: dbQueue)
         searchService = SearchEngine(dbQueue: dbQueue)
+        smartListService = SmartListService(dbQueue: dbQueue)
 
         premiumService = PremiumService()
         if uiTestMode {

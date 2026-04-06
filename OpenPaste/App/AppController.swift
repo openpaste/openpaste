@@ -22,6 +22,7 @@ final class AppController {
     var historyViewModel: HistoryViewModel?
     var searchViewModel: SearchViewModel?
     var collectionViewModel: CollectionViewModel?
+    var smartListViewModel: SmartListViewModel?
     var initError: String?
     var showOnboarding: Bool
 
@@ -89,6 +90,7 @@ final class AppController {
             searchViewModel = searchVm
 
             collectionViewModel = CollectionViewModel(storageService: c.storageService)
+            smartListViewModel = SmartListViewModel(smartListService: c.smartListService, eventBus: c.eventBus)
 
             pasteStackViewModel.configure(clipboardService: c.clipboardService)
             pasteStackViewModel.dismissAction = { [weak self] in
@@ -359,12 +361,14 @@ final class AppController {
         else { return }
         let pvm = pasteStackViewModel
         let cvm = collectionViewModel
+        let slvm = smartListViewModel
         windowManager.toggle {
             ContentView(
                 historyViewModel: hvm,
                 searchViewModel: svm,
                 pasteStackViewModel: pvm,
-                collectionViewModel: cvm
+                collectionViewModel: cvm,
+                smartListViewModel: slvm
             )
         }
     }
