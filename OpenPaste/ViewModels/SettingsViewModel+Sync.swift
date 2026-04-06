@@ -8,6 +8,9 @@ extension SettingsViewModel {
                 self.syncLastSyncDate = nil
                 self.syncPendingChangesCount = 0
                 self.syncSyncedCount = 0
+                self.syncErrorCount = 0
+                self.syncLastError = nil
+                self.syncDeviceName = ""
             }
             return
         }
@@ -16,12 +19,18 @@ extension SettingsViewModel {
         let last = await syncService.getLastSyncDate()
         let pending = await syncService.getPendingChangesCount()
         let synced = await syncService.getSyncedCount()
+        let errors = await syncService.getErrorCount()
+        let lastErr = await syncService.getLastErrorMessage()
+        let device = await syncService.getDeviceName()
 
         await MainActor.run {
             self.syncStatus = status
             self.syncLastSyncDate = last
             self.syncPendingChangesCount = pending
             self.syncSyncedCount = synced
+            self.syncErrorCount = errors
+            self.syncLastError = lastErr
+            self.syncDeviceName = device
             self.isSyncing = {
                 if case .syncing = status { return true }
                 return false

@@ -12,6 +12,12 @@ enum Constants {
     // iCloud Sync
     static let iCloudSyncEnabledKey = "iCloudSyncEnabled"
     static let iCloudSyncIncludeSensitiveKey = "iCloudSyncIncludeSensitive"
+    static let iCloudSyncMaxItemSizeBytesKey = "iCloudSyncMaxItemSizeBytes"
+
+    static let syncMaxRetries = 5
+    static let syncRetryBaseInterval: TimeInterval = 60
+    static let syncRetryMaxInterval: TimeInterval = 3600
+    static let syncRetryCheckInterval: TimeInterval = 60
 
     // Onboarding
     static let hasCompletedOnboardingKey = "hasCompletedOnboarding"
