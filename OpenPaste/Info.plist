@@ -3,7 +3,7 @@
 <plist version="1.0">
 <dict>
 	<key>SUFeedURL</key>
-	<string>https://openpaste.github.io/openpaste/appcast.xml</string>
+	<string>https://raw.githubusercontent.com/openpaste/openpaste/gh-pages/appcast.xml</string>
 	<!-- Sparkle's installer XPC service is required for sandboxed app updates. -->
 	<key>SUEnableInstallerLauncherService</key>
 	<true/>
