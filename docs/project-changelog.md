@@ -4,6 +4,8 @@ All notable changes to the OpenPaste project are documented in this file. Format
 
 ## [Unreleased]
 
+## [1.7.0] — 2026-04-07
+
 ### Added
 - `feat(storage)`: `ClipboardItemSummary` lightweight model — excludes content `Data` blob for memory-efficient list/grid display (`ClipboardItemSummary.swift`)
 - `feat(storage)`: Lazy content loading APIs — `fetchSummaries`, `fetchContent`, `fetchFull`, `fetchAllTags` on `StorageServiceProtocol` / `StorageService`
