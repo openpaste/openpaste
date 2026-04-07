@@ -58,6 +58,8 @@ final class DependencyContainer {
             ocrService: ocrService,
             eventBus: eventBus
         )
+
+        ThumbnailCache.shared.configure(storageService: storageService)
     }
 
     private static func makeUITestDatabaseDirectory() -> URL {
