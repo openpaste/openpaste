@@ -1,6 +1,6 @@
 # OpenPaste — Release Guide
 
-Step-by-step guide for cutting a new release.
+Step-by-step guide for cutting a new release. **All builds are done locally** (sign, notarize, DMG).
 
 **Last Updated:** April 2026
 
@@ -8,184 +8,210 @@ Step-by-step guide for cutting a new release.
 
 ## Prerequisites
 
-### GitHub Secrets (already configured)
+### Local Environment
+
+| Requirement | How to verify |
+|-------------|---------------|
+| Developer ID Application certificate | `security find-identity -v -p codesigning \| grep "Developer ID"` |
+| Apple Team ID | `VGQU7EVXZV` |
+| Notarization credentials (keychain) | `xcrun notarytool store-credentials "notarytool-profile"` |
+| Xcode (latest stable) | `xcodebuild -version` |
+| GitHub CLI | `gh auth status` |
+
+### One-Time Setup: Notarization Credentials
+
+```bash
+xcrun notarytool store-credentials "notarytool-profile" \
+  --apple-id "YOUR_APPLE_ID" \
+  --password "APP_SPECIFIC_PASSWORD" \
+  --team-id "VGQU7EVXZV"
+```
+
+Generate app-specific password at [appleid.apple.com](https://appleid.apple.com) → Security → App-Specific Passwords.
+
+### GitHub Secrets (for future CI restoration)
 
 | Secret | Purpose |
 |--------|---------|
 | `DEVELOPER_ID_CERT_BASE64` | Developer ID Application certificate (.p12 → base64) |
-| `DEVELOPER_ID_CERT_PASSWORD` | .p12 password (empty string if none) |
-| `APPLE_TEAM_ID` | Apple Developer Team ID (`VGQU7EVXZV`) |
+| `DEVELOPER_ID_CERT_PASSWORD` | .p12 password |
+| `APPLE_TEAM_ID` | Apple Developer Team ID |
 | `APPLE_ID` | Apple ID for notarization |
-| `APPLE_ID_PASSWORD` | App-specific password (not account password) |
+| `APPLE_ID_PASSWORD` | App-specific password |
 | `TAP_REPO_TOKEN` | GitHub PAT with `repo` scope for `openpaste/homebrew-tap` |
-| `SPARKLE_EDDSA_PRIVATE_KEY` | Base64-encoded Ed25519 private key for signing DMG and appcast.xml |
-
-### Apple Developer Portal
-
-- **Certificate type:** Developer ID Application (NOT Apple Development)
-- **App-specific password:** Generate at [appleid.apple.com](https://appleid.apple.com) → Security → App-Specific Passwords
-
-### EdDSA Key Setup for Sparkle
-
-**Generate the keypair (one-time setup):**
-
-```bash
-# Install libsodium if not present
-brew install libsodium
-
-# Generate private key (base64 encoded)
-openssl rand -hex 32 | xxd -r -p | base64 > sparkle_private.key
-
-# Extract the key for GitHub Secrets
-cat sparkle_private.key
-```
-
-**Store in GitHub Secrets:**
-
-1. Go to repository Settings → Secrets and variables → Actions
-2. Click "New repository secret"
-3. Name: `SPARKLE_EDDSA_PRIVATE_KEY`
-4. Value: Paste the base64-encoded Ed25519 private key
-5. Click "Add secret"
-
-> **Note:** The public key is stored in `Info.plist` as `SUPublicEDKey` (committed to repo). The private key never leaves GitHub Actions — it's used only during the release workflow to sign the DMG and appcast.xml.
+| `SPARKLE_EDDSA_PRIVATE_KEY` | Ed25519 private key for Sparkle DMG signing |
 
 ---
 
-## Release Workflow
+## Release Workflow (Local Build)
 
 ### 1. Pre-flight & Analyze Release Scope
 
-All release prep happens on `develop`. Use the `develop → main` PR diff as the source of truth for the release scope.
+All release prep happens on `develop`.
 
 ```bash
-# Confirm clean working tree + branch
+git checkout develop && git pull origin develop
 git status --short
-git branch --show-current
-
-# Reuse an existing release PR if one already exists
-gh pr list --base main --head develop --state open
-
-# Analyze the actual release diff
 git log --format='%h %s' main..develop
 git diff --stat main..develop
 ```
 
-> **Why `main..develop`?** In this repository, `main` can contain commits after the previous tag that are not part of the next release diff. The release PR diff is the reliable source of truth.
-
-Before bumping the version:
-
-- generate `RELEASE_NOTES.md` with user-facing notes
-- run the full test suite with a pipefail-safe command
-- only proceed if tests pass
+### 2. Run Tests (Mandatory Gate)
 
 ```bash
 set -o pipefail
-xcodebuild test -project OpenPaste.xcodeproj -scheme OpenPaste -destination 'platform=macOS' 2>&1 | tee /tmp/openpaste-release-tests.log | tail -30
+xcodebuild test -project OpenPaste.xcodeproj -scheme OpenPaste \
+  -destination 'platform=macOS' -configuration Debug \
+  CODE_SIGNING_ALLOWED=NO 2>&1 | tee /tmp/openpaste-release-tests.log | tail -30
 ```
 
-### 2. Bump Version and Update Release Metadata on `develop`
+**If ANY test fails: STOP. Fix tests first.**
 
-Update `MARKETING_VERSION` and `CURRENT_PROJECT_VERSION` in **all 6** build configurations in `project.pbxproj`:
+### 3. Bump Version
+
+Update `MARKETING_VERSION` and `CURRENT_PROJECT_VERSION` in all 6 build configurations:
 
 ```bash
-# Find & replace both version numbers (e.g., from 1.0.0 to 1.1.0)
-sed -i '' 's/MARKETING_VERSION = 1.0.0/MARKETING_VERSION = 1.1.0/g' OpenPaste.xcodeproj/project.pbxproj
-sed -i '' 's/CURRENT_PROJECT_VERSION = 1.0.0/CURRENT_PROJECT_VERSION = 1.1.0/g' OpenPaste.xcodeproj/project.pbxproj
+OLD=X.Y.Z
+NEW=X.Y.Z
 
-# Verify both updated (should show 6 each)
-grep -c 'MARKETING_VERSION = 1.1.0' OpenPaste.xcodeproj/project.pbxproj
-grep -c 'CURRENT_PROJECT_VERSION = 1.1.0' OpenPaste.xcodeproj/project.pbxproj
+sed -i '' "s/MARKETING_VERSION = $OLD/MARKETING_VERSION = $NEW/g" OpenPaste.xcodeproj/project.pbxproj
+sed -i '' "s/CURRENT_PROJECT_VERSION = $OLD/CURRENT_PROJECT_VERSION = $NEW/g" OpenPaste.xcodeproj/project.pbxproj
+
+# Verify (should show 6 each)
+grep -c "MARKETING_VERSION = $NEW" OpenPaste.xcodeproj/project.pbxproj
+grep -c "CURRENT_PROJECT_VERSION = $NEW" OpenPaste.xcodeproj/project.pbxproj
 ```
 
-> **CRITICAL:** `MARKETING_VERSION` and `CURRENT_PROJECT_VERSION` must be the same semver (`X.Y.Z`). Sparkle compares `sparkle:version` (appcast) against `CFBundleVersion` (`CURRENT_PROJECT_VERSION`). A mismatch causes false update prompts.
+### 4. Generate Release Notes & Update Changelog
 
-After bumping:
+- Update `RELEASE_NOTES.md` with user-facing notes
+- Update `docs/project-changelog.md` — move `[Unreleased]` to `[X.Y.Z] — YYYY-MM-DD`
+
+### 5. Commit, PR & Merge to Main
 
 ```bash
-# Compile-check before commit
-set -o pipefail
-xcodebuild -project OpenPaste.xcodeproj -scheme OpenPaste -destination 'platform=macOS' build 2>&1 | tee /tmp/openpaste-release-build.log | tail -10
-
-# Update changelog / release notes, then commit on develop
-git add OpenPaste.xcodeproj/project.pbxproj docs/project-changelog.md RELEASE_NOTES.md
-git commit -m "chore(build): bump version to X.Y.Z"
+git add -A
+git commit -m "chore(build): bump version to $NEW"
 git push origin develop
+
+# Create or update PR to main
+gh pr create --base main --head develop --title "chore: release v$NEW"
+gh pr merge <pr-number> --merge --subject "chore: release v$NEW"
 ```
 
-### 3. Merge Release PR and Tag on `main`
-
-Create or reuse the release PR to `main`, then inspect its merge state before merging.
-
-**Happy path:** this repository now has repo-wide auto-merge enabled, so once the required checks are green you can arm auto-merge and let GitHub merge the release PR as soon as branch protection allows it.
-
-```bash
-# Create the release PR if needed
-gh pr create --base main --head develop --title "chore: release vX.Y.Z"
-
-# Or update the existing release PR title after the bump commit lands
-gh pr edit <pr-number> --title "chore: release vX.Y.Z"
-
-# Check protected-branch requirements / checks
-gh pr view <pr-number> --json mergeStateStatus,statusCheckRollup,url
-
-# Preferred: if branch protection blocks an immediate merge, arm auto-merge
-gh pr merge <pr-number> --auto --merge --subject "chore: release vX.Y.Z"
-
-# Wait until the PR is actually merged before tagging main
-gh pr view <pr-number> --json state,mergeStateStatus,url
-```
-
-If auto-merge is unavailable for your token or has been disabled in repo settings, fall back to a manual merge after the required checks finish:
-
-```bash
-gh pr merge <pr-number> --merge --subject "chore: release vX.Y.Z"
-```
-
-Then tag on `main` after the PR has actually merged:
+### 6. Tag on Main
 
 ```bash
 git checkout main && git pull origin main
-git tag -a vX.Y.Z -F RELEASE_NOTES.md
-git push origin main --tags
+git tag -a "v$NEW" -F RELEASE_NOTES.md
+git push origin v$NEW
 ```
 
-> **Why annotated tags?** `RELEASE_NOTES.md` is the release-body source of truth in CI, and tagging with `-F RELEASE_NOTES.md` keeps the tag annotation aligned with the published notes.
-
-### 4. Automated Pipeline (triggered by tag push)
-
-The tag push triggers `.github/workflows/release.yml`:
-
-```
-Tag Push → Build → Sign → Notarize → DMG → GitHub Release → Update Homebrew Tap → Update Sparkle Appcast
-```
-
-| Step | What happens |
-|------|-------------|
-| **Build** | `xcodebuild archive` with `Developer ID Application` identity |
-| **Sign** | Certificate injected from `DEVELOPER_ID_CERT_BASE64` into temporary keychain |
-| **Notarize** | `notarytool submit --wait` sends zip to Apple, waits up to 600s |
-| **Staple** | `stapler staple` attaches notarization ticket to .app |
-| **DMG** | `scripts/create-dmg.sh` creates `OpenPaste-X.Y.Z.dmg` |
-| **DMG Sign (Sparkle)** | Private key from `SPARKLE_EDDSA_PRIVATE_KEY` signs the DMG for update verification |
-| **GitHub Release** | The workflow uses `gh release` to create or update the tagged GitHub Release and skips re-uploading the DMG if that asset already exists |
-| **Homebrew Tap Update** | The workflow dispatches `openpaste/homebrew-tap` when the tap does not yet reflect the tagged version |
-| **Appcast Update** | The workflow appends a new `<item>` entry to `appcast.xml` on `gh-pages`, but skips the write if that Sparkle version is already present |
-| **Release Body** | The workflow uses `RELEASE_NOTES.md` from the tagged commit as the public GitHub Release body, then appends the DMG SHA-256 |
-| **Idempotency Guards** | Re-running the same tag does not duplicate the GitHub Release asset or Sparkle appcast entry, and skips the Homebrew dispatch once the tap already reflects that tagged version |
-
-**Recommended verification commands:**
+### 7. Build Archive (unsigned)
 
 ```bash
-GH_PAGER=cat gh run list --limit 10 --json databaseId,workflowName,displayTitle,headBranch,event,status,conclusion,url
-GH_PAGER=cat gh run watch <run-id> --exit-status
+xcodebuild archive \
+  -scheme OpenPaste \
+  -configuration Release \
+  -archivePath build/OpenPaste.xcarchive \
+  -destination 'generic/platform=macOS' \
+  CODE_SIGNING_ALLOWED=NO 2>&1 | tail -10
+```
 
-# If watch output becomes unreadable in the current terminal, fall back to snapshots
-GH_PAGER=cat gh run view <run-id> --json status,conclusion,jobs,url | cat
+### 8. Sign with Developer ID
 
-gh release view vX.Y.Z
+```bash
+APP="build/OpenPaste.xcarchive/Products/Applications/OpenPaste.app"
 
-# Verify Homebrew tap updated (wait ~1min for dispatch workflow)
+# Sign embedded frameworks
+find "$APP/Contents/Frameworks" -name "*.framework" | while read f; do
+  codesign --force --deep --sign "Developer ID Application: LE ANH TUAN (VGQU7EVXZV)" \
+    --options runtime --timestamp "$f"
+done
+
+# Sign main app with entitlements
+codesign --force --deep --sign "Developer ID Application: LE ANH TUAN (VGQU7EVXZV)" \
+  --options runtime --timestamp \
+  --entitlements OpenPaste/OpenPasteRelease.entitlements "$APP"
+
+# Verify
+codesign -dv --verbose=4 "$APP" 2>&1 | grep -E 'Authority|TeamIdentifier'
+```
+
+### 9. Notarize
+
+```bash
+ditto -c -k --keepParent "$APP" build/OpenPaste.zip
+
+xcrun notarytool submit build/OpenPaste.zip \
+  --keychain-profile "notarytool-profile" \
+  --wait
+
+xcrun stapler staple "$APP"
+```
+
+### 10. Create DMG
+
+```bash
+mkdir -p build/release
+./scripts/create-dmg.sh "$APP" build/release
+# Outputs: build/release/OpenPaste-X.Y.Z.dmg with SHA-256
+```
+
+### 11. Create GitHub Release
+
+```bash
+gh release create v$NEW build/release/OpenPaste-$NEW.dmg \
+  --title "v$NEW" \
+  --notes-file RELEASE_NOTES.md \
+  --latest
+```
+
+### 12. Update Homebrew Tap
+
+Edit `homebrew-tap/Casks/openpaste.rb`:
+- Update `version` to new version
+- Update `sha256` to the DMG's SHA-256
+
+```bash
+cd homebrew-tap
+git add Casks/openpaste.rb
+git commit -m "chore: bump OpenPaste to $NEW"
+git push origin main
+```
+
+### 13. Update Sparkle Appcast (gh-pages)
+
+```bash
+git fetch origin gh-pages
+git checkout gh-pages
+
+# Edit appcast.xml — add new <item> entry with:
+#   sparkle:version, sparkle:shortVersionString, url, sparkle:edSignature, length
+
+git add appcast.xml
+git commit -m "chore: update appcast for v$NEW"
+git push origin gh-pages
+git checkout develop
+```
+
+### 14. Clean Up
+
+```bash
+git checkout develop
+rm -rf build/OpenPaste.zip build/OpenPaste.xcarchive build/release
+```
+
+---
+
+## Verification
+
+```bash
+# Verify GitHub Release
+gh release view v$NEW
+
+# Verify Homebrew
 brew untap openpaste/tap 2>/dev/null
 brew tap openpaste/tap
 brew info --cask openpaste
@@ -197,54 +223,18 @@ open -a OpenPaste
 
 ---
 
-## Manual Release (fallback)
-
-If CI fails, build and release manually:
-
-```bash
-# 1) Build archive
-xcodebuild archive \
-  -scheme OpenPaste \
-  -configuration Release \
-  -archivePath build/OpenPaste.xcarchive \
-  -destination 'generic/platform=macOS' \
-  CODE_SIGN_IDENTITY="Developer ID Application"
-
-# 2) Export .app
-cp -R build/OpenPaste.xcarchive/Products/Applications/OpenPaste.app build/
-
-# 3) Notarize
-ditto -c -k --keepParent build/OpenPaste.app build/OpenPaste.zip
-xcrun notarytool submit build/OpenPaste.zip \
-  --apple-id "YOUR_APPLE_ID" \
-  --password "APP_SPECIFIC_PASSWORD" \
-  --team-id "VGQU7EVXZV" \
-  --wait
-xcrun stapler staple build/OpenPaste.app
-
-# 4) Create DMG
-./scripts/create-dmg.sh build/OpenPaste.app build/
-
-# 5) Upload release
-gh release create v1.1.0 build/OpenPaste-1.1.0.dmg --notes-file RELEASE_NOTES.md
-
-# 6) Manually update homebrew-tap Casks/openpaste.rb with new version + SHA256
-```
-
----
-
 ## Versioning Rules
 
 | Field | Location | Format |
 |-------|----------|--------|
 | `MARKETING_VERSION` | `project.pbxproj` (×6 configs) | `X.Y.Z` (semver) |
-| `CURRENT_PROJECT_VERSION` | `project.pbxproj` (×6 configs) | `X.Y.Z` (same semver as `MARKETING_VERSION` in this repo) |
-| `RELEASE_NOTES.md` | Project root | User-facing notes used for the annotated release tag |
+| `CURRENT_PROJECT_VERSION` | `project.pbxproj` (×6 configs) | `X.Y.Z` (same as MARKETING_VERSION) |
+| `RELEASE_NOTES.md` | Project root | User-facing notes for tag annotation |
 | Git tag | `git tag vX.Y.Z` | Must match MARKETING_VERSION with `v` prefix |
 
-**Version ↔ Tag ↔ DMG name chain:**
+**Version chain:**
 ```
-MARKETING_VERSION=1.2.0 = CURRENT_PROJECT_VERSION=1.2.0 → tag v1.2.0 → OpenPaste-1.2.0.dmg → brew cask version "1.2.0"
+MARKETING_VERSION=1.2.0 = CURRENT_PROJECT_VERSION=1.2.0 → tag v1.2.0 → OpenPaste-1.2.0.dmg → brew cask "1.2.0"
 ```
 
 ---
@@ -255,76 +245,22 @@ MARKETING_VERSION=1.2.0 = CURRENT_PROJECT_VERSION=1.2.0 → tag v1.2.0 → OpenP
 
 **Public URL:** `https://openpaste.github.io/openpaste/appcast.xml`
 
-This feed is consumed by users' `UpdaterService` instances to check for updates.
-
-### Appcast Entries
-
-The release workflow appends a new `<item>` to `appcast.xml` on `gh-pages` for each release. That item points Sparkle to the DMG hosted on GitHub Releases and includes the EdDSA signature generated during the release workflow.
-
 ### Testing Updates Locally
-
-To manually test update flow before release:
-
-> **Important (Sandbox + Sparkle):** Test with a properly signed build installed in `/Applications` (not an Xcode/DerivedData run). Sparkle may fail to install updates when the app is running from a non-standard or non-writable location.
 
 ```bash
 # 1. Build and archive the current app
-xcodebuild archive -project OpenPaste.xcodeproj -scheme OpenPaste -configuration Release
-
-# 2. Set SUFeedURL in Info.plist to point to staging appcast
-# (or a local test file via file:// URL)
-
-# 3. Install the app into /Applications, then launch it
-
-# 4. Trigger update check in app via menu → "Check for Updates…"
-
-# 5. Verify Sparkle downloads delta and installs correctly
+# 2. Install into /Applications
+# 3. Launch and use menu → "Check for Updates…"
 ```
 
 ---
 
 ## Troubleshooting
 
-### Notarization fails
-- Check Apple ID has 2FA enabled and app-specific password is valid
-- Check the app isn't using any disallowed entitlements
-- View notarization log: `xcrun notarytool log <submission-id> --apple-id ... --password ... --team-id ...`
-
-### Homebrew tap not updating
-- Verify `TAP_REPO_TOKEN` has `repo` scope and isn't expired
-- Check `openpaste/homebrew-tap` Actions tab for `update-cask` workflow runs
-- Manual fix: edit `Casks/openpaste.rb` in homebrew-tap repo directly
-
-### Wrong certificate type
-- **"Developer ID Application"** — for distributing outside App Store (Homebrew, website)
-- **"Apple Development"** — for debug builds only, will NOT pass notarization
-- **"3rd Party Mac Developer Application"** — for Mac App Store only
-
-### DMG 404 on brew install
-- Version mismatch: `MARKETING_VERSION` in pbxproj must exactly match tag (without `v` prefix)
-- Example: tag `v1.0.0` requires `MARKETING_VERSION = 1.0.0`, NOT `1.0`
-
-### Release rerun behavior
-- Re-running the same tag workflow is safe: the workflow now skips duplicate DMG uploads and duplicate Sparkle appcast entries, and it skips the Homebrew dispatch after the tap already reflects that version.
-- If the release failed before the GitHub Release asset was uploaded, rerunning the tag workflow will upload the missing DMG and refresh the release notes.
-- If the release failed after the GitHub Release already exists, the workflow updates the release body but does not upload the same DMG twice.
-
----
-
-## Repositories
-
-| Repo | Purpose |
-|------|---------|
-| `openpaste/openpaste` | Main app source code |
-| `openpaste/homebrew-tap` | Homebrew Cask formula, auto-updated by CI |
-
----
-
-## Rotating Certificates
-
-When the Developer ID Application certificate expires (every 5 years):
-
-1. Generate new cert in Apple Developer Portal → Certificates
-2. Download and export as .p12 from Keychain Access
-3. Base64 encode: `base64 -i new-cert.p12 | tr -d '\n'`
-4. Update `DEVELOPER_ID_CERT_BASE64` and `DEVELOPER_ID_CERT_PASSWORD` in GitHub Secrets
+| Issue | Fix |
+|-------|-----|
+| Notarization fails | Check Apple ID 2FA + app-specific password. View log: `xcrun notarytool log <id> --keychain-profile "notarytool-profile"` |
+| SPM signing conflict | Use `CODE_SIGNING_ALLOWED=NO` for archive, then sign manually after |
+| Wrong certificate | Must be "Developer ID Application", NOT "Apple Development" |
+| Homebrew tap not updating | Edit `Casks/openpaste.rb` directly in homebrew-tap repo |
+| Sparkle version mismatch | Ensure `MARKETING_VERSION` = `CURRENT_PROJECT_VERSION` = tag version |

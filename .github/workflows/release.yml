@@ -1,322 +1,34 @@
 name: Release
 
+# Release builds are done locally (sign + notarize + DMG).
+# This workflow is kept as a placeholder for future CI restoration.
+# See docs/release-guide.md for the local release process.
+
 on:
-  push:
-    tags:
-      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version tag (e.g. v1.7.0)'
+        required: true
 
 permissions:
   contents: write
 
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref_name }}
-  cancel-in-progress: false
-
 jobs:
-  build:
-    name: Build & Release
-    runs-on: macos-15
-    env:
-      GH_TOKEN: ${{ github.token }}
+  placeholder:
+    name: Release (local build required)
+    runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v6.0.2
-        with:
-          fetch-depth: 0
-
-      - name: Setup Xcode
-        uses: maxim-lobanov/setup-xcode@v1
-        with:
-          xcode-version: latest-stable
-
-      - name: Resolve packages
-        run: xcodebuild -resolvePackageDependencies -scheme OpenPaste
-
-      - name: Run tests before release
+      - name: Notice
         run: |
-          xcodebuild test \
-            -scheme OpenPaste \
-            -destination 'platform=macOS' \
-            -configuration Debug \
-            CODE_SIGNING_ALLOWED=NO \
-            -skip-testing:OpenPasteUITests/OpenPasteE2EBottomShelfDragTests/testE2E_BottomShelf_ReordersCardsViaDrag \
-            -skip-testing:OpenPasteUITests/OpenPasteE2EQuickEditTests/testE2E_QuickEditImage_ExportsResizedTIFFToPasteboard
-
-      - name: Install signing certificate
-        env:
-          CERTIFICATE_BASE64: ${{ secrets.DEVELOPER_ID_CERT_BASE64 }}
-          CERTIFICATE_PASSWORD: ${{ secrets.DEVELOPER_ID_CERT_PASSWORD }}
-          KEYCHAIN_PASSWORD: ${{ github.run_id }}
-        run: |
-          CERT_PATH=$RUNNER_TEMP/certificate.p12
-          KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db
-
-          echo -n "$CERTIFICATE_BASE64" | base64 --decode -o $CERT_PATH
-
-          security create-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
-          security set-keychain-settings -lut 21600 $KEYCHAIN_PATH
-          security unlock-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
-
-          security import $CERT_PATH -P "$CERTIFICATE_PASSWORD" -A -t cert -f pkcs12 -k $KEYCHAIN_PATH
-          security set-key-partition-list -S apple-tool:,apple: -k "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
-          security list-keychain -d user -s $KEYCHAIN_PATH
-
-      - name: Install provisioning profile
-        env:
-          PROVISION_PROFILE_BASE64: ${{ secrets.BUILD_PROVISION_PROFILE_BASE64 }}
-        run: |
-          PP_PATH=$RUNNER_TEMP/OpenPaste.provisionprofile
-          echo -n "$PROVISION_PROFILE_BASE64" | base64 --decode -o $PP_PATH
-          mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
-          cp $PP_PATH ~/Library/MobileDevice/Provisioning\ Profiles/
-
-      - name: Build Release
-        run: |
-          xcodebuild archive \
-            -scheme OpenPaste \
-            -configuration Release \
-            -archivePath build/OpenPaste.xcarchive \
-            -destination 'generic/platform=macOS' \
-            DEVELOPMENT_TEAM=${{ secrets.APPLE_TEAM_ID }} \
-            OTHER_CODE_SIGN_FLAGS="--keychain $RUNNER_TEMP/app-signing.keychain-db"
-
-      - name: Export app
-        run: |
-          mkdir -p build/export
-          cp -R build/OpenPaste.xcarchive/Products/Applications/OpenPaste.app build/export/
-
-      - name: Re-sign Sparkle binaries
-        env:
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-        run: |
-          APP="build/export/OpenPaste.app"
-          SPARKLE="$APP/Contents/Frameworks/Sparkle.framework"
-          IDENTITY="Developer ID Application"
-          KEYCHAIN="$RUNNER_TEMP/app-signing.keychain-db"
-          OPTS="--force --options runtime --timestamp --keychain $KEYCHAIN"
-
-          # Sign XPC services first (innermost)
-          for XPC in "$SPARKLE/Versions/B/XPCServices/"*.xpc; do
-            echo "Signing: $XPC"
-            codesign $OPTS --sign "$IDENTITY" "$XPC"
-          done
-
-          # Sign Autoupdate helper
-          codesign $OPTS --sign "$IDENTITY" "$SPARKLE/Versions/B/Autoupdate"
-
-          # Sign Updater.app
-          codesign $OPTS --sign "$IDENTITY" "$SPARKLE/Versions/B/Updater.app"
-
-          # Re-sign the framework itself
-          codesign $OPTS --sign "$IDENTITY" "$SPARKLE"
-
-          # Re-sign the main app (preserve existing entitlements)
-          codesign $OPTS --sign "$IDENTITY" --preserve-metadata=entitlements "$APP"
-
-          echo "==> All Sparkle binaries re-signed"
-          codesign --verify --deep --strict "$APP" && echo "==> Deep verification passed"
-
-      - name: Notarize app
-        env:
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_ID_PASSWORD: ${{ secrets.APPLE_ID_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-        run: |
-          ditto -c -k --keepParent build/export/OpenPaste.app build/export/OpenPaste.zip
-
-          SUBMIT_OUTPUT=$(xcrun notarytool submit build/export/OpenPaste.zip \
-            --apple-id "$APPLE_ID" \
-            --password "$APPLE_ID_PASSWORD" \
-            --team-id "$APPLE_TEAM_ID" \
-            --wait --timeout 600 2>&1) || true
-
-          echo "$SUBMIT_OUTPUT"
-          SUBMISSION_ID=$(echo "$SUBMIT_OUTPUT" | grep -m1 '  id:' | awk '{print $2}')
-          STATUS=$(echo "$SUBMIT_OUTPUT" | grep '  status:' | tail -1 | awk '{print $2}')
-
-          if [ "$STATUS" != "Accepted" ]; then
-            echo "::error::Notarization failed with status: $STATUS"
-            echo "==> Fetching notarization log..."
-            xcrun notarytool log "$SUBMISSION_ID" \
-              --apple-id "$APPLE_ID" \
-              --password "$APPLE_ID_PASSWORD" \
-              --team-id "$APPLE_TEAM_ID" || true
-            exit 1
-          fi
-
-          xcrun stapler staple build/export/OpenPaste.app
-          echo "==> Notarization complete"
-
-      - name: Create DMG
-        run: |
-          chmod +x scripts/create-dmg.sh
-          ./scripts/create-dmg.sh build/export/OpenPaste.app build/export
-
-      - name: Get version from tag
-        id: version
-        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
-
-      - name: Ensure GitHub Release asset
-        id: release_asset
-        run: |
-          TAG="${GITHUB_REF_NAME}"
-          DMG_PATH=$(ls build/export/OpenPaste-*.dmg)
-          DMG_NAME=$(basename "$DMG_PATH")
-          PUBLISHED_DIR="$RUNNER_TEMP/published"
-
-          mkdir -p "$PUBLISHED_DIR"
-
-          if gh release view "$TAG" >/dev/null 2>&1; then
-            if gh release view "$TAG" --json assets --jq '.assets[].name' | grep -Fxq "$DMG_NAME"; then
-              echo "==> GitHub Release already contains ${DMG_NAME}; reusing published asset"
-            else
-              gh release upload "$TAG" "$DMG_PATH"
-            fi
-          else
-            gh release create "$TAG" "$DMG_PATH" --title "$TAG" --notes "Release assets uploaded by workflow. Release notes will be updated once checksums are computed."
-          fi
-
-          gh release download "$TAG" --pattern "$DMG_NAME" --dir "$PUBLISHED_DIR" --clobber
-          echo "path=$PUBLISHED_DIR/$DMG_NAME" >> "$GITHUB_OUTPUT"
-          echo "name=$DMG_NAME" >> "$GITHUB_OUTPUT"
-
-      - name: Download Sparkle tools
-        run: |
-          SPARKLE_VERSION="2.9.1"
-          curl -sL "https://github.com/sparkle-project/Sparkle/releases/download/${SPARKLE_VERSION}/Sparkle-${SPARKLE_VERSION}.tar.xz" \
-            | tar -xJ -C /tmp/sparkle --strip-components=0 || {
-              mkdir -p /tmp/sparkle
-              curl -sL "https://github.com/sparkle-project/Sparkle/releases/download/${SPARKLE_VERSION}/Sparkle-${SPARKLE_VERSION}.tar.xz" -o /tmp/sparkle.tar.xz
-              tar -xJf /tmp/sparkle.tar.xz -C /tmp/sparkle
-            }
-          ls /tmp/sparkle/bin/
-
-      - name: Sign DMG with EdDSA
-        id: sign
-        env:
-          SPARKLE_EDDSA_KEY: ${{ secrets.SPARKLE_EDDSA_PRIVATE_KEY }}
-        run: |
-          DMG_PATH="${{ steps.release_asset.outputs.path }}"
-          echo "Signing: $DMG_PATH"
-          SIGNATURE=$(echo "$SPARKLE_EDDSA_KEY" | /tmp/sparkle/bin/sign_update "$DMG_PATH" --ed-key-file - -p)
-          echo "eddsa_signature=${SIGNATURE}" >> "$GITHUB_OUTPUT"
-
-      - name: Compute SHA-256
-        id: sha
-        run: |
-          SHA=$(shasum -a 256 "${{ steps.release_asset.outputs.path }}" | awk '{print $1}')
-          echo "sha256=${SHA}" >> "$GITHUB_OUTPUT"
-
-      - name: Build release body
-        id: body
-        run: |
-          BODY_FILE=$RUNNER_TEMP/release_body.md
-          # Prefer the checked-in release notes file from the tagged commit.
-          # This is more stable than reconstructing notes from git tag contents.
-          if [ -s RELEASE_NOTES.md ]; then
-            cat RELEASE_NOTES.md > "$BODY_FILE"
-          else
-            git tag -l --format='%(contents)' "${{ github.ref_name }}" > "$BODY_FILE"
-          fi
-
-          # Fallback if both sources are empty
-          if [ ! -s "$BODY_FILE" ]; then
-            echo "See assets below for the full download." > "$BODY_FILE"
-          fi
-
-          printf '\n---\n**SHA-256:** `%s`\n' "${{ steps.sha.outputs.sha256 }}" >> "$BODY_FILE"
-          echo "path=$BODY_FILE" >> "$GITHUB_OUTPUT"
-
-      - name: Sync GitHub Release metadata
-        run: |
-          gh release edit "${GITHUB_REF_NAME}" --title "${GITHUB_REF_NAME}" --notes-file "${{ steps.body.outputs.path }}"
-
-      - name: Read Homebrew tap version
-        id: tap
-        env:
-          GH_TOKEN: ${{ secrets.TAP_REPO_TOKEN }}
-        run: |
-          CONTENT=$(gh api 'repos/openpaste/homebrew-tap/contents/Casks/openpaste.rb?ref=main' --jq '.content')
-          CURRENT_VERSION=$(printf '%s' "$CONTENT" | base64 --decode | sed -n 's/^  version "\(.*\)"$/\1/p' | head -1)
-
-          if [ -z "$CURRENT_VERSION" ]; then
-            echo "::error::Could not determine current Homebrew tap version"
-            exit 1
-          fi
-
-          echo "current_version=${CURRENT_VERSION}" >> "$GITHUB_OUTPUT"
-
-      - name: Update Homebrew tap
-        if: success() && steps.tap.outputs.current_version != steps.version.outputs.version
-        env:
-          GH_TOKEN: ${{ secrets.TAP_REPO_TOKEN }}
-        run: |
-          DISPATCH_PAYLOAD=$RUNNER_TEMP/homebrew-dispatch.json
-
-          cat > "$DISPATCH_PAYLOAD" <<EOF
-          {
-            "event_type": "update-cask",
-            "client_payload": {
-              "version": "${{ steps.version.outputs.version }}",
-              "sha256": "${{ steps.sha.outputs.sha256 }}",
-              "url": "https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/${{ steps.release_asset.outputs.name }}"
-            }
-          }
-          EOF
-
-          gh api repos/openpaste/homebrew-tap/dispatches --method POST --input "$DISPATCH_PAYLOAD"
-
-      - name: Skip Homebrew tap update when already current
-        if: success() && steps.tap.outputs.current_version == steps.version.outputs.version
-        run: echo "==> Homebrew tap already references version ${{ steps.version.outputs.version }}; skipping dispatch"
-
-      - name: Update appcast for Sparkle
-        if: success()
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          DMG_PATH="${{ steps.release_asset.outputs.path }}"
-          DMG_NAME="${{ steps.release_asset.outputs.name }}"
-          VERSION="${{ steps.version.outputs.version }}"
-          DMG_SIZE=$(stat -f%z "$DMG_PATH")
-          SIGNATURE="${{ steps.sign.outputs.eddsa_signature }}"
-          PUB_DATE=$(date -R)
-          DOWNLOAD_URL="https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/${DMG_NAME}"
-
-          # Create the new appcast item
-          ITEM="    <item>\\n      <title>Version ${VERSION}</title>\\n      <pubDate>${PUB_DATE}</pubDate>\\n      <sparkle:version>${VERSION}</sparkle:version>\\n      <sparkle:shortVersionString>${VERSION}</sparkle:shortVersionString>\\n      <enclosure\\n        url=\"${DOWNLOAD_URL}\"\\n        sparkle:edSignature=\"${SIGNATURE}\"\\n        length=\"${DMG_SIZE}\"\\n        type=\"application/octet-stream\"/>\\n    </item>"
-
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-
-          # Fetch and checkout gh-pages
-          git fetch origin gh-pages || {
-            echo "gh-pages branch not found, skipping appcast update"
-            exit 0
-          }
-          git checkout gh-pages
-
-          if [ -f appcast.xml ]; then
-            if grep -q "<sparkle:version>${VERSION}</sparkle:version>" appcast.xml; then
-              echo "==> Appcast already contains version ${VERSION}; skipping"
-            else
-              sed -i '' "s|  </channel>|${ITEM}\\n  </channel>|" appcast.xml
-              git add appcast.xml
-
-              if git diff --cached --quiet; then
-                echo "==> No appcast changes detected after insertion; skipping"
-              else
-                git commit -m "chore: update appcast for v${VERSION}"
-                git push origin gh-pages
-              fi
-            fi
-          else
-            echo "appcast.xml not found on gh-pages, skipping"
-          fi
-
-          # Return to original ref
-          git checkout -
-
-      - name: Cleanup keychain
-        if: always()
-        run: security delete-keychain $RUNNER_TEMP/app-signing.keychain-db 2>/dev/null || true
+          echo "============================================"
+          echo "Release builds are done locally."
+          echo "See docs/release-guide.md for instructions."
+          echo "============================================"
+          echo ""
+          echo "To release:"
+          echo "  1. Run tests locally"
+          echo "  2. xcodebuild archive → codesign → notarize → staple → DMG"
+          echo "  3. gh release create vX.Y.Z OpenPaste-X.Y.Z.dmg --notes-file RELEASE_NOTES.md"
+          echo "  4. Update homebrew-tap/Casks/openpaste.rb"
+          echo "  5. Update appcast.xml on gh-pages"
