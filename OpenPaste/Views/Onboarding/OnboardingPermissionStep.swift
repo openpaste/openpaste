@@ -47,12 +47,24 @@ struct OnboardingPermissionStep: View {
             }
 
             if !viewModel.accessibilityGranted {
-                Text(
-                    "Click **+** in System Settings, then select **OpenPaste** from the Finder window."
-                )
+                VStack(alignment: .leading, spacing: 6) {
+                    Label {
+                        Text("Find **OpenPaste** in the Accessibility list")
+                    } icon: {
+                        Text("1").font(.caption2.bold())
+                            .frame(width: 18, height: 18)
+                            .background(Circle().fill(.orange.opacity(0.2)))
+                    }
+                    Label {
+                        Text("Toggle the switch **ON**")
+                    } icon: {
+                        Text("2").font(.caption2.bold())
+                            .frame(width: 18, height: 18)
+                            .background(Circle().fill(.orange.opacity(0.2)))
+                    }
+                }
                 .font(.caption)
                 .foregroundColor(.secondary)
-                .multilineTextAlignment(.center)
                 .padding(.horizontal, 20)
             }
         }

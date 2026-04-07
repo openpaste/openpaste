@@ -5,7 +5,7 @@ struct HistoryView: View {
     var pasteStackViewModel: PasteStackViewModel?
     @State private var selectedId: UUID?
     @State private var showQuickEdit = false
-    @State private var editingItem: ClipboardItem?
+    @State private var editingItem: ClipboardItemSummary?
     @State private var showPreview = false
     @State private var pendingG = false
     @State private var showShortcutOverlay = false
@@ -60,7 +60,7 @@ struct HistoryView: View {
         }
     }
 
-    private var selectedItem: ClipboardItem? {
+    private var selectedItem: ClipboardItemSummary? {
         guard let id = selectedId else { return viewModel.items.first }
         return viewModel.items.first(where: { $0.id == id })
     }
@@ -85,7 +85,7 @@ struct HistoryView: View {
 
     // MARK: - Preview Panel
 
-    private func previewPanel(for item: ClipboardItem) -> some View {
+    private func previewPanel(for item: ClipboardItemSummary) -> some View {
         VStack(spacing: 0) {
             HStack {
                 Text("Preview")
@@ -121,13 +121,10 @@ struct HistoryView: View {
                                     .padding(8)
                             }
                         case .image:
-                            if let nsImage = NSImage(data: item.content) {
-                                Image(nsImage: nsImage)
-                                    .resizable()
-                                    .aspectRatio(contentMode: .fit)
-                                    .clipShape(RoundedRectangle(cornerRadius: 6))
-                                    .padding(8)
-                            }
+                            AsyncThumbnailView(itemId: item.id, variant: .detail)
+                                .aspectRatio(contentMode: .fit)
+                                .clipShape(RoundedRectangle(cornerRadius: 6))
+                                .padding(8)
                         case .link:
                             LinkPreviewRow(urlString: item.plainTextContent ?? "", isSensitive: item.isSensitive)
                                 .padding(8)
@@ -144,7 +141,7 @@ struct HistoryView: View {
                         metadataRow("Type", value: item.type.rawValue.capitalized)
                         metadataRow("Source", value: item.sourceApp.name)
                         metadataRow("Created", value: item.createdAt.relativeFormatted)
-                        metadataRow("Size", value: item.content.humanReadableSize)
+                        metadataRow("Size", value: ByteCountFormatter.string(fromByteCount: Int64(item.contentSize), countStyle: .file))
                         if !item.tags.isEmpty {
                             metadataRow("Tags", value: item.tags.joined(separator: ", "))
                         }
@@ -313,7 +310,7 @@ struct HistoryView: View {
         }
     }
 
-    private func itemRow(for item: ClipboardItem) -> some View {
+    private func itemRow(for item: ClipboardItemSummary) -> some View {
         ClipboardItemRow(
             item: item,
             onPaste: { Task { await viewModel.paste(item) } },

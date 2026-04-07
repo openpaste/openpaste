@@ -47,6 +47,7 @@ enum DS {
         static let hoverScale: CGFloat = 1.05
         static let selectedBorderOpacity: Double = 0.85
         static let typeBadgeHeight: CGFloat = 24
+        static let imagePreviewHeight: CGFloat = 96
     }
 
     // MARK: - Bottom Shelf
@@ -81,7 +82,9 @@ enum DS {
 
     // MARK: - Shadows
     enum Shadow {
-        static let card = (color: Color.black.opacity(0.08), radius: CGFloat(4), x: CGFloat(0), y: CGFloat(2))
+        static let card = (
+            color: Color.black.opacity(0.08), radius: CGFloat(4), x: CGFloat(0), y: CGFloat(2)
+        )
     }
 
     // MARK: - Liquid Glass

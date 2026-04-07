@@ -157,4 +157,61 @@ final class StorageService: StorageServiceProtocol, @unchecked Sendable {
             )
         }
     }
+
+    // MARK: - Lightweight Fetches
+
+    func fetchSummaries(limit: Int, offset: Int) async throws -> [ClipboardItemSummary] {
+        try await dbQueue.read { db in
+            try ClipboardItemRecord
+                .filter(Column("isDeleted") == false)
+                .order(Column("pinned").desc, Column("createdAt").desc)
+                .limit(limit, offset: offset)
+                .fetchAll(db)
+                .map { $0.toSummary() }
+        }
+    }
+
+    func fetchSummaries(inCollection collectionId: UUID) async throws -> [ClipboardItemSummary] {
+        try await dbQueue.read { db in
+            try ClipboardItemRecord
+                .filter(Column("collectionId") == collectionId.uuidString)
+                .filter(Column("isDeleted") == false)
+                .order(Column("createdAt").desc)
+                .fetchAll(db)
+                .map { $0.toSummary() }
+        }
+    }
+
+    func fetchContent(for id: UUID) async throws -> Data? {
+        try await dbQueue.read { db in
+            try Row.fetchOne(
+                db,
+                sql: "SELECT content FROM clipboardItems WHERE id = ? AND isDeleted = 0",
+                arguments: [id.uuidString]
+            )?["content"]
+        }
+    }
+
+    func fetchFull(by id: UUID) async throws -> ClipboardItem? {
+        try await dbQueue.read { db in
+            try ClipboardItemRecord
+                .filter(Column("id") == id.uuidString)
+                .filter(Column("isDeleted") == false)
+                .fetchOne(db)?
+                .toClipboardItem()
+        }
+    }
+
+    func fetchAllTags() async throws -> [String] {
+        try await dbQueue.read { db in
+            try String.fetchAll(db, sql: """
+                SELECT DISTINCT jt.value
+                FROM clipboardItems, json_each(clipboardItems.tags) AS jt
+                WHERE clipboardItems.isDeleted = 0
+                  AND jt.value != ''
+                ORDER BY jt.value
+            """)
+        }
+    }
 }
+

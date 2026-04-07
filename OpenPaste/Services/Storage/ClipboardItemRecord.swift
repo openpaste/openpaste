@@ -121,6 +121,30 @@ extension ClipboardItemRecord {
         self.metadata = (try? JSONEncoder().encode(item.metadata)).flatMap { String(data: $0, encoding: .utf8) } ?? "{}"
     }
 
+    func toSummary() -> ClipboardItemSummary {
+        let decodedTags = (try? JSONDecoder().decode([String].self, from: Data(tags.utf8))) ?? []
+        let decodedMetadata = (try? JSONDecoder().decode([String: String].self, from: Data(metadata.utf8))) ?? [:]
+
+        return ClipboardItemSummary(
+            id: UUID(uuidString: id) ?? UUID(),
+            type: ContentType(rawValue: type) ?? .text,
+            plainTextContent: plainTextContent?.truncated(to: 500),
+            ocrText: ocrText,
+            sourceApp: AppInfo(bundleId: sourceAppBundleId, name: sourceAppName, iconPath: sourceAppIconPath),
+            sourceURL: sourceURL.flatMap { URL(string: $0) },
+            createdAt: createdAt,
+            modifiedAt: modifiedAt,
+            pinned: pinned,
+            starred: starred,
+            collectionId: collectionId.flatMap { UUID(uuidString: $0) },
+            isSensitive: isSensitive,
+            tags: decodedTags,
+            metadata: decodedMetadata,
+            contentHash: contentHash,
+            contentSize: content.count
+        )
+    }
+
     func toClipboardItem() -> ClipboardItem {
         let decodedTags = (try? JSONDecoder().decode([String].self, from: Data(tags.utf8))) ?? []
         let decodedMetadata = (try? JSONDecoder().decode([String: String].self, from: Data(metadata.utf8))) ?? [:]

@@ -137,4 +137,70 @@ final class SearchEngine: SearchServiceProtocol, @unchecked Sendable {
         }
         return tokens.joined(separator: " ")
     }
+
+    // MARK: - Summary Search
+
+    func searchSummaries(query: String, filters: SearchFilters) async throws -> [ClipboardItemSummary] {
+        let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        return try await dbQueue.read { [filters] db in
+            if trimmed.isEmpty {
+                return try Self.searchFiltersOnlySummaries(db, filters: filters)
+            }
+
+            let ftsQuery = Self.buildFTS5Query(trimmed)
+            guard !ftsQuery.isEmpty else {
+                return try Self.searchFiltersOnlySummaries(db, filters: filters)
+            }
+
+            do {
+                return try Self.searchWithFTS5Summaries(db, ftsQuery: ftsQuery, filters: filters)
+            } catch {
+                return try Self.searchWithLikeSummaries(db, query: trimmed, filters: filters)
+            }
+        }
+    }
+
+    private static func searchWithFTS5Summaries(_ db: Database, ftsQuery: String, filters: SearchFilters) throws -> [ClipboardItemSummary] {
+        var request = ClipboardItemRecord
+            .filter(sql: """
+                clipboardItems.rowid IN (
+                    SELECT rowid FROM clipboardItemsFts WHERE clipboardItemsFts MATCH ?
+                )
+                """, arguments: [ftsQuery])
+        request = applyFilters(request, filters: filters)
+        return try request
+            .order(Column("pinned").desc, Column("createdAt").desc)
+            .limit(100)
+            .fetchAll(db)
+            .map { $0.toSummary() }
+    }
+
+    private static func searchWithLikeSummaries(_ db: Database, query: String, filters: SearchFilters) throws -> [ClipboardItemSummary] {
+        let likePattern = "%\(query)%"
+        var request = ClipboardItemRecord.filter(
+            Column("plainTextContent").like(likePattern) ||
+            Column("ocrText").like(likePattern) ||
+            Column("tags").like(likePattern) ||
+            Column("sourceAppName").like(likePattern)
+        )
+        request = applyFilters(request, filters: filters)
+        return try request
+            .order(Column("pinned").desc, Column("createdAt").desc)
+            .limit(100)
+            .fetchAll(db)
+            .map { $0.toSummary() }
+    }
+
+    private static func searchFiltersOnlySummaries(_ db: Database, filters: SearchFilters) throws -> [ClipboardItemSummary] {
+        guard filters != .empty else { return [] }
+        var request = ClipboardItemRecord.all()
+        request = applyFilters(request, filters: filters)
+        return try request
+            .order(Column("pinned").desc, Column("createdAt").desc)
+            .limit(100)
+            .fetchAll(db)
+            .map { $0.toSummary() }
+    }
 }
+

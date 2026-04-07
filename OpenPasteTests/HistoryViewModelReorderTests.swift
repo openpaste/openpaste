@@ -18,6 +18,11 @@ private actor NoopStorageService: StorageServiceProtocol {
     func deleteCollection(_ id: UUID) async throws {}
     func fetchItems(inCollection collectionId: UUID) async throws -> [ClipboardItem] { [] }
     func assignItemToCollection(itemId: UUID, collectionId: UUID?) async throws {}
+    func fetchSummaries(limit: Int, offset: Int) async throws -> [ClipboardItemSummary] { [] }
+    func fetchSummaries(inCollection collectionId: UUID) async throws -> [ClipboardItemSummary] { [] }
+    func fetchContent(for id: UUID) async throws -> Data? { nil }
+    func fetchFull(by id: UUID) async throws -> ClipboardItem? { nil }
+    func fetchAllTags() async throws -> [String] { [] }
 }
 
 private struct NoopClipboardService: ClipboardServiceProtocol {
@@ -33,9 +38,9 @@ private struct NoopClipboardService: ClipboardServiceProtocol {
 struct HistoryViewModelReorderTests {
     @Test @MainActor func moveItem_forwardPlacesSourceBeforeTarget() {
         let viewModel = makeViewModel()
-        let alpha = TestHelpers.makeTextItem(text: "Alpha")
-        let beta = TestHelpers.makeTextItem(text: "Beta")
-        let gamma = TestHelpers.makeTextItem(text: "Gamma")
+        let alpha = TestHelpers.makeTextItem(text: "Alpha").toSummary()
+        let beta = TestHelpers.makeTextItem(text: "Beta").toSummary()
+        let gamma = TestHelpers.makeTextItem(text: "Gamma").toSummary()
         viewModel.items = [alpha, beta, gamma]
 
         viewModel.moveItem(alpha.id, before: gamma.id)
@@ -45,9 +50,9 @@ struct HistoryViewModelReorderTests {
 
     @Test @MainActor func moveItem_backwardPlacesSourceBeforeTarget() {
         let viewModel = makeViewModel()
-        let alpha = TestHelpers.makeTextItem(text: "Alpha")
-        let beta = TestHelpers.makeTextItem(text: "Beta")
-        let gamma = TestHelpers.makeTextItem(text: "Gamma")
+        let alpha = TestHelpers.makeTextItem(text: "Alpha").toSummary()
+        let beta = TestHelpers.makeTextItem(text: "Beta").toSummary()
+        let gamma = TestHelpers.makeTextItem(text: "Gamma").toSummary()
         viewModel.items = [alpha, beta, gamma]
 
         viewModel.moveItem(gamma.id, before: alpha.id)
@@ -57,8 +62,8 @@ struct HistoryViewModelReorderTests {
 
     @Test @MainActor func moveItem_sameSourceAndTargetIsNoOp() {
         let viewModel = makeViewModel()
-        let alpha = TestHelpers.makeTextItem(text: "Alpha")
-        let beta = TestHelpers.makeTextItem(text: "Beta")
+        let alpha = TestHelpers.makeTextItem(text: "Alpha").toSummary()
+        let beta = TestHelpers.makeTextItem(text: "Beta").toSummary()
         viewModel.items = [alpha, beta]
 
         viewModel.moveItem(alpha.id, before: alpha.id)

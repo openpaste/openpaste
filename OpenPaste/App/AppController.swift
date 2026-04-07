@@ -30,7 +30,7 @@ final class AppController {
     private var hotkeyManager: HotkeyManager?
     private var cleanupService: SecurityService?
     private var onboardingWindowManager: OnboardingWindowManager?
-    private var pasteInterceptor: PasteInterceptor?
+
     private var screenSharingDetector: ScreenSharingDetector?
     private var statusBarController: StatusBarController?
     private var smartPauseDetector: SmartPauseDetector?
@@ -41,7 +41,7 @@ final class AppController {
         ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
     private let isUITestMode: Bool = {
         #if DEBUG
-            ProcessInfo.processInfo.environment["OPENPASTE_UI_TEST_MODE"] == "1"
+            UITestLaunchOptions.isEnabled
         #else
             false
         #endif
@@ -98,7 +98,8 @@ final class AppController {
             smartListViewModel = SmartListViewModel(
                 smartListService: c.smartListService, eventBus: c.eventBus)
 
-            pasteStackViewModel.configure(clipboardService: c.clipboardService)
+            pasteStackViewModel.configure(
+                clipboardService: c.clipboardService, storageService: c.storageService)
             pasteStackViewModel.dismissAction = { [weak self] in
                 self?.windowManager.hide()
             }
@@ -147,8 +148,12 @@ final class AppController {
                     cleanup.startCleanupTimer()
                 }
 
-                setupHotkey()
-                setupPasteInterceptor()
+                // Defer hotkey setup if onboarding hasn't been completed yet.
+                // This avoids triggering the macOS Accessibility dialog on first launch
+                // before the user understands why the permission is needed.
+                if !showOnboarding {
+                    setupHotkey()
+                }
                 setupScreenSharingDetector()
                 setupStatusBar(container: c)
                 setupSmartPauseDetector()
@@ -199,7 +204,7 @@ final class AppController {
     }
 
     private var uiTestEnvironment: [String: String] {
-        ProcessInfo.processInfo.environment
+        UITestLaunchOptions.values
     }
 
     private var shouldSeedImageForUITests: Bool {
@@ -262,6 +267,7 @@ final class AppController {
             await MainActor.run {
                 guard !self.windowManager.isVisible else { return }
                 self.togglePanel()
+                NSApp.activate(ignoringOtherApps: true)
             }
         }
     }
@@ -377,31 +383,28 @@ final class AppController {
         let hk = HotkeyManager { [weak self] in
             self?.togglePanel()
         }
-        hotkeyManager = hk
-        Task { await hk.register() }
-    }
 
-    private func setupPasteInterceptor() {
-        let interceptor = PasteInterceptor()
-        pasteInterceptor = interceptor
-
-        interceptor.start { [weak self] in
+        // Paste stack interception via the same event tap
+        hk.onPasteIntercepted = { [weak self, weak hk] in
             guard let self, self.pasteStackViewModel.isActive else { return }
-            // Set reentrancy guard before pasting to avoid ⌘V feedback loop
-            interceptor.isSynthesizingPaste = true
+            hk?.isSynthesizingPaste = true
             Task {
                 await self.pasteStackViewModel.pasteNext()
-                interceptor.isSynthesizingPaste = false
+                hk?.isSynthesizingPaste = false
             }
         }
+
+        hotkeyManager = hk
 
         // Sync paste stack state to enable/disable ⌘V interception
         Task { @MainActor in
             Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self] _ in
                 guard let self else { return }
-                self.pasteInterceptor?.isPasteStackActive = self.pasteStackViewModel.isActive
+                self.hotkeyManager?.isPasteStackActive = self.pasteStackViewModel.isActive
             }
         }
+
+        Task { await hk.register() }
     }
 
     private func setupScreenSharingDetector() {
@@ -441,12 +444,32 @@ final class AppController {
         _openSettingsAction = action
     }
 
+    private var settingsCloseObserver: NSObjectProtocol?
+
     private func openSettings() {
         NSApp.setActivationPolicy(.regular)
         NSApp.activate()
         _openSettingsAction?()
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+
+        // Revert to accessory only after the Settings window is actually closed,
+        // not on a fixed timer that races with the window appearance.
+        if let obs = settingsCloseObserver {
+            NotificationCenter.default.removeObserver(obs)
+        }
+        settingsCloseObserver = NotificationCenter.default.addObserver(
+            forName: NSWindow.willCloseNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] notification in
+            guard let window = notification.object as? NSWindow,
+                window.identifier?.rawValue == "com_apple_SwiftUI_Settings_window"
+                    || window.title.contains("Settings")
+            else { return }
             NSApp.setActivationPolicy(.accessory)
+            if let obs = self?.settingsCloseObserver {
+                NotificationCenter.default.removeObserver(obs)
+                self?.settingsCloseObserver = nil
+            }
         }
     }
 
@@ -470,18 +493,21 @@ final class AppController {
 
     func togglePanel() {
         guard let hvm = historyViewModel,
-            let svm = searchViewModel
+            let svm = searchViewModel,
+            let container
         else { return }
         let pvm = pasteStackViewModel
         let cvm = collectionViewModel
         let slvm = smartListViewModel
+        let storage = container.storageService
         windowManager.toggle {
             ContentView(
                 historyViewModel: hvm,
                 searchViewModel: svm,
                 pasteStackViewModel: pvm,
                 collectionViewModel: cvm,
-                smartListViewModel: slvm
+                smartListViewModel: slvm,
+                storageService: storage
             )
         }
     }
@@ -494,11 +520,10 @@ final class AppController {
         owm.show { [weak self] in
             self?.showOnboarding = false
             self?.onboardingWindowManager = nil
-            // Re-register hotkey with potentially new key combo
-            Task { @MainActor in
-                self?.hotkeyManager?.unregister()
-                self?.setupHotkey()
-            }
+            // Register hotkey now that onboarding is complete
+            // (this is the first time on fresh install, or re-register with new key combo)
+            self?.hotkeyManager?.unregister()
+            self?.setupHotkey()
         }
     }
 }

@@ -5,7 +5,7 @@ import SwiftUI
 final class SearchViewModel {
     var query: String = ""
     var filters = SearchFilters.empty
-    var results: [ClipboardItem] = []
+    var results: [ClipboardItemSummary] = []
     var isSearching = false
     var dismissAction: (() -> Void)?
     var reactivatePreviousApp: (() -> Void)?
@@ -41,7 +41,7 @@ final class SearchViewModel {
         }
         isSearching = true
         do {
-            results = try await searchService.search(query: currentQuery, filters: filters)
+            results = try await searchService.searchSummaries(query: currentQuery, filters: filters)
         } catch {
             results = []
         }
@@ -69,12 +69,7 @@ final class SearchViewModel {
 
     func loadAvailableTags() async {
         do {
-            let items = try await storageService.fetch(limit: 500, offset: 0)
-            var tagSet = Set<String>()
-            for item in items {
-                tagSet.formUnion(item.tags)
-            }
-            availableTags = tagSet.sorted()
+            availableTags = try await storageService.fetchAllTags()
         } catch {
             availableTags = []
         }
@@ -82,8 +77,9 @@ final class SearchViewModel {
 
     // MARK: - Item Actions
 
-    func paste(_ item: ClipboardItem) async {
-        await clipboardService.copyToClipboard(item)
+    func paste(_ item: ClipboardItemSummary) async {
+        guard let fullItem = try? await storageService.fetchFull(by: item.id) else { return }
+        await clipboardService.copyToClipboard(fullItem)
 
         let shouldPasteDirectly = UserDefaults.standard.object(forKey: Constants.pasteDirectlyKey) as? Bool ?? true
         guard shouldPasteDirectly else {
@@ -97,16 +93,31 @@ final class SearchViewModel {
         await clipboardService.simulatePasteToFrontApp(targetBundleId: targetBundleId)
     }
 
-    func pasteAsPlainText(_ item: ClipboardItem) async {
+    func pasteAsPlainText(_ item: ClipboardItemSummary) async {
         guard let text = item.plainTextContent else {
             await paste(item)
             return
         }
-        var plainItem = item
-        plainItem.type = .text
-        plainItem.content = Data(text.utf8)
-        plainItem.plainTextContent = text
-        await paste(plainItem)
+        let plainItem = ClipboardItem(
+            id: item.id,
+            type: .text,
+            content: Data(text.utf8),
+            plainTextContent: text,
+            sourceApp: item.sourceApp,
+            contentHash: item.contentHash
+        )
+        await clipboardService.copyToClipboard(plainItem)
+
+        let shouldPasteDirectly = UserDefaults.standard.object(forKey: Constants.pasteDirectlyKey) as? Bool ?? true
+        guard shouldPasteDirectly else {
+            dismissAction?()
+            return
+        }
+
+        let targetBundleId = previousAppBundleId?()
+        reactivatePreviousApp?()
+        dismissAction?()
+        await clipboardService.simulatePasteToFrontApp(targetBundleId: targetBundleId)
     }
 
     func pasteByIndex(_ index: Int) async {
@@ -114,15 +125,18 @@ final class SearchViewModel {
         await paste(results[index])
     }
 
-    func delete(_ item: ClipboardItem) async {
+    func delete(_ item: ClipboardItemSummary) async {
         try? await storageService.delete(item.id)
         results.removeAll { $0.id == item.id }
     }
 
-    func togglePin(_ item: ClipboardItem) async {
+    func togglePin(_ item: ClipboardItemSummary) async {
         guard let index = results.firstIndex(where: { $0.id == item.id }) else { return }
         results[index].pinned.toggle()
-        try? await storageService.update(results[index])
+        if var fullItem = try? await storageService.fetchFull(by: item.id) {
+            fullItem.pinned = results[index].pinned
+            try? await storageService.update(fullItem)
+        }
         withAnimation(DS.Animation.springSnappy) {
             results.sort { lhs, rhs in
                 if lhs.pinned != rhs.pinned { return lhs.pinned }
@@ -131,10 +145,13 @@ final class SearchViewModel {
         }
     }
 
-    func toggleStar(_ item: ClipboardItem) async {
+    func toggleStar(_ item: ClipboardItemSummary) async {
         guard let index = results.firstIndex(where: { $0.id == item.id }) else { return }
         results[index].starred.toggle()
-        try? await storageService.update(results[index])
+        if var fullItem = try? await storageService.fetchFull(by: item.id) {
+            fullItem.starred = results[index].starred
+            try? await storageService.update(fullItem)
+        }
     }
 }
 

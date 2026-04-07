@@ -1,7 +1,12 @@
-### Added
-• Drag clipboard cards from the Bottom Shelf directly into external apps — text, rich text, images, files, and links are exported via standard pasteboard types so they land correctly in any target application (0984c18)
+### Performance
+• **Memory optimization** — clipboard history now loads lightweight summaries instead of full content blobs, dramatically reducing memory usage for large histories with images and files
+• **Lazy image loading** — thumbnails are fetched on-demand as cards scroll into view, replacing upfront loading of all images at once
+
+### Improved
+• **⌘1-9 quick-paste badges** — hold the ⌘ key to reveal shortcut badges on all Bottom Shelf cards simultaneously, giving a clear visual map of available shortcuts
+• **Accessibility permission flow** — the app now automatically registers itself in System Settings > Accessibility; just toggle the switch ON instead of manually finding and adding the app
+• **Unified hotkey engine** — global hotkey and paste stack interception now share a single event tap, improving reliability and reducing system resource usage
+• **Settings window** — the window no longer briefly flashes the Dock icon after closing
 
 ### Fixed
-• Global hotkey no longer triggers unintended actions in the foreground app (e.g. Paste and Match Style in Safari/Notes) — replaced NSEvent monitors with a CGEvent tap that swallows the configured shortcut before it reaches other apps (deba1d9)
-• Accessibility permission prompt now works reliably on first launch — opens System Settings directly and reveals the app bundle for easy drag-and-drop granting, bypassing the silent App Sandbox suppression of the system dialog (ae550b9)
-• Status bar menu items appear instantly on click — menu is now built synchronously in menuWillOpen, with caches refreshed asynchronously afterward (86c0ec1)
+• Panel now reliably gains focus when toggled via the global hotkey

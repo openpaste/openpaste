@@ -5,7 +5,7 @@ import Foundation
 final class SmartListViewModel {
     var smartLists: [SmartList] = []
     var selectedSmartListId: UUID?
-    var filteredItems: [ClipboardItem] = []
+    var filteredItems: [ClipboardItemSummary] = []
     var matchCounts: [UUID: Int] = [:]
     var isLoading = false
 
@@ -77,7 +77,7 @@ final class SmartListViewModel {
         }
         isLoading = true
         do {
-            filteredItems = try await smartListService.evaluate(smartList, limit: 500)
+            filteredItems = try await smartListService.evaluateSummaries(smartList, limit: 500)
         } catch {
             print("SmartListVM: Failed to evaluate smart list: \(error)")
             filteredItems = []

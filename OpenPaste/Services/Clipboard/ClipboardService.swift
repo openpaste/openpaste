@@ -47,7 +47,7 @@ final class ClipboardService: ClipboardServiceProtocol, @unchecked Sendable {
         monitor?.isPaused = false
     }
 
-    /// Legacy method used by PasteInterceptor — copies and immediately simulates paste.
+    /// Legacy method used by HotkeyManager paste interception — copies and immediately simulates paste.
     func pasteItem(_ item: ClipboardItem) async {
         await copyToClipboard(item)
         simulatePaste()
@@ -112,13 +112,11 @@ final class ClipboardService: ClipboardServiceProtocol, @unchecked Sendable {
             print("[SimulatePaste] ⚠️ Timeout! Target app never became active")
         }
 
-        // Kiểm tra Accessibility permission
-        guard AXIsProcessTrusted() else {
-            print("[SimulatePaste] ❌ AXIsProcessTrusted = false")
-            await showAccessibilityAlert()
-            return
-        }
-
+        // Don't pre-check AXIsProcessTrusted() — let CGEventPost run.
+        // When called without permission, macOS automatically shows the
+        // "Accessibility Access" dialog and adds the app to the
+        // Accessibility list (toggled OFF). This is how Paste and other
+        // clipboard managers get into the list without manual "+" steps.
         print("[SimulatePaste] ✅ Dispatching CGEvent ⌘V")
         simulatePaste()
     }

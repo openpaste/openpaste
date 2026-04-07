@@ -1,30 +1,39 @@
-import Foundation
 import AppKit
+import Foundation
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
     static let showOnboardingNotification = Notification.Name("OpenPaste.showOnboarding")
-    static let didReceiveRemoteNotification = Notification.Name("OpenPaste.didReceiveRemoteNotification")
+    static let didReceiveRemoteNotification = Notification.Name(
+        "OpenPaste.didReceiveRemoteNotification")
 
     private static let pendingRemoteNotificationLock = NSLock()
     private static var hasPendingRemoteNotification = false
-    private let isRunningTests = ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
+    private let isRunningTests =
+        ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
     private let isUITestMode: Bool = {
         #if DEBUG
-        ProcessInfo.processInfo.environment["OPENPASTE_UI_TEST_MODE"] == "1"
+            UITestLaunchOptions.isEnabled
         #else
-        false
+            false
         #endif
     }()
 
     static func consumePendingRemoteNotification() -> Bool {
-        pendingRemoteNotificationLock.lock(); defer { pendingRemoteNotificationLock.unlock() }
+        pendingRemoteNotificationLock.lock()
+        defer { pendingRemoteNotificationLock.unlock() }
         let value = hasPendingRemoteNotification
         hasPendingRemoteNotification = false
         return value
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        guard !isRunningTests && !isUITestMode else { return }
+        if isUITestMode {
+            NSApp.setActivationPolicy(.regular)
+            NSApp.activate(ignoringOtherApps: true)
+            return
+        }
+
+        guard !isRunningTests else { return }
 
         // Hide dock icon — menu bar only
         NSApp.setActivationPolicy(.accessory)
