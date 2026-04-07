@@ -111,7 +111,7 @@ Strategic roadmap for OpenPaste development phases, milestones, and feature prio
    - Developer ID Application certificate for code signing
    - Apple notarization (notarytool + stapler) — Gatekeeper pass
    - `scripts/create-dmg.sh` for DMG packaging
-   - GitHub Actions release workflow (tag push → build → sign → notarize → DMG → release)
+   - Local release workflow (tag push → local build → sign → notarize → DMG → GitHub Release)
    - Homebrew Cask via `openpaste/homebrew-tap` with auto-update on release
    - `brew tap openpaste/tap && brew install --cask openpaste` verified working
    - See [Release Guide](release-guide.md) for full procedure
@@ -119,7 +119,7 @@ Strategic roadmap for OpenPaste development phases, milestones, and feature prio
 7. **Sparkle Auto-Update Framework** ✅
    - Sparkle 2.9.1 SPM dependency integrated
    - `UpdaterService` (@Observable wrapper) for in-app updates
-   - EdDSA code signing pipeline in `release.yml`
+   - EdDSA code signing (local build process)
    - Appcast generation and GitHub Pages deployment
    - MenuBar "Check for Updates…" + Settings UI toggle for auto-check
    - See [Release Guide](release-guide.md) — EdDSA key setup section

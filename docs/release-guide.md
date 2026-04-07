@@ -273,7 +273,7 @@ MARKETING_VERSION=1.2.0 = CURRENT_PROJECT_VERSION=1.2.0 → tag v1.2.0 → OpenP
 | Issue | Fix |
 |-------|-----|
 | Notarization fails | Check Apple ID 2FA + app-specific password. View log: `xcrun notarytool log <id> --keychain-profile "notarytool-profile"` |
-| SPM signing conflict | Use `CODE_SIGNING_ALLOWED=NO` for archive, then sign manually after |
+| SPM signing conflict | Let Xcode handle signing (do NOT use `CODE_SIGNING_ALLOWED=NO` for release archives) |
 | Wrong certificate | Must be "Developer ID Application", NOT "Apple Development" |
 | Homebrew tap not updating | Edit `Casks/openpaste.rb` directly in homebrew-tap repo |
 | Sparkle version mismatch | Ensure `MARKETING_VERSION` = `CURRENT_PROJECT_VERSION` = tag version |

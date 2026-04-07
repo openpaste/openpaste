@@ -341,14 +341,15 @@ for await event in await eventBus.stream() {
 ## Build & Distribution
 
 ```
-Source (GitHub) → Tag Push → GitHub Actions
+Source (GitHub) → Tag Push → Local Build
   │
-  ├── xcodebuild archive (Developer ID Application signed)
+  ├── xcodebuild archive (Developer ID Application + provisioning profile)
+  ├── Re-sign Sparkle binaries (Developer ID + timestamp)
   ├── notarytool submit --wait (Apple notarization)
   ├── stapler staple (attach ticket)
   ├── create-dmg.sh → OpenPaste-X.Y.Z.dmg
-  ├── GitHub Release (DMG + release notes)
-  └── repository-dispatch → openpaste/homebrew-tap (auto-update cask)
+  ├── gh release create (DMG + release notes)
+  └── Manual homebrew-tap + Sparkle appcast update
 ```
 
 See [release-guide.md](release-guide.md) for full release procedure.
