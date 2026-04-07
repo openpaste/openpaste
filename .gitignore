@@ -86,3 +86,6 @@ homebrew-tap/
 
 # Generated release artifacts
 OpenPaste-*.dmg
+
+# Reference repos (for implementation research)
+reference/

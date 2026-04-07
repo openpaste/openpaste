@@ -70,6 +70,17 @@ enum ClipboardTransferSupport {
         return image.tiffRepresentation ?? item.content
     }
 
+    nonisolated static func imagePNGData(for item: ClipboardItem) -> Data? {
+        guard item.type == .image else { return nil }
+        guard let image = NSImage(data: item.content),
+            let tiff = image.tiffRepresentation,
+            let bitmap = NSBitmapImageRep(data: tiff)
+        else {
+            return nil
+        }
+        return bitmap.representation(using: .png, properties: [:])
+    }
+
     nonisolated static func fileURLs(for item: ClipboardItem) -> [URL] {
         guard item.type == .file, let text = plainText(for: item) else { return [] }
         return
@@ -217,9 +228,11 @@ enum ClipboardTransferSupport {
         storageService: StorageServiceProtocol
     ) -> NSItemProvider {
         let provider = NSItemProvider()
-        registerReorderToken(id: summary.id, on: provider)
 
-        let loadCanonicalItem: @Sendable () async -> ClipboardItem? = {
+        // Eagerly start DB fetch at drag-begin time so the data is ready
+        // before the destination app requests it. All async callbacks share
+        // this single Task instead of each doing their own DB round-trip.
+        let preloadTask = Task<ClipboardItem?, Never> { @Sendable in
             if let item = try? await storageService.fetchFull(by: summary.id) {
                 return item
             }
@@ -228,46 +241,110 @@ enum ClipboardTransferSupport {
 
         switch summary.type {
         case .text, .code, .color:
-            registerAsyncObject(ofClass: NSString.self, on: provider) {
-                await loadCanonicalItem().flatMap(plainText(for:)).map { $0 as NSString }
+            // Sync NSString object registration makes the drag start instantly.
+            // Async utf8PlainText exports the full (non-truncated) text from DB.
+            if let text = summary.plainTextContent {
+                provider.registerObject(
+                    ofClass: NSString.self, visibility: .all
+                ) { completion in
+                    completion(text as NSString, nil)
+                    return nil
+                }
             }
             registerAsyncPlainText(on: provider) {
-                await loadCanonicalItem().flatMap(plainText(for:))
+                await preloadTask.value.flatMap(plainText(for:))
             }
         case .link:
-            registerAsyncObject(ofClass: NSURL.self, on: provider) {
-                await loadCanonicalItem().flatMap(linkURL(for:)).map { $0 as NSURL }
+            // Use sourceURL directly when available (it is not truncated).
+            if let url = summary.sourceURL {
+                provider.registerObject(ofClass: NSURL.self, visibility: .all) { completion in
+                    completion(url as NSURL, nil)
+                    return nil
+                }
+            } else {
+                registerAsyncObject(ofClass: NSURL.self, on: provider) {
+                    await preloadTask.value.flatMap(linkURL(for:)).map { $0 as NSURL }
+                }
+            }
+            if let text = summary.plainTextContent {
+                registerPlainText(text, on: provider)
             }
             registerAsyncPlainText(on: provider) {
-                await loadCanonicalItem().flatMap(plainText(for:))
+                await preloadTask.value.flatMap(plainText(for:))
             }
         case .image:
+            provider.suggestedName = "OpenPaste-image.png"
+
+            // 1. File URL — write PNG to sandbox temp and provide the path as
+            //    public.file-url data. VS Code/Electron only accepts drops that
+            //    have public.file-url on the pasteboard.
+            //    The sandbox container tmp is owner-accessible (drwx------) and
+            //    VS Code runs as the same user, so it can read the file.
+            let dragFileName = "OpenPaste-drag-\(summary.id.uuidString.prefix(8)).png"
+            let tempURL = FileManager.default.temporaryDirectory
+                .appendingPathComponent(dragFileName)
+
+            provider.registerDataRepresentation(
+                forTypeIdentifier: UTType.fileURL.identifier,
+                visibility: .all
+            ) { completion in
+                Task {
+                    let item = await preloadTask.value
+                    guard let pngData = item.flatMap(imagePNGData(for:)) else {
+                        completion(nil, nil)
+                        return
+                    }
+                    do {
+                        try pngData.write(to: tempURL, options: .atomic)
+                        let urlData = Data(tempURL.absoluteString.utf8)
+                        completion(urlData, nil)
+                    } catch {
+                        completion(nil, error)
+                    }
+                }
+                return nil
+            }
+
+            // 2. PNG raw data — for apps that request image content by UTType
+            registerAsyncData(for: .png, on: provider) {
+                await preloadTask.value.flatMap(imagePNGData(for:))
+            }
+
+            // 3. NSImage object — works for native macOS apps (Notes, Preview, etc.)
             registerAsyncObject(ofClass: NSImage.self, on: provider) {
-                await loadCanonicalItem()
+                await preloadTask.value
                     .flatMap(imageTIFFData(for:))
                     .flatMap(NSImage.init(data:))
             }
+            // 4. TIFF raw data
             registerAsyncData(for: .tiff, on: provider) {
-                await loadCanonicalItem().flatMap(imageTIFFData(for:))
+                await preloadTask.value.flatMap(imageTIFFData(for:))
             }
         case .richText:
             registerAsyncData(for: .rtf, on: provider) {
-                await loadCanonicalItem().flatMap(richTextData(for:))
+                await preloadTask.value.flatMap(richTextData(for:))
+            }
+            if let text = summary.plainTextContent {
+                registerPlainText(text, on: provider)
             }
             registerAsyncPlainText(on: provider) {
-                await loadCanonicalItem().flatMap(plainText(for:))
+                await preloadTask.value.flatMap(plainText(for:))
             }
         case .file:
             registerAsyncObject(ofClass: NSURL.self, on: provider) {
-                await loadCanonicalItem()
+                await preloadTask.value
                     .flatMap { fileURLs(for: $0).first }
                     .map { $0 as NSURL }
             }
+            if let text = summary.plainTextContent {
+                registerPlainText(text, on: provider)
+            }
             registerAsyncPlainText(on: provider) {
-                await loadCanonicalItem().flatMap(plainText(for:))
+                await preloadTask.value.flatMap(plainText(for:))
             }
         }
 
+        registerReorderToken(id: summary.id, on: provider)
         return provider
     }
 

@@ -67,6 +67,7 @@ final class BottomShelfPanel: NSPanel {
 
         isFloatingPanel = true
         level = .floating
+        hidesOnDeactivate = false
         isMovableByWindowBackground = false
         backgroundColor = .clear
         isOpaque = false
@@ -156,12 +157,21 @@ final class BottomShelfPanel: NSPanel {
         NotificationCenter.default.post(name: Self.dragSessionDidEndNotification, object: self)
 
         guard closeIfNeeded else { return }
-        guard !isKeyWindow, NSApp.keyWindow !== self else { return }
-        guard sheets.isEmpty else { return }
-        if let keyWindow = NSApp.keyWindow, keyWindow.isSheet || keyWindow.sheetParent === self {
-            return
+
+        // Grace period: destination app needs time to read NSItemProvider data
+        // after the drop lands. Closing immediately kills the provider callbacks.
+        // Images/files need extra time for DB fetch + TIFF conversion.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak self] in
+            guard let self else { return }
+            guard !self.isKeyWindow, NSApp.keyWindow !== self else { return }
+            guard self.sheets.isEmpty else { return }
+            if let keyWindow = NSApp.keyWindow,
+                keyWindow.isSheet || keyWindow.sheetParent === self
+            {
+                return
+            }
+            self.onRequestClose?()
         }
-        onRequestClose?()
     }
 
     private func installDragSessionMonitors() {
