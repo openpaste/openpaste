@@ -4,11 +4,38 @@ All notable changes to the OpenPaste project are documented in this file. Format
 
 ## [Unreleased]
 
+### Added
+- `feat(storage)`: `ClipboardItemSummary` lightweight model — excludes content `Data` blob for memory-efficient list/grid display (`ClipboardItemSummary.swift`)
+- `feat(storage)`: Lazy content loading APIs — `fetchSummaries`, `fetchContent`, `fetchFull`, `fetchAllTags` on `StorageServiceProtocol` / `StorageService`
+- `feat(storage)`: `searchSummaries` on `SearchServiceProtocol` / `SearchEngine` — FTS5 + LIKE search returning summaries without content blobs
+- `feat(storage)`: `SmartListService.fetchSummaries` for collection-based summary queries
+- `feat(ui)`: `CommandKeyMonitor` — detects ⌘ key press/release via `NSEvent.flagsChanged` to reveal all ⌘1-9 quick-paste badges simultaneously (`CommandKeyMonitor.swift`)
+- `feat(ui)`: `AsyncThumbnailView` — lazy on-demand thumbnail loading via `ThumbnailCache.loadThumbnailAsync` (`AsyncThumbnailView.swift`)
+- `feat(testing)`: `UITestLaunchOptions` — unified test environment detection merging env vars, UserDefaults, and launch arguments (`UITestLaunchOptions.swift`)
+
+### Changed
+- `refactor(accessibility)`: Add `AccessibilityChecker` with functional test (`AXUIElementCopyAttributeValue`) to supplement stale `AXIsProcessTrusted()` TCC cache (`AccessibilityChecker.swift`)
+- `refactor(accessibility)`: Replace manual "+" workflow with `CGEvent`-based `triggerAccessibilityPrompt()` that auto-adds app to Accessibility list (`OnboardingViewModel`, `GeneralSettingsView`)
+- `refactor(hotkey)`: Unify event tap — merge `PasteInterceptor` ⌘V interception into `HotkeyManager`'s single `CGEvent` tap, eliminating dual-tap architecture (`HotkeyManager.swift`)
+- `refactor(hotkey)`: Delete `PasteInterceptor.swift` (superseded by unified tap)
+- `refactor(app)`: Defer hotkey setup until after onboarding to avoid premature Accessibility dialog (`AppController.swift`)
+- `refactor(app)`: Fix Settings window activation policy — use `NSWindow.willCloseNotification` observer instead of fixed timer (`AppController.swift`)
+- `refactor(viewmodels)`: Migrate `HistoryViewModel`, `SearchViewModel`, `PasteStackViewModel`, `SmartListViewModel` to `ClipboardItemSummary` — fetch full content on-demand only for paste/export actions
+- `refactor(ui)`: `ClipboardCard` accepts `ClipboardItemSummary`, uses `AsyncThumbnailView` for images, supports `revealQuickIndexBadge` prop
+- `refactor(ui)`: `OnboardingPermissionStep` updated with numbered step instructions (find → toggle ON)
+- `refactor(onboarding)`: Extract `mapCharacterToKeyCode` / `displayString` as `HotkeyManager` static methods, remove duplication from `OnboardingShortcutStep`
+
 ### Fixed
 - `fix(bottomShelf)`: Bottom Shelf drag-to-other-app regression — summary-based `NSItemProvider` export was using lossy/truncated `ClipboardItemSummary` data instead of canonical full-item helpers. Now routes summary drags back through canonical `ClipboardTransferSupport` export logic (`BottomShelfView`, `ClipboardTransferSupport`)
+- `fix(app)`: Add `NSApp.activate(ignoringOtherApps: true)` on hotkey toggle for reliable panel focus
 
 ### Testing
-- `test(drag)`: Added regression coverage for long text export, rich text HTML→RTF conversion, and sourceURL-backed links in Bottom Shelf drag sessions (`ClipboardTransferSupportTests`)
+- `test(accessibility)`: `AccessibilityCheckerTests` — test environment bypass validation
+- `test(ui)`: `ClipboardCardTests` — quick index badge logic (hide/reveal, range bounds)
+- `test(viewmodel)`: `HistoryViewModelEventTests` — event-driven refresh via `EventBus`
+- `test(e2e)`: `OpenPasteE2EBottomShelfShortcutBadgeTests` — ⌘-key badge reveal E2E flow
+- `test(drag)`: Updated `ClipboardTransferSupportTests` for summary-based drag/drop, long text export, rich text HTML→RTF, sourceURL-backed links
+- `test(viewmodel)`: Updated `PasteStackViewModelTests`, `PasteStackMoveTests`, `HistoryViewModelReorderTests` for `storageService` injection and summary arrays
 
 ## [1.6.0] — 2026-04-06
 
