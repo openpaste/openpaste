@@ -108,31 +108,44 @@ git tag -a "v$NEW" -F RELEASE_NOTES.md
 git push origin v$NEW
 ```
 
-### 7. Build Archive (unsigned)
+### 7. Build Archive (with Xcode signing)
+
+Xcode handles signing with provisioning profile (required for iCloud/Push entitlements).
 
 ```bash
 xcodebuild archive \
   -scheme OpenPaste \
   -configuration Release \
   -archivePath build/OpenPaste.xcarchive \
-  -destination 'generic/platform=macOS' \
-  CODE_SIGNING_ALLOWED=NO 2>&1 | tail -10
+  -destination 'generic/platform=macOS' 2>&1 | tail -10
 ```
 
-### 8. Sign with Developer ID
+> **Note:** Do NOT use `CODE_SIGNING_ALLOWED=NO` — restricted entitlements (iCloud,
+> Push Notifications) require an embedded provisioning profile that Xcode manages.
+
+### 8. Re-sign Sparkle Framework
+
+Sparkle's pre-built binaries need Developer ID re-signing with timestamps for notarization:
 
 ```bash
 APP="build/OpenPaste.xcarchive/Products/Applications/OpenPaste.app"
+IDENTITY="Developer ID Application: LE ANH TUAN (VGQU7EVXZV)"
+SPARKLE="$APP/Contents/Frameworks/Sparkle.framework"
 
-# Sign embedded frameworks
-find "$APP/Contents/Frameworks" -name "*.framework" | while read f; do
-  codesign --force --deep --sign "Developer ID Application: LE ANH TUAN (VGQU7EVXZV)" \
-    --options runtime --timestamp "$f"
+# Re-sign all Mach-O binaries inside Sparkle
+find "$SPARKLE" -type f \( -name "*.dylib" -o -perm +111 \) | while read f; do
+  file "$f" | grep -q "Mach-O" && \
+    codesign --force --sign "$IDENTITY" --options runtime --timestamp "$f"
 done
 
-# Sign main app with entitlements
-codesign --force --deep --sign "Developer ID Application: LE ANH TUAN (VGQU7EVXZV)" \
-  --options runtime --timestamp \
+# Re-sign bundles inside-out
+codesign --force --sign "$IDENTITY" --options runtime --timestamp "$SPARKLE/Versions/B/XPCServices/Downloader.xpc"
+codesign --force --sign "$IDENTITY" --options runtime --timestamp "$SPARKLE/Versions/B/XPCServices/Installer.xpc"
+codesign --force --sign "$IDENTITY" --options runtime --timestamp "$SPARKLE/Versions/B/Updater.app"
+codesign --force --sign "$IDENTITY" --options runtime --timestamp "$SPARKLE"
+
+# Re-sign main app
+codesign --force --sign "$IDENTITY" --options runtime --timestamp \
   --entitlements OpenPaste/OpenPasteRelease.entitlements "$APP"
 
 # Verify
@@ -260,7 +273,7 @@ MARKETING_VERSION=1.2.0 = CURRENT_PROJECT_VERSION=1.2.0 → tag v1.2.0 → OpenP
 | Issue | Fix |
 |-------|-----|
 | Notarization fails | Check Apple ID 2FA + app-specific password. View log: `xcrun notarytool log <id> --keychain-profile "notarytool-profile"` |
-| SPM signing conflict | Use `CODE_SIGNING_ALLOWED=NO` for archive, then sign manually after |
+| SPM signing conflict | Let Xcode handle signing (do NOT use `CODE_SIGNING_ALLOWED=NO` for release archives) |
 | Wrong certificate | Must be "Developer ID Application", NOT "Apple Development" |
 | Homebrew tap not updating | Edit `Casks/openpaste.rb` directly in homebrew-tap repo |
 | Sparkle version mismatch | Ensure `MARKETING_VERSION` = `CURRENT_PROJECT_VERSION` = tag version |
