@@ -1,13 +1,13 @@
 import SwiftUI
 
 struct QuickEditView: View {
-    let item: ClipboardItem
+    let item: ClipboardItemSummary
     let onSave: (String) -> Void
     let onSaveImage: ((Data) -> Void)?
     let onCancel: () -> Void
 
     init(
-        item: ClipboardItem,
+        item: ClipboardItemSummary,
         onSave: @escaping (String) -> Void,
         onSaveImage: ((Data) -> Void)? = nil,
         onCancel: @escaping () -> Void
@@ -22,6 +22,7 @@ struct QuickEditView: View {
     @State private var showMarkdownPreview = false
     @State private var imageScale: CGFloat = 1.0
     @State private var cropRect: CGRect = CGRect(x: 0, y: 0, width: 1, height: 1)
+    @State private var loadedImage: NSImage?
 
     private var uiTestImageScaleOverride: CGFloat? {
         #if DEBUG
@@ -58,7 +59,7 @@ struct QuickEditView: View {
                     .keyboardShortcut(.cancelAction)
                     .accessibilityIdentifier("quickEdit.cancelButton")
                 Button("Paste") {
-                    if item.type == .image, let nsImage = NSImage(data: item.content) {
+                    if item.type == .image, let nsImage = loadedImage {
                         let data = ImageExport.exportTIFF(
                             image: nsImage, cropRect: cropRect, scale: imageScale)
                         if let onSaveImage {
@@ -91,6 +92,13 @@ struct QuickEditView: View {
             editedText = item.plainTextContent ?? ""
             if item.type == .image, let overrideScale = uiTestImageScaleOverride {
                 imageScale = overrideScale
+            }
+        }
+        .task {
+            if item.type == .image {
+                if let data = try? await ThumbnailCache.shared.storageService?.fetchContent(for: item.id) {
+                    loadedImage = NSImage(data: data)
+                }
             }
         }
     }
@@ -162,7 +170,7 @@ struct QuickEditView: View {
 
     private var imageEditor: some View {
         VStack(spacing: 8) {
-            if let nsImage = NSImage(data: item.content) {
+            if let nsImage = loadedImage {
                 ImageCropView(image: nsImage, cropRect: $cropRect)
                     .clipShape(RoundedRectangle(cornerRadius: 6))
                     .frame(maxHeight: 250)
@@ -183,6 +191,9 @@ struct QuickEditView: View {
                     .controlSize(.small)
                     .accessibilityIdentifier("quickEdit.resetButton")
                 }
+            } else {
+                ProgressView("Loading image…")
+                    .frame(maxHeight: 250)
             }
         }
     }

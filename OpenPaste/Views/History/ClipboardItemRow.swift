@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct ClipboardItemRow: View {
-    let item: ClipboardItem
+    let item: ClipboardItemSummary
     let onPaste: () -> Void
     let onDelete: () -> Void
     let onTogglePin: () -> Void

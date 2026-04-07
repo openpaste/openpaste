@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct BottomShelfPreviewPanel: View {
-    let item: ClipboardItem
+    let item: ClipboardItemSummary
     let onClose: () -> Void
 
     var body: some View {
@@ -40,7 +40,7 @@ struct BottomShelfPreviewPanel: View {
         VStack(alignment: .leading, spacing: 4) {
             metadataRow("Source", value: item.sourceApp.name)
             metadataRow("Copied", value: item.createdAt.relativeFormatted)
-            metadataRow("Size", value: item.content.humanReadableSize)
+            metadataRow("Size", value: ByteCountFormatter.string(fromByteCount: Int64(item.contentSize), countStyle: .file))
         }
         .padding(10)
     }

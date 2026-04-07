@@ -2,7 +2,7 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 extension BottomShelfView {
-    var displayItems: [ClipboardItem] {
+    var displayItems: [ClipboardItemSummary] {
         if searchActive {
             return searchViewModel.results
         }
@@ -20,7 +20,7 @@ extension BottomShelfView {
         !searchViewModel.query.isEmpty || searchViewModel.filters != .empty
     }
 
-    var selectedItem: ClipboardItem? {
+    var selectedItem: ClipboardItemSummary? {
         if let selectedId {
             return displayItems.first(where: { $0.id == selectedId })
         }
@@ -103,11 +103,9 @@ extension BottomShelfView {
     }
 
     func pasteByIndex(_ index: Int) {
-        if searchActive {
-            Task { await searchViewModel.pasteByIndex(index) }
-        } else {
-            Task { await historyViewModel.pasteByIndex(index) }
-        }
+        guard index >= 0, index < displayItems.count else { return }
+        let item = displayItems[index]
+        Task { await activePaste(item) }
     }
 
     func deleteSelected() {
@@ -125,7 +123,7 @@ extension BottomShelfView {
         Task { await activeToggleStar(item) }
     }
 
-    func activePaste(_ item: ClipboardItem) async {
+    func activePaste(_ item: ClipboardItemSummary) async {
         if searchActive {
             await searchViewModel.paste(item)
         } else {
@@ -133,7 +131,7 @@ extension BottomShelfView {
         }
     }
 
-    func activeDelete(_ item: ClipboardItem) async {
+    func activeDelete(_ item: ClipboardItemSummary) async {
         if searchActive {
             await searchViewModel.delete(item)
         } else {
@@ -141,7 +139,7 @@ extension BottomShelfView {
         }
     }
 
-    func activeTogglePin(_ item: ClipboardItem) async {
+    func activeTogglePin(_ item: ClipboardItemSummary) async {
         if searchActive {
             await searchViewModel.togglePin(item)
         } else {
@@ -149,7 +147,7 @@ extension BottomShelfView {
         }
     }
 
-    func activeToggleStar(_ item: ClipboardItem) async {
+    func activeToggleStar(_ item: ClipboardItemSummary) async {
         if searchActive {
             await searchViewModel.toggleStar(item)
         } else {
@@ -157,7 +155,7 @@ extension BottomShelfView {
         }
     }
 
-    func activePasteAsPlainText(_ item: ClipboardItem) async {
+    func activePasteAsPlainText(_ item: ClipboardItemSummary) async {
         if searchActive {
             await searchViewModel.pasteAsPlainText(item)
         } else {
