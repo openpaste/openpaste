@@ -2,6 +2,11 @@ import AppKit
 import CoreGraphics
 import Foundation
 
+/// Unified global event tap manager.
+///
+/// Handles both the global hotkey (e.g. ⇧⌘V) **and** paste stack interception
+/// (⌘V) via a single `CGEvent` tap, eliminating the previous dual-tap
+/// architecture (HotkeyManager + PasteInterceptor).
 final class HotkeyManager: @unchecked Sendable {
     private static let accessibilityNotification = Notification.Name("com.apple.accessibility.api")
     private static var hotkeyRecordingSuspensionTokens = Set<UUID>()
@@ -10,6 +15,11 @@ final class HotkeyManager: @unchecked Sendable {
     private var runLoopSource: CFRunLoopSource?
     private var accessibilityObserver: NSObjectProtocol?
     private let onToggle: @Sendable () -> Void
+
+    /// Paste stack interception — set by AppController
+    var isPasteStackActive: Bool = false
+    var isSynthesizingPaste: Bool = false
+    var onPasteIntercepted: (@Sendable () -> Void)?
 
     init(onToggle: @escaping @Sendable () -> Void) {
         self.onToggle = onToggle
@@ -30,6 +40,8 @@ final class HotkeyManager: @unchecked Sendable {
         removeEventTap()
     }
 
+    // MARK: - Event Handling
+
     private func handleEventTap(type: CGEventType, event: CGEvent) -> Unmanaged<CGEvent>? {
         if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
             if let eventTap {
@@ -38,10 +50,23 @@ final class HotkeyManager: @unchecked Sendable {
             return Unmanaged.passUnretained(event)
         }
 
-        let (modifiers, keyCode) = Self.loadCustomHotkey()
         let eventKeyCode = UInt16(event.getIntegerValueField(.keyboardEventKeycode))
         let isAutoRepeat = event.getIntegerValueField(.keyboardEventAutorepeat) != 0
 
+        // 1. Check paste stack interception (⌘V without Shift)
+        if isPasteStackActive, !isSynthesizingPaste, !isAutoRepeat {
+            let hasCommand = event.flags.contains(.maskCommand)
+            let hasShift = event.flags.contains(.maskShift)
+            if hasCommand && !hasShift && eventKeyCode == 0x09 {
+                DispatchQueue.main.async { [weak self] in
+                    self?.onPasteIntercepted?()
+                }
+                return nil // swallow ⌘V
+            }
+        }
+
+        // 2. Check global hotkey
+        let (modifiers, keyCode) = Self.loadCustomHotkey()
         guard
             Self.shouldInterceptHotkey(
                 modifiers: modifiers,
@@ -60,6 +85,8 @@ final class HotkeyManager: @unchecked Sendable {
         return nil
     }
 
+    // MARK: - Event Tap Lifecycle
+
     @MainActor
     private func observeAccessibilityChangesIfNeeded() {
         guard accessibilityObserver == nil else { return }
@@ -77,7 +104,7 @@ final class HotkeyManager: @unchecked Sendable {
 
     @MainActor
     private func handleAccessibilityStatusChange() {
-        if AXIsProcessTrusted() {
+        if AccessibilityChecker.isGranted {
             installEventTapIfPossible()
         } else {
             removeEventTap()
@@ -87,7 +114,9 @@ final class HotkeyManager: @unchecked Sendable {
     @MainActor
     private func installEventTapIfPossible() {
         guard eventTap == nil else { return }
-        guard AXIsProcessTrusted() else { return }
+        // Use quiet check (AXIsProcessTrusted only) to avoid triggering
+        // the system accessibility dialog on first launch.
+        guard AccessibilityChecker.isTrustedQuiet else { return }
 
         let refcon = Unmanaged.passUnretained(self).toOpaque()
         let mask = CGEventMask(1 << CGEventType.keyDown.rawValue)
@@ -131,6 +160,8 @@ final class HotkeyManager: @unchecked Sendable {
             self.eventTap = nil
         }
     }
+
+    // MARK: - Hotkey Configuration (Static)
 
     static func loadCustomHotkey() -> (NSEvent.ModifierFlags, UInt16) {
         let defaults = UserDefaults.standard

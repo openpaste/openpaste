@@ -96,19 +96,13 @@ struct OnboardingShortcutStep: View {
                 }
 
                 // Map character to key code
-                let keyCode = mapCharacterToKeyCode(keyPress.characters)
+                let keyCode = HotkeyManager.mapCharacterToKeyCode(keyPress.characters)
                 guard keyCode != 0xFF else { return .ignored }
 
                 viewModel.hotkeyKeyCode = keyCode
                 viewModel.hotkeyModifiers = nsModifiers
-                // Build display string
-                var parts: [String] = []
-                if nsModifiers.contains(.control) { parts.append("⌃") }
-                if nsModifiers.contains(.option) { parts.append("⌥") }
-                if nsModifiers.contains(.shift) { parts.append("⇧") }
-                if nsModifiers.contains(.command) { parts.append("⌘") }
-                parts.append(keyPress.characters.uppercased())
-                viewModel.hotkeyDisplayString = parts.joined()
+                viewModel.hotkeyDisplayString = HotkeyManager.displayString(
+                    modifiers: nsModifiers, keyCode: keyCode)
                 viewModel.isRecordingHotkey = false
                 return .handled
             }
@@ -153,18 +147,5 @@ struct OnboardingShortcutStep: View {
             }
         }
     }
-
-    private func mapCharacterToKeyCode(_ chars: String) -> UInt16 {
-        let map: [String: UInt16] = [
-            "a": 0x00, "s": 0x01, "d": 0x02, "f": 0x03, "h": 0x04,
-            "g": 0x05, "z": 0x06, "x": 0x07, "c": 0x08, "v": 0x09,
-            "b": 0x0B, "q": 0x0C, "w": 0x0D, "e": 0x0E, "r": 0x0F,
-            "y": 0x10, "t": 0x11, "1": 0x12, "2": 0x13, "3": 0x14,
-            "4": 0x15, "6": 0x16, "5": 0x17, "9": 0x19, "7": 0x1A,
-            "8": 0x1C, "0": 0x1D, "o": 0x1F, "u": 0x20, "i": 0x22,
-            "p": 0x23, "l": 0x25, "j": 0x26, "k": 0x28, "n": 0x2D,
-            "m": 0x2E, " ": 0x31,
-        ]
-        return map[chars.lowercased()] ?? 0xFF
-    }
 }
+
