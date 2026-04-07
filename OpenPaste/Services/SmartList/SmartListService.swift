@@ -6,6 +6,7 @@ protocol SmartListServiceProtocol: Sendable {
     func save(_ smartList: SmartList) async throws
     func delete(_ id: UUID) async throws
     func evaluate(_ smartList: SmartList, limit: Int) async throws -> [ClipboardItem]
+    func evaluateSummaries(_ smartList: SmartList, limit: Int) async throws -> [ClipboardItemSummary]
     func countMatches(_ smartList: SmartList) async throws -> Int
     func seedPresetsIfNeeded() async throws
     func exportAsJSON(_ smartList: SmartList) throws -> Data
@@ -79,6 +80,40 @@ final class SmartListService: SmartListServiceProtocol, Sendable {
         }
 
         return Array(items.prefix(limit))
+    }
+
+    func evaluateSummaries(_ smartList: SmartList, limit: Int = 500) async throws -> [ClipboardItemSummary] {
+        let containsRegex = smartList.rules.contains { $0.field == .textRegex }
+        let fetchLimit = containsRegex ? 500 : limit
+
+        let (sql, args, _) = SmartListQueryBuilder.buildQuery(
+            rules: smartList.rules,
+            matchMode: smartList.matchMode,
+            sortOrder: smartList.sortOrder,
+            limit: fetchLimit
+        )
+
+        let records = try await dbQueue.read { db in
+            try ClipboardItemRecord.fetchAll(db, sql: sql, arguments: args)
+        }
+
+        var summaries = records.map { $0.toSummary() }
+
+        if containsRegex {
+            let regexRules = smartList.rules.filter { $0.field == .textRegex }
+            let useAll = smartList.matchMode == .all
+            summaries = summaries.filter { summary in
+                guard let text = summary.plainTextContent else { return false }
+                let matcher: (SmartListRule) -> Bool = { rule in
+                    guard let regex = try? NSRegularExpression(pattern: rule.value) else { return false }
+                    let range = NSRange(text.startIndex..., in: text)
+                    return regex.firstMatch(in: text, range: range) != nil
+                }
+                return useAll ? regexRules.allSatisfy(matcher) : regexRules.contains(where: matcher)
+            }
+        }
+
+        return Array(summaries.prefix(limit))
     }
 
     func countMatches(_ smartList: SmartList) async throws -> Int {
