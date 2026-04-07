@@ -4,6 +4,12 @@ All notable changes to the OpenPaste project are documented in this file. Format
 
 ## [Unreleased]
 
+### Fixed
+- `fix(bottomShelf)`: Bottom Shelf drag-to-other-app regression — summary-based `NSItemProvider` export was using lossy/truncated `ClipboardItemSummary` data instead of canonical full-item helpers. Now routes summary drags back through canonical `ClipboardTransferSupport` export logic (`BottomShelfView`, `ClipboardTransferSupport`)
+
+### Testing
+- `test(drag)`: Added regression coverage for long text export, rich text HTML→RTF conversion, and sourceURL-backed links in Bottom Shelf drag sessions (`ClipboardTransferSupportTests`)
+
 ## [1.6.0] — 2026-04-06
 
 ### Added
