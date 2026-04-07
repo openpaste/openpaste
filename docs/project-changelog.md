@@ -4,6 +4,16 @@ All notable changes to the OpenPaste project are documented in this file. Format
 
 ## [Unreleased]
 
+## [1.7.1] — 2026-04-07
+
+### Fixed
+- `fix(drag)`: Add 1.5s grace period before closing Bottom Shelf panel after drag ends — destination apps now have time to read NSItemProvider data before the provider is deallocated (`WindowManager.swift`)
+- `fix(drag)`: Set `hidesOnDeactivate = false` on `BottomShelfPanel` to prevent panel hiding mid-drag during cross-app sessions (`WindowManager.swift`)
+- `fix(drag)`: Eagerly preload full clipboard item from DB at drag-begin time via a single shared `Task`, eliminating per-callback DB round-trips (`ClipboardTransferSupport.swift`)
+- `fix(drag)`: Register synchronous `NSString`/`NSURL` providers for instant drag start on text, code, color, and link items (`ClipboardTransferSupport.swift`)
+- `fix(drag)`: Add `imagePNGData()` helper and `public.file-url` registration with PNG temp file for VS Code/Electron drop compatibility (`ClipboardTransferSupport.swift`)
+- `fix(drag)`: Register PNG data representation alongside TIFF and NSImage for broader app compatibility (`ClipboardTransferSupport.swift`)
+
 ## [1.7.0] — 2026-04-07
 
 ### Added
