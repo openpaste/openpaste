@@ -11,7 +11,7 @@ struct PasteStackMoveTests {
     private func makeVM(count: Int) -> PasteStackViewModel {
         let vm = PasteStackViewModel()
         for i in 0..<count {
-            vm.addToStack(TestHelpers.makeTextItem(text: "item\(i)"))
+            vm.addToStack(TestHelpers.makeTextItem(text: "item\(i)").toSummary())
         }
         return vm
     }
@@ -108,7 +108,7 @@ struct PasteStackMoveTests {
 
     @Test func addAndRemoveRoundTrip() {
         let vm = PasteStackViewModel()
-        let item = TestHelpers.makeTextItem(text: "round-trip")
+        let item = TestHelpers.makeTextItem(text: "round-trip").toSummary()
         vm.addToStack(item)
         #expect(vm.items.count == 1)
         #expect(vm.isActive)

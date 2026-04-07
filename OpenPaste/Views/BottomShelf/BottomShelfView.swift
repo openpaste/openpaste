@@ -7,6 +7,7 @@ struct BottomShelfView: View {
     var pasteStackViewModel: PasteStackViewModel?
     var collectionViewModel: CollectionViewModel?
     var smartListViewModel: SmartListViewModel?
+    let storageService: StorageServiceProtocol
 
     @State var selectedId: UUID?
     @State var selectedCollectionId: UUID?
@@ -15,6 +16,7 @@ struct BottomShelfView: View {
     @State private var showNewCollectionSheet = false
     @State private var newCollectionName = ""
     @State private var draggedItemId: UUID?
+    @State private var isCommandPressed = false
     @FocusState var searchFocused: Bool
 
     @AppStorage(Constants.showShortcutHintsKey) private var showShortcutHints = true
@@ -78,16 +80,24 @@ struct BottomShelfView: View {
                 searchFocused = true
             }
         }
+        .onDisappear {
+            isCommandPressed = false
+        }
         .background(
-            ShelfKeyboardSink(
-                searchFocused: searchFocused,
-                isSuspended: showNewCollectionSheet,
-                hasSelection: selectedItem != nil,
-                onDelete: deleteSelected,
-                onMoveLeft: { moveSelection(by: -1) },
-                onMoveRight: { moveSelection(by: 1) }
-            )
-            .frame(width: 0, height: 0)
+            ZStack {
+                ShelfKeyboardSink(
+                    searchFocused: searchFocused,
+                    isSuspended: showNewCollectionSheet,
+                    hasSelection: selectedItem != nil,
+                    onDelete: deleteSelected,
+                    onMoveLeft: { moveSelection(by: -1) },
+                    onMoveRight: { moveSelection(by: 1) }
+                )
+                .frame(width: 0, height: 0)
+
+                CommandKeyMonitor(isCommandPressed: $isCommandPressed)
+                    .frame(width: 0, height: 0)
+            }
         )
         .task { await historyViewModel.loadInitial() }
         .task { await historyViewModel.observeEvents() }
@@ -99,6 +109,12 @@ struct BottomShelfView: View {
                 for: BottomShelfPanel.dragSessionDidEndNotification)
         ) { _ in
             draggedItemId = nil
+        }
+        .onReceive(
+            NotificationCenter.default.publisher(for: NSApplication.didResignActiveNotification)
+        ) {
+            _ in
+            isCommandPressed = false
         }
         .accessibilityIdentifier("bottomShelf.root")
     }
@@ -197,6 +213,7 @@ struct BottomShelfView: View {
                             item: item,
                             isSelected: selectedId == item.id,
                             index: idx,
+                            revealQuickIndexBadge: isCommandPressed,
                             onPaste: {
                                 selectedId = item.id
                                 Task { await activePaste(item) }
@@ -227,7 +244,8 @@ struct BottomShelfView: View {
                         .onDrag {
                             draggedItemId = item.id
                             (NSApp.keyWindow as? BottomShelfPanel)?.beginDragSession()
-                            return ClipboardTransferSupport.makeDragItemProvider(for: item)
+                            return ClipboardTransferSupport.makeDragItemProvider(
+                                for: item, storageService: storageService)
                         }
                         .onDrop(
                             of: [UTType.openPasteReorderItem],

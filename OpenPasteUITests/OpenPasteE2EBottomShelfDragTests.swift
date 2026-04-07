@@ -1,4 +1,5 @@
 import AppKit
+import Darwin
 import XCTest
 
 final class OpenPasteE2EBottomShelfDragTests: XCTestCase {
@@ -55,7 +56,6 @@ final class OpenPasteE2EBottomShelfDragTests: XCTestCase {
             showShortcutHints ? "1" : "0"
         app.launchEnvironment["OPENPASTE_UI_TEST_SEED_TEXT_ITEMS"] = "Alpha|Beta|Gamma"
         app.launch()
-        app.activate()
         return app
     }
 
@@ -81,6 +81,8 @@ final class OpenPasteE2EBottomShelfDragTests: XCTestCase {
     }
 
     private func terminateRunningOpenPasteIfNeeded() {
+        forceKillOpenPasteProcess()
+
         var running = NSRunningApplication.runningApplications(withBundleIdentifier: bundleID)
         guard !running.isEmpty else { return }
 
@@ -98,5 +100,35 @@ final class OpenPasteE2EBottomShelfDragTests: XCTestCase {
         for app in running {
             _ = app.forceTerminate()
         }
+    }
+
+    private func forceKillOpenPasteProcess() {
+        for app in NSRunningApplication.runningApplications(withBundleIdentifier: bundleID) {
+            let pid = app.processIdentifier
+            let parentPID = parentProcessID(for: pid)
+            _ = Darwin.kill(pid, SIGKILL)
+            if parentPID > 1 {
+                _ = Darwin.kill(parentPID, SIGKILL)
+            }
+        }
+    }
+
+    private func parentProcessID(for pid: pid_t) -> pid_t {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/bin/ps")
+        process.arguments = ["-p", "\(pid)", "-o", "ppid="]
+
+        let pipe = Pipe()
+        process.standardOutput = pipe
+
+        try? process.run()
+        process.waitUntilExit()
+
+        let output = String(
+            data: pipe.fileHandleForReading.readDataToEndOfFile(),
+            encoding: .utf8
+        )?.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        return pid_t(Int(output ?? "") ?? 0)
     }
 }

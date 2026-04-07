@@ -24,7 +24,7 @@ struct GeneralSettingsView: View {
                             .foregroundStyle(.secondary)
                             if !accessibilityGranted {
                                 Text(
-                                    "Click \"Grant Access\" → press + in Settings → select OpenPaste from Finder."
+                                    "Find OpenPaste in the Accessibility list and toggle it ON."
                                 )
                                 .font(.caption2)
                                 .foregroundStyle(.orange)
@@ -42,17 +42,14 @@ struct GeneralSettingsView: View {
 
                     if !accessibilityGranted {
                         Button("Grant Access…") {
-                            // Note: kAXTrustedCheckOptionPrompt is suppressed for sandboxed apps
-                            // (App Sandbox prevents the system prompt from appearing).
-                            // Open System Settings directly so the user can add the app via "+".
+                            // Trigger system Accessibility dialog to auto-add app to list
+                            Self.triggerAccessibilityPrompt()
                             if let url = URL(
                                 string:
                                     "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility"
                             ) {
                                 NSWorkspace.shared.open(url)
                             }
-                            // Reveal this app in Finder so user can find it for "+"
-                            NSWorkspace.shared.activateFileViewerSelecting([Bundle.main.bundleURL])
                         }
                     }
                 }
@@ -141,5 +138,17 @@ struct GeneralSettingsView: View {
             }
             Button("Cancel", role: .cancel) {}
         }
+    }
+
+    /// Posts a harmless CGEvent to trigger the system Accessibility dialog.
+    private static func triggerAccessibilityPrompt() {
+        let source = CGEventSource(stateID: .combinedSessionState)
+        guard let keyDown = CGEvent(keyboardEventSource: source, virtualKey: 0x09, keyDown: true),
+              let keyUp = CGEvent(keyboardEventSource: source, virtualKey: 0x09, keyDown: false)
+        else { return }
+        keyDown.flags = .maskCommand
+        keyUp.flags = .maskCommand
+        keyDown.post(tap: .cgAnnotatedSessionEventTap)
+        keyUp.post(tap: .cgAnnotatedSessionEventTap)
     }
 }

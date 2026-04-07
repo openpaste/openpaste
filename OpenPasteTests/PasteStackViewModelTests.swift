@@ -12,7 +12,7 @@ struct PasteStackViewModelTests {
 
     @Test func addToStack() {
         let vm = PasteStackViewModel()
-        let item = TestHelpers.makeTextItem()
+        let item = TestHelpers.makeTextItem().toSummary()
         vm.addToStack(item)
         #expect(vm.items.count == 1)
         #expect(vm.isActive)
@@ -20,7 +20,7 @@ struct PasteStackViewModelTests {
 
     @Test func noDuplicateItems() {
         let vm = PasteStackViewModel()
-        let item = TestHelpers.makeTextItem()
+        let item = TestHelpers.makeTextItem().toSummary()
         vm.addToStack(item)
         vm.addToStack(item)
         #expect(vm.items.count == 1)
@@ -28,15 +28,15 @@ struct PasteStackViewModelTests {
 
     @Test func addMultipleItems() {
         let vm = PasteStackViewModel()
-        vm.addToStack(TestHelpers.makeTextItem(text: "a"))
-        vm.addToStack(TestHelpers.makeTextItem(text: "b"))
-        vm.addToStack(TestHelpers.makeTextItem(text: "c"))
+        vm.addToStack(TestHelpers.makeTextItem(text: "a").toSummary())
+        vm.addToStack(TestHelpers.makeTextItem(text: "b").toSummary())
+        vm.addToStack(TestHelpers.makeTextItem(text: "c").toSummary())
         #expect(vm.items.count == 3)
     }
 
     @Test func removeFromStack() {
         let vm = PasteStackViewModel()
-        let item = TestHelpers.makeTextItem()
+        let item = TestHelpers.makeTextItem().toSummary()
         vm.addToStack(item)
         vm.removeFromStack(item)
         #expect(vm.items.isEmpty)
@@ -45,8 +45,8 @@ struct PasteStackViewModelTests {
 
     @Test func removeAdjustsIndex() {
         let vm = PasteStackViewModel()
-        vm.addToStack(TestHelpers.makeTextItem(text: "a"))
-        let itemB = TestHelpers.makeTextItem(text: "b")
+        vm.addToStack(TestHelpers.makeTextItem(text: "a").toSummary())
+        let itemB = TestHelpers.makeTextItem(text: "b").toSummary()
         vm.addToStack(itemB)
         vm.currentIndex = 1
         vm.removeFromStack(itemB)
@@ -55,7 +55,7 @@ struct PasteStackViewModelTests {
 
     @Test func currentItem() {
         let vm = PasteStackViewModel()
-        let item = TestHelpers.makeTextItem(text: "first")
+        let item = TestHelpers.makeTextItem(text: "first").toSummary()
         vm.addToStack(item)
         #expect(vm.currentItem?.id == item.id)
     }
@@ -67,9 +67,9 @@ struct PasteStackViewModelTests {
 
     @Test func positionText() {
         let vm = PasteStackViewModel()
-        vm.addToStack(TestHelpers.makeTextItem(text: "a"))
-        vm.addToStack(TestHelpers.makeTextItem(text: "b"))
-        vm.addToStack(TestHelpers.makeTextItem(text: "c"))
+        vm.addToStack(TestHelpers.makeTextItem(text: "a").toSummary())
+        vm.addToStack(TestHelpers.makeTextItem(text: "b").toSummary())
+        vm.addToStack(TestHelpers.makeTextItem(text: "c").toSummary())
         #expect(vm.positionText == "1/3")
     }
 
@@ -80,8 +80,8 @@ struct PasteStackViewModelTests {
 
     @Test func clear() {
         let vm = PasteStackViewModel()
-        vm.addToStack(TestHelpers.makeTextItem(text: "a"))
-        vm.addToStack(TestHelpers.makeTextItem(text: "b"))
+        vm.addToStack(TestHelpers.makeTextItem(text: "a").toSummary())
+        vm.addToStack(TestHelpers.makeTextItem(text: "b").toSummary())
         vm.currentIndex = 1
         vm.clear()
         #expect(vm.items.isEmpty)

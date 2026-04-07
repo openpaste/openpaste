@@ -2,39 +2,42 @@ import Foundation
 
 @Observable
 final class PasteStackViewModel {
-    var items: [ClipboardItem] = []
+    var items: [ClipboardItemSummary] = []
     var currentIndex: Int = 0
     var isActive: Bool { !items.isEmpty }
 
     private var clipboardService: ClipboardServiceProtocol?
+    private var storageService: StorageServiceProtocol?
     var dismissAction: (() -> Void)?
     var reactivatePreviousApp: (() -> Void)?
     var previousAppBundleId: (() -> String?)?
 
-    func configure(clipboardService: ClipboardServiceProtocol) {
+    func configure(clipboardService: ClipboardServiceProtocol, storageService: StorageServiceProtocol) {
         self.clipboardService = clipboardService
+        self.storageService = storageService
     }
 
-    func addToStack(_ item: ClipboardItem) {
+    func addToStack(_ item: ClipboardItemSummary) {
         guard !items.contains(where: { $0.id == item.id }) else { return }
         items.append(item)
     }
 
-    func removeFromStack(_ item: ClipboardItem) {
+    func removeFromStack(_ item: ClipboardItemSummary) {
         items.removeAll { $0.id == item.id }
         if currentIndex >= items.count {
             currentIndex = max(0, items.count - 1)
         }
     }
 
-    var currentItem: ClipboardItem? {
+    var currentItem: ClipboardItemSummary? {
         guard currentIndex < items.count else { return nil }
         return items[currentIndex]
     }
 
     func pasteNext() async {
-        guard let item = currentItem else { return }
-        await clipboardService?.copyToClipboard(item)
+        guard let summary = currentItem else { return }
+        guard let fullItem = try? await storageService?.fetchFull(by: summary.id) else { return }
+        await clipboardService?.copyToClipboard(fullItem)
         if currentIndex < items.count - 1 {
             currentIndex += 1
         } else {
@@ -53,17 +56,14 @@ final class PasteStackViewModel {
 
     /// Move an item within the stack (for drag-and-drop reorder)
     func moveItems(from source: IndexSet, to destination: Int) {
-        // Manual move implementation (Array.move is SwiftUI-specific)
         var reordered = items
         let movedItems = source.map { reordered[$0] }
-        // Remove from highest index first to preserve lower indices
         for index in source.sorted().reversed() {
             reordered.remove(at: index)
         }
         let insertAt = min(destination, reordered.count)
         reordered.insert(contentsOf: movedItems, at: insertAt)
-        
-        // Adjust currentIndex if it was affected by the move
+
         if let sourceIdx = source.first {
             if sourceIdx == currentIndex {
                 currentIndex = destination > sourceIdx ? destination - 1 : destination

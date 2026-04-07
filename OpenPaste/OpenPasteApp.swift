@@ -18,6 +18,10 @@ struct OpenPasteApp: App {
         let _ = controller.setOpenSettingsAction { [openSettings] in
             openSettings()
         }
+        settingsScene
+    }
+
+    private var settingsScene: some Scene {
         Settings {
             SettingsView(
                 viewModel: controller.settingsViewModel,

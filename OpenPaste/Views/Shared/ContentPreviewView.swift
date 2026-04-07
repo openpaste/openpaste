@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct ContentPreviewView: View {
-    let item: ClipboardItem
+    let item: ClipboardItemSummary
     var highlightQuery: String = ""
 
     var body: some View {
@@ -26,7 +26,9 @@ struct ContentPreviewView: View {
     // MARK: - Sensitive Content Blur
 
     @ViewBuilder
-    private func sensitiveWrapper<Content: View>(@ViewBuilder content: @escaping () -> Content) -> some View {
+    private func sensitiveWrapper<Content: View>(@ViewBuilder content: @escaping () -> Content)
+        -> some View
+    {
         if item.isSensitive {
             SensitiveContentOverlay { content() }
         } else {
@@ -77,18 +79,9 @@ struct ContentPreviewView: View {
     // MARK: - Image Preview
 
     private var imagePreview: some View {
-        Group {
-            if let nsImage = NSImage(data: item.content) {
-                Image(nsImage: nsImage)
-                    .resizable()
-                    .aspectRatio(contentMode: .fit)
-                    .frame(maxHeight: 120)
-                    .clipShape(RoundedRectangle(cornerRadius: 6))
-            } else {
-                Label("Image", systemImage: "photo")
-                    .foregroundStyle(.secondary)
-            }
-        }
+        AsyncThumbnailView(itemId: item.id, variant: .list)
+            .frame(maxHeight: 120)
+            .clipShape(RoundedRectangle(cornerRadius: 6))
     }
 
     // MARK: - Link Preview (with favicon + title)
@@ -197,9 +190,11 @@ struct LinkPreviewRow: View {
         }
         .task {
             guard !didFetch,
-                  !isSensitive,
-                  (UserDefaults.standard.object(forKey: Constants.urlPreviewEnabledKey) as? Bool) ?? true,
-                  let url = URL(string: urlString) else { return }
+                !isSensitive,
+                (UserDefaults.standard.object(forKey: Constants.urlPreviewEnabledKey) as? Bool)
+                    ?? true,
+                let url = URL(string: urlString)
+            else { return }
             didFetch = true
             if let metadata = await URLMetadataService.shared.fetch(url: url) {
                 title = metadata.title

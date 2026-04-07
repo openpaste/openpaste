@@ -75,17 +75,33 @@ final class OnboardingViewModel {
     // MARK: - Permissions
 
     func openAccessibilitySettings() {
-        // Note: kAXTrustedCheckOptionPrompt is suppressed for sandboxed apps
-        // (App Sandbox prevents the system prompt from appearing).
-        // Open System Settings directly so the user can add the app via "+".
+        // Attempt a CGEventPost to trigger macOS into showing the
+        // "Accessibility Access" system dialog. This automatically adds
+        // the app to the Accessibility list (toggled OFF), so the user
+        // only needs to toggle it ON — no manual "+" step needed.
+        // This is the same mechanism used by Paste and other clipboard managers.
+        triggerAccessibilityPrompt()
+
+        // Open System Settings so the user can toggle the switch ON
         if let url = URL(
             string:
                 "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")
         {
             NSWorkspace.shared.open(url)
         }
-        // Reveal the app bundle in Finder so user can easily select it via "+"
-        NSWorkspace.shared.activateFileViewerSelecting([Bundle.main.bundleURL])
+    }
+
+    /// Posts a harmless CGEvent (⌘V key down/up) to trigger the system
+    /// Accessibility permission dialog if not yet granted.
+    private func triggerAccessibilityPrompt() {
+        let source = CGEventSource(stateID: .combinedSessionState)
+        guard let keyDown = CGEvent(keyboardEventSource: source, virtualKey: 0x09, keyDown: true),
+              let keyUp = CGEvent(keyboardEventSource: source, virtualKey: 0x09, keyDown: false)
+        else { return }
+        keyDown.flags = .maskCommand
+        keyUp.flags = .maskCommand
+        keyDown.post(tap: .cgAnnotatedSessionEventTap)
+        keyUp.post(tap: .cgAnnotatedSessionEventTap)
     }
 
     func checkAccessibilityPermission() {

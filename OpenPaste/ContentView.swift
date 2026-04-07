@@ -6,6 +6,7 @@ struct ContentView: View {
     var pasteStackViewModel: PasteStackViewModel?
     var collectionViewModel: CollectionViewModel?
     var smartListViewModel: SmartListViewModel?
+    let storageService: StorageServiceProtocol
 
     @AppStorage(Constants.windowPositionModeKey) private var windowMode = Constants.windowPositionModeBottomShelf
 
@@ -22,7 +23,8 @@ struct ContentView: View {
                     searchViewModel: searchViewModel,
                     pasteStackViewModel: pasteStackViewModel,
                     collectionViewModel: collectionViewModel,
-                    smartListViewModel: smartListViewModel
+                    smartListViewModel: smartListViewModel,
+                    storageService: storageService
                 )
             } else {
                 verticalLayout

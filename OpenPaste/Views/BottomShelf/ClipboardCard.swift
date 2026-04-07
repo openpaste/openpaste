@@ -2,9 +2,10 @@ import AppKit
 import SwiftUI
 
 struct ClipboardCard: View {
-    let item: ClipboardItem
+    let item: ClipboardItemSummary
     let isSelected: Bool
     var index: Int?
+    var revealQuickIndexBadge = false
 
     let onPaste: () -> Void
     let onSelect: () -> Void
@@ -14,7 +15,45 @@ struct ClipboardCard: View {
 
     @State private var isHovered = false
 
+    private var shouldShowQuickIndexBadge: Bool {
+        Self.shouldRevealQuickIndexBadge(
+            isHovered: isHovered,
+            revealQuickIndexBadge: revealQuickIndexBadge
+        )
+    }
+
+    private var quickIndexAccessibilityValue: String? {
+        guard UITestLaunchOptions.isEnabled,
+            let index,
+            Self.supportsQuickIndexBadge(index: index)
+        else {
+            return nil
+        }
+
+        return shouldShowQuickIndexBadge ? "cmd\(index + 1)" : "hidden"
+    }
+
+    static func shouldRevealQuickIndexBadge(isHovered: Bool, revealQuickIndexBadge: Bool) -> Bool {
+        isHovered || revealQuickIndexBadge
+    }
+
+    static func supportsQuickIndexBadge(index: Int?) -> Bool {
+        guard let index else { return false }
+        return index >= 0 && index < 9
+    }
+
     var body: some View {
+        Group {
+            if let quickIndexAccessibilityValue {
+                baseButton
+                    .accessibilityValue(Text(quickIndexAccessibilityValue))
+            } else {
+                baseButton
+            }
+        }
+    }
+
+    private var baseButton: some View {
         Button(action: handlePrimaryClick) {
             cardBody
         }
@@ -34,10 +73,32 @@ struct ClipboardCard: View {
         }
     }
 
+    // MARK: - Click Handling
+
+    /// Uses AppKit's NSEvent to distinguish single-click (select) from double-click (paste).
+    /// This approach avoids SwiftUI TapGesture which conflicts with .onDrag modifier.
+    private func handlePrimaryClick() {
+        onSelect()
+
+        guard let event = NSApp.currentEvent,
+            event.type == .leftMouseUp,
+            event.clickCount == 2
+        else {
+            return
+        }
+
+        onPaste()
+    }
+
     private var cardBody: some View {
         VStack(alignment: .leading, spacing: 0) {
             // Type badge header
             typeBadge
+                .frame(
+                    maxWidth: .infinity,
+                    minHeight: DS.Card.typeBadgeHeight,
+                    alignment: .topLeading
+                )
                 .padding(.horizontal, 10)
                 .padding(.top, 8)
                 .padding(.bottom, 4)
@@ -62,7 +123,7 @@ struct ClipboardCard: View {
         .clipShape(RoundedRectangle(cornerRadius: DS.Card.cornerRadius))
         .overlay(selectionBorder)
         .overlay(alignment: .topTrailing) { quickIndexBadge }
-        .scaleEffect(isHovered ? DS.Card.hoverScale : 1.0)
+        .scaleEffect(isHovered ? DS.Card.hoverScale : 1.0, anchor: .topLeading)
         .shadow(
             color: isSelected ? DS.Colors.accent.opacity(0.3) : DS.Shadow.card.color,
             radius: isSelected ? 10 : DS.Shadow.card.radius,
@@ -73,19 +134,6 @@ struct ClipboardCard: View {
         .animation(DS.Animation.springSnappy, value: isSelected)
         .contentShape(Rectangle())
         .onHover { isHovered = $0 }
-    }
-
-    private func handlePrimaryClick() {
-        onSelect()
-
-        guard let event = NSApp.currentEvent,
-            event.type == .leftMouseUp,
-            event.clickCount == 2
-        else {
-            return
-        }
-
-        onPaste()
     }
 
     // MARK: - Card Background
@@ -137,7 +185,7 @@ struct ClipboardCard: View {
 
     @ViewBuilder
     private var quickIndexBadge: some View {
-        if let index, index < 9 {
+        if let index, Self.supportsQuickIndexBadge(index: index) {
             Text("⌘\(index + 1)")
                 .font(.system(size: 8, weight: .bold, design: .rounded))
                 .foregroundStyle(.white.opacity(0.85))
@@ -146,8 +194,10 @@ struct ClipboardCard: View {
                 .background(Color.black.opacity(0.5))
                 .clipShape(RoundedRectangle(cornerRadius: 4))
                 .padding(6)
-                .opacity(isHovered ? 1 : 0)
-                .animation(DS.Animation.quick, value: isHovered)
+                .opacity(shouldShowQuickIndexBadge ? 1 : 0)
+                .animation(DS.Animation.quick, value: shouldShowQuickIndexBadge)
+                .allowsHitTesting(false)
+                .accessibilityHidden(true)
         }
     }
 
@@ -170,20 +220,11 @@ struct ClipboardCard: View {
             }
         case .image:
             sensitiveWrapper {
-                if let nsImage = ThumbnailCache.shared.thumbnail(for: item.id, data: item.content) {
-                    GeometryReader { geo in
-                        Image(nsImage: nsImage)
-                            .resizable()
-                            .aspectRatio(contentMode: .fill)
-                            .frame(width: geo.size.width, height: geo.size.height)
-                            .clipShape(RoundedRectangle(cornerRadius: 6))
-                            .clipped()
-                    }
-                } else {
-                    Label("Image", systemImage: "photo")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
+                AsyncThumbnailView(itemId: item.id, variant: .card)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: DS.Card.imagePreviewHeight, alignment: .top)
+                    .clipShape(RoundedRectangle(cornerRadius: 6))
+                    .padding(.top, DS.Spacing.xs)
             }
         case .link:
             sensitiveWrapper {
@@ -278,7 +319,9 @@ struct ClipboardCard: View {
                     Text("\(text.count) characters")
                 }
             case .file:
-                Text(item.content.humanReadableSize)
+                Text(
+                    ByteCountFormatter.string(
+                        fromByteCount: Int64(item.contentSize), countStyle: .file))
             case .color:
                 EmptyView()
             }
@@ -292,7 +335,7 @@ struct ClipboardCard: View {
             return "\(width) × \(height)"
         }
 
-        guard let size = ThumbnailCache.shared.originalSize(for: item.id, data: item.content) else {
+        guard let size = ThumbnailCache.shared.originalSize(for: item.id) else {
             return nil
         }
 
