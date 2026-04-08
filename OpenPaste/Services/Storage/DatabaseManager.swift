@@ -24,12 +24,16 @@ actor DatabaseManager {
             // Use standard API — macOS automatically resolves to the correct location:
             // - Sandbox ON:  ~/Library/Containers/<bundleId>/Data/Library/Application Support/
             // - Sandbox OFF: ~/Library/Application Support/
-            guard let appSupportURL = fileManager.urls(
-                for: .applicationSupportDirectory, in: .userDomainMask
-            ).first else {
-                throw CocoaError(.fileNoSuchFile, userInfo: [
-                    NSLocalizedDescriptionKey: "Could not locate Application Support directory"
-                ])
+            guard
+                let appSupportURL = fileManager.urls(
+                    for: .applicationSupportDirectory, in: .userDomainMask
+                ).first
+            else {
+                throw CocoaError(
+                    .fileNoSuchFile,
+                    userInfo: [
+                        NSLocalizedDescriptionKey: "Could not locate Application Support directory"
+                    ])
             }
 
             dbDirectory = appSupportURL.appendingPathComponent("OpenPaste", isDirectory: true)
@@ -47,7 +51,8 @@ actor DatabaseManager {
                     }
                     return fileManager.homeDirectoryForCurrentUser
                 }()
-                return realHome
+                return
+                    realHome
                     .appendingPathComponent("Library", isDirectory: true)
                     .appendingPathComponent("Application Support", isDirectory: true)
                     .appendingPathComponent("OpenPaste", isDirectory: true)
@@ -123,6 +128,43 @@ actor DatabaseManager {
     nonisolated func setSyncOutboxCallback(_ callback: @escaping (_ recordNames: [String]) -> Void)
     {
         syncChangeTracker.onOutboxEnqueued = callback
+    }
+
+    /// Purge soft-deleted rows, run VACUUM to reclaim disk space, then optimize query planner.
+    func vacuum() async throws {
+        try await dbQueue.write { db in
+            // Hard-delete soft-deleted items and their sync metadata
+            try db.execute(
+                sql: """
+                    DELETE FROM sync_metadata
+                    WHERE localId IN (SELECT id FROM clipboardItems WHERE isDeleted = 1)
+                    """)
+            try db.execute(sql: "DELETE FROM clipboardItems WHERE isDeleted = 1")
+
+            // Hard-delete soft-deleted collections
+            try db.execute(
+                sql: """
+                    DELETE FROM sync_metadata
+                    WHERE localId IN (SELECT id FROM collections WHERE isDeleted = 1)
+                    """)
+            try db.execute(sql: "DELETE FROM collections WHERE isDeleted = 1")
+
+            // Hard-delete soft-deleted smart lists
+            try db.execute(
+                sql: """
+                    DELETE FROM sync_metadata
+                    WHERE localId IN (SELECT id FROM smartLists WHERE isDeleted = 1)
+                    """)
+            try db.execute(sql: "DELETE FROM smartLists WHERE isDeleted = 1")
+        }
+
+        // VACUUM must run outside a transaction — it rebuilds the entire DB and resets WAL
+        try await dbQueue.vacuum()
+
+        // Update query planner statistics after the rebuild
+        try await dbQueue.writeWithoutTransaction { db in
+            try db.execute(sql: "PRAGMA optimize")
+        }
     }
 
     private static func copyLegacyDatabaseIfNeeded(

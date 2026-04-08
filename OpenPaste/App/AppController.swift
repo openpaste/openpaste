@@ -115,6 +115,7 @@ final class AppController {
                 await hvm?.loadInitial()
             }
             svm.storageService = c.storageService
+            svm.databaseManager = c.databaseManager
             svm.syncService = c.syncService
             svm.eventBus = c.eventBus
 
