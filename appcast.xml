@@ -4,6 +4,17 @@
     <title>OpenPaste Updates</title>
     <language>en</language>
     <item>
+      <title>Version 1.7.2</title>
+      <pubDate>Tue, 08 Apr 2026 02:30:00 +0000</pubDate>
+      <sparkle:version>1.7.2</sparkle:version>
+      <sparkle:shortVersionString>1.7.2</sparkle:shortVersionString>
+      <enclosure
+        url="https://github.com/openpaste/openpaste/releases/download/v1.7.2/OpenPaste-1.7.2.dmg"
+        sparkle:edSignature="SyDTykAf8NIUjrnx6kqedPJx/SVHpVkbFzwXXTr0xu8lRyQ09p431U788G/L5N5qcCK0b4ImDUw2occL1AswAQ=="
+        length="7086233"
+        type="application/octet-stream"/>
+    </item>
+    <item>
       <title>Version 1.7.1</title>
       <pubDate>Mon, 07 Apr 2026 16:20:00 +0000</pubDate>
       <sparkle:version>1.7.1</sparkle:version>
