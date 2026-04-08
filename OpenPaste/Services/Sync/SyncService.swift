@@ -180,6 +180,7 @@ final class SyncService: NSObject, SyncServiceProtocol, CKSyncEngineDelegate, @u
         }
 
         await recoverInFlightOutbox()
+        await recoverServerRecordChangedErrors()
 
         do {
             let stateSerialization = try await loadEngineStateSerialization()

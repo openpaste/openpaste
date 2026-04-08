@@ -15,9 +15,11 @@ final class SyncChangeTracker: TransactionObserver {
     /// The SyncService sets this to notify CKSyncEngine about pending changes.
     var onOutboxEnqueued: ((_ recordNames: [String]) -> Void)?
 
-    init(includeSensitiveProvider: @escaping @Sendable () -> Bool = {
-        UserDefaults.standard.bool(forKey: Constants.iCloudSyncIncludeSensitiveKey)
-    }) {
+    init(
+        includeSensitiveProvider: @escaping @Sendable () -> Bool = {
+            UserDefaults.standard.bool(forKey: Constants.iCloudSyncIncludeSensitiveKey)
+        }
+    ) {
         self.includeSensitiveProvider = includeSensitiveProvider
     }
 
@@ -42,17 +44,24 @@ final class SyncChangeTracker: TransactionObserver {
     func observes(eventsOfKind eventKind: DatabaseEventKind) -> Bool {
         switch eventKind {
         case .insert(let tableName):
-            return tableName == "clipboardItems" || tableName == "collections" || tableName == "smartLists"
+            return tableName == "clipboardItems" || tableName == "collections"
+                || tableName == "smartLists"
 
         case .update(let tableName, let columnNames):
             if tableName == "clipboardItems" {
-                return columnNames.contains("syncVersion") || columnNames.contains("isDeleted") || columnNames.contains("isSensitive")
+                return columnNames.contains("syncVersion") || columnNames.contains("isDeleted")
+                    || columnNames.contains("isSensitive")
             }
             if tableName == "collections" {
-                return columnNames.contains("modifiedAt") || columnNames.contains("isDeleted") || columnNames.contains("name") || columnNames.contains("color")
+                return columnNames.contains("modifiedAt") || columnNames.contains("isDeleted")
+                    || columnNames.contains("name") || columnNames.contains("color")
             }
             if tableName == "smartLists" {
-                return columnNames.contains("modifiedAt") || columnNames.contains("isDeleted") || columnNames.contains("name") || columnNames.contains("rules")
+                return columnNames.contains("modifiedAt") || columnNames.contains("isDeleted")
+                    || columnNames.contains("name") || columnNames.contains("rules")
+                    || columnNames.contains("icon") || columnNames.contains("color")
+                    || columnNames.contains("matchMode") || columnNames.contains("sortOrder")
+                    || columnNames.contains("position")
             }
             return false
 
@@ -64,7 +73,10 @@ final class SyncChangeTracker: TransactionObserver {
 
     func databaseDidChange(with event: DatabaseEvent) {
         guard !isSuspended() else { return }
-        guard event.tableName == "clipboardItems" || event.tableName == "collections" || event.tableName == "smartLists" else { return }
+        guard
+            event.tableName == "clipboardItems" || event.tableName == "collections"
+                || event.tableName == "smartLists"
+        else { return }
 
         lock.lock()
         pendingEvents.append(event.copy())
@@ -85,14 +97,16 @@ final class SyncChangeTracker: TransactionObserver {
         let includeSensitive = includeSensitiveProvider()
         var enqueuedNames: [String] = []
 
-        let clipboardRowIDs = Set(events.filter { $0.tableName == "clipboardItems" }.map { $0.rowID })
+        let clipboardRowIDs = Set(
+            events.filter { $0.tableName == "clipboardItems" }.map { $0.rowID })
         let collectionRowIDs = Set(events.filter { $0.tableName == "collections" }.map { $0.rowID })
         let smartListRowIDs = Set(events.filter { $0.tableName == "smartLists" }.map { $0.rowID })
 
         if !clipboardRowIDs.isEmpty {
             let ids = Array(clipboardRowIDs)
             let placeholders = Array(repeating: "?", count: ids.count).joined(separator: ",")
-            let sql = "SELECT rowid, id, isDeleted, isSensitive FROM clipboardItems WHERE rowid IN (\(placeholders))"
+            let sql =
+                "SELECT rowid, id, isDeleted, isSensitive FROM clipboardItems WHERE rowid IN (\(placeholders))"
             let rows = try? Row.fetchAll(db, sql: sql, arguments: StatementArguments(ids))
             rows?.forEach { row in
                 let id: String = row["id"]
@@ -103,7 +117,9 @@ final class SyncChangeTracker: TransactionObserver {
 
                 let recordName = "item_" + id
                 let operation: SyncOutboxOperation = isDeleted ? .delete : .upsert
-                Self.enqueueOutbox(db, recordName: recordName, tableName: "clipboardItems", localId: id, operation: operation, updatedAt: now)
+                Self.enqueueOutbox(
+                    db, recordName: recordName, tableName: "clipboardItems", localId: id,
+                    operation: operation, updatedAt: now)
                 enqueuedNames.append(recordName)
             }
         }
@@ -111,7 +127,8 @@ final class SyncChangeTracker: TransactionObserver {
         if !collectionRowIDs.isEmpty {
             let ids = Array(collectionRowIDs)
             let placeholders = Array(repeating: "?", count: ids.count).joined(separator: ",")
-            let sql = "SELECT rowid, id, isDeleted FROM collections WHERE rowid IN (\(placeholders))"
+            let sql =
+                "SELECT rowid, id, isDeleted FROM collections WHERE rowid IN (\(placeholders))"
             let rows = try? Row.fetchAll(db, sql: sql, arguments: StatementArguments(ids))
             rows?.forEach { row in
                 let id: String = row["id"]
@@ -119,7 +136,9 @@ final class SyncChangeTracker: TransactionObserver {
 
                 let recordName = "collection_" + id
                 let operation: SyncOutboxOperation = isDeleted ? .delete : .upsert
-                Self.enqueueOutbox(db, recordName: recordName, tableName: "collections", localId: id, operation: operation, updatedAt: now)
+                Self.enqueueOutbox(
+                    db, recordName: recordName, tableName: "collections", localId: id,
+                    operation: operation, updatedAt: now)
                 enqueuedNames.append(recordName)
             }
         }
@@ -128,7 +147,8 @@ final class SyncChangeTracker: TransactionObserver {
         if !smartListRowIDs.isEmpty {
             let ids = Array(smartListRowIDs)
             let placeholders = Array(repeating: "?", count: ids.count).joined(separator: ",")
-            let sql = "SELECT rowid, id, isDeleted, isBuiltIn FROM smartLists WHERE rowid IN (\(placeholders))"
+            let sql =
+                "SELECT rowid, id, isDeleted, isBuiltIn FROM smartLists WHERE rowid IN (\(placeholders))"
             let rows = try? Row.fetchAll(db, sql: sql, arguments: StatementArguments(ids))
             rows?.forEach { row in
                 let id: String = row["id"]
@@ -140,7 +160,9 @@ final class SyncChangeTracker: TransactionObserver {
 
                 let recordName = "smartlist_" + id
                 let operation: SyncOutboxOperation = isDeleted ? .delete : .upsert
-                Self.enqueueOutbox(db, recordName: recordName, tableName: "smartLists", localId: id, operation: operation, updatedAt: now)
+                Self.enqueueOutbox(
+                    db, recordName: recordName, tableName: "smartLists", localId: id,
+                    operation: operation, updatedAt: now)
                 enqueuedNames.append(recordName)
             }
         }
@@ -167,17 +189,17 @@ final class SyncChangeTracker: TransactionObserver {
     ) {
         try? db.execute(
             sql: """
-            INSERT INTO sync_metadata (recordName, tableName, localId, operation, syncStatus, retryCount, updatedAt)
-            VALUES (?, ?, ?, ?, 'pending', 0, ?)
-            ON CONFLICT(recordName) DO UPDATE SET
-              tableName = excluded.tableName,
-              localId = excluded.localId,
-              operation = excluded.operation,
-              syncStatus = 'pending',
-              lastError = NULL,
-              retryCount = 0,
-              updatedAt = excluded.updatedAt;
-            """,
+                INSERT INTO sync_metadata (recordName, tableName, localId, operation, syncStatus, retryCount, updatedAt)
+                VALUES (?, ?, ?, ?, 'pending', 0, ?)
+                ON CONFLICT(recordName) DO UPDATE SET
+                  tableName = excluded.tableName,
+                  localId = excluded.localId,
+                  operation = excluded.operation,
+                  syncStatus = 'pending',
+                  lastError = NULL,
+                  retryCount = 0,
+                  updatedAt = excluded.updatedAt;
+                """,
             arguments: [recordName, tableName, localId, operation.rawValue, updatedAt]
         )
     }

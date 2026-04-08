@@ -1,17 +1,22 @@
-import SwiftUI
 import AppKit
+import SwiftUI
+import UniformTypeIdentifiers
 
 struct PrivacySettingsView: View {
     @Bindable var viewModel: SettingsViewModel
     @State private var showAppPicker = false
+    @State private var showFilePicker = false
+    @State private var selectedAppId: String?
 
     var body: some View {
         Form {
             Section {
-                Toggle(isOn: Binding(
-                    get: { !viewModel.screenSharingAutoHide },
-                    set: { viewModel.screenSharingAutoHide = !$0 }
-                )) {
+                Toggle(
+                    isOn: Binding(
+                        get: { !viewModel.screenSharingAutoHide },
+                        set: { viewModel.screenSharingAutoHide = !$0 }
+                    )
+                ) {
                     Text("Show during screen sharing")
                     Text("Allow OpenPaste to appear to others when you share your screen.")
                         .foregroundStyle(.secondary)
@@ -19,8 +24,10 @@ struct PrivacySettingsView: View {
 
                 Toggle(isOn: $viewModel.urlPreviewEnabled) {
                     Text("Generate link previews")
-                    Text("Download web content for previews; may activate one-time or analytics-sensitive links.")
-                        .foregroundStyle(.secondary)
+                    Text(
+                        "Download web content for previews; may activate one-time or analytics-sensitive links."
+                    )
+                    .foregroundStyle(.secondary)
                 }
 
                 Toggle(isOn: $viewModel.sensitiveDetectionEnabled) {
@@ -45,28 +52,55 @@ struct PrivacySettingsView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
 
-                List {
-                    ForEach(viewModel.blacklistedApps, id: \.bundleId) { app in
-                        HStack(spacing: 10) {
-                            appIcon(for: app)
-                            Text(app.name)
+                VStack(spacing: 0) {
+                    ScrollView {
+                        LazyVStack(spacing: 0) {
+                            ForEach(viewModel.blacklistedApps, id: \.bundleId) { app in
+                                HStack(spacing: 10) {
+                                    appIcon(for: app)
+                                    Text(app.name)
+                                    Spacer()
+                                }
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 6)
+                                .background(
+                                    selectedAppId == app.bundleId
+                                        ? Color.accentColor
+                                        : Color.clear
+                                )
+                                .cornerRadius(4)
+                                .contentShape(Rectangle())
+                                .onTapGesture {
+                                    selectedAppId = app.bundleId
+                                }
+                            }
                         }
-                    }
-                    .onDelete { indexSet in
-                        for index in indexSet {
-                            viewModel.removeBlacklistedApp(viewModel.blacklistedApps[index])
-                        }
+                        .padding(4)
                     }
                 }
-                .frame(height: 80)
+                .frame(height: 160)
+                .background(.background.secondary)
+                .clipShape(RoundedRectangle(cornerRadius: 6))
+                .onDeleteCommand {
+                    removeSelected()
+                }
 
-                HStack {
-                    Button {
-                        showAppPicker = true
+                ControlGroup {
+                    Menu {
+                        Button("Running App…") { showAppPicker = true }
+                        Button("Browse…") { showFilePicker = true }
                     } label: {
-                        Label("Add App…", systemImage: "plus")
+                        Image(systemName: "plus")
                     }
+
+                    Button {
+                        removeSelected()
+                    } label: {
+                        Image(systemName: "minus")
+                    }
+                    .disabled(selectedAppId == nil)
                 }
+                .frame(width: 52)
             }
         }
         .formStyle(.grouped)
@@ -79,6 +113,29 @@ struct PrivacySettingsView: View {
                 onCancel: { showAppPicker = false }
             )
         }
+        .fileImporter(
+            isPresented: $showFilePicker,
+            allowedContentTypes: [.application]
+        ) { result in
+            if case .success(let url) = result,
+                let bundle = Bundle(path: url.path),
+                let bundleId = bundle.bundleIdentifier
+            {
+                let name =
+                    bundle.object(forInfoDictionaryKey: "CFBundleName") as? String
+                    ?? url.deletingPathExtension().lastPathComponent
+                let app = AppInfo(bundleId: bundleId, name: name, iconPath: nil)
+                viewModel.addBlacklistedApp(app)
+            }
+        }
+    }
+
+    private func removeSelected() {
+        guard let id = selectedAppId,
+            let app = viewModel.blacklistedApps.first(where: { $0.bundleId == id })
+        else { return }
+        viewModel.removeBlacklistedApp(app)
+        selectedAppId = nil
     }
 
     private func appIcon(for app: AppInfo) -> some View {

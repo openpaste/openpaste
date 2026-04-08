@@ -1,5 +1,5 @@
-import Foundation
 import AppKit
+import Foundation
 import ServiceManagement
 
 @Observable
@@ -14,13 +14,21 @@ final class SettingsViewModel {
         didSet { UserDefaults.standard.set(sensitiveAutoExpiry, forKey: "sensitiveAutoExpiry") }
     }
     var sensitiveDetectionEnabled: Bool {
-        didSet { UserDefaults.standard.set(sensitiveDetectionEnabled, forKey: "sensitiveDetectionEnabled") }
+        didSet {
+            UserDefaults.standard.set(
+                sensitiveDetectionEnabled, forKey: "sensitiveDetectionEnabled")
+        }
     }
     var screenSharingAutoHide: Bool {
-        didSet { UserDefaults.standard.set(screenSharingAutoHide, forKey: Constants.screenSharingAutoHideKey) }
+        didSet {
+            UserDefaults.standard.set(
+                screenSharingAutoHide, forKey: Constants.screenSharingAutoHideKey)
+        }
     }
     var urlPreviewEnabled: Bool {
-        didSet { UserDefaults.standard.set(urlPreviewEnabled, forKey: Constants.urlPreviewEnabledKey) }
+        didSet {
+            UserDefaults.standard.set(urlPreviewEnabled, forKey: Constants.urlPreviewEnabledKey)
+        }
     }
     var blacklistedApps: [AppInfo] = []
     var launchAtLogin: Bool {
@@ -50,13 +58,15 @@ final class SettingsViewModel {
 
     var iCloudSyncIncludeSensitive: Bool {
         didSet {
-            UserDefaults.standard.set(iCloudSyncIncludeSensitive, forKey: Constants.iCloudSyncIncludeSensitiveKey)
+            UserDefaults.standard.set(
+                iCloudSyncIncludeSensitive, forKey: Constants.iCloudSyncIncludeSensitiveKey)
         }
     }
 
     var iCloudSyncMaxItemSizeBytes: Int {
         didSet {
-            UserDefaults.standard.set(iCloudSyncMaxItemSizeBytes, forKey: Constants.iCloudSyncMaxItemSizeBytesKey)
+            UserDefaults.standard.set(
+                iCloudSyncMaxItemSizeBytes, forKey: Constants.iCloudSyncMaxItemSizeBytesKey)
         }
     }
 
@@ -77,23 +87,39 @@ final class SettingsViewModel {
     var databaseSize: String = "—"
     var totalItemCount: Int = 0
     var itemCountByType: [ContentType: Int] = [:]
+    var isOptimizing: Bool = false
+    var optimizeResult: OptimizeResult?
+
+    enum OptimizeResult: Equatable {
+        case success(savedBytes: Int64)
+        case error(String)
+    }
 
     var storageService: StorageServiceProtocol?
+    var databaseManager: DatabaseManager?
     @ObservationIgnored var onClearAllHistory: (() async -> Void)?
 
     init() {
         let defaults = UserDefaults.standard
-        pollingInterval = defaults.double(forKey: "pollingInterval").nonZero ?? Constants.defaultPollingInterval
+        pollingInterval =
+            defaults.double(forKey: "pollingInterval").nonZero ?? Constants.defaultPollingInterval
         maxItemSizeMB = defaults.integer(forKey: "maxItemSizeMB").nonZero ?? 10
-        sensitiveAutoExpiry = defaults.double(forKey: "sensitiveAutoExpiry").nonZero ?? Constants.defaultSensitiveExpiry
-        sensitiveDetectionEnabled = defaults.object(forKey: "sensitiveDetectionEnabled") as? Bool ?? true
-        screenSharingAutoHide = defaults.object(forKey: Constants.screenSharingAutoHideKey) as? Bool ?? true
+        sensitiveAutoExpiry =
+            defaults.double(forKey: "sensitiveAutoExpiry").nonZero
+            ?? Constants.defaultSensitiveExpiry
+        sensitiveDetectionEnabled =
+            defaults.object(forKey: "sensitiveDetectionEnabled") as? Bool ?? true
+        screenSharingAutoHide =
+            defaults.object(forKey: Constants.screenSharingAutoHideKey) as? Bool ?? true
         urlPreviewEnabled = defaults.object(forKey: Constants.urlPreviewEnabledKey) as? Bool ?? true
         launchAtLogin = SMAppService.mainApp.status == .enabled
 
-        iCloudSyncEnabled = defaults.object(forKey: Constants.iCloudSyncEnabledKey) as? Bool ?? false
-        iCloudSyncIncludeSensitive = defaults.object(forKey: Constants.iCloudSyncIncludeSensitiveKey) as? Bool ?? false
-        iCloudSyncMaxItemSizeBytes = defaults.object(forKey: Constants.iCloudSyncMaxItemSizeBytesKey) as? Int ?? 0
+        iCloudSyncEnabled =
+            defaults.object(forKey: Constants.iCloudSyncEnabledKey) as? Bool ?? false
+        iCloudSyncIncludeSensitive =
+            defaults.object(forKey: Constants.iCloudSyncIncludeSensitiveKey) as? Bool ?? false
+        iCloudSyncMaxItemSizeBytes =
+            defaults.object(forKey: Constants.iCloudSyncMaxItemSizeBytesKey) as? Int ?? 0
 
         loadBlacklist()
     }
@@ -132,7 +158,8 @@ final class SettingsViewModel {
         let defaultMods: NSEvent.ModifierFlags = [.shift, .command]
         let defaultKey: UInt16 = 0x09
         HotkeyManager.saveHotkey(modifiers: defaultMods, keyCode: defaultKey)
-        hotkeyDisplayString = HotkeyManager.displayString(modifiers: defaultMods, keyCode: defaultKey)
+        hotkeyDisplayString = HotkeyManager.displayString(
+            modifiers: defaultMods, keyCode: defaultKey)
     }
 
     func removeBlacklistedApp(_ app: AppInfo) {
@@ -156,7 +183,8 @@ final class SettingsViewModel {
             for: .applicationSupportDirectory, in: .userDomainMask
         ).first
 
-        let dbPath = appSupportURL?
+        let dbPath =
+            appSupportURL?
             .appendingPathComponent("OpenPaste", isDirectory: true)
             .appendingPathComponent("clipboard.sqlite")
             ?? URL(fileURLWithPath: "/dev/null")
@@ -182,7 +210,8 @@ final class SettingsViewModel {
         let pageSize = 500
         var typeCounts: [ContentType: Int] = [:]
         while true {
-            guard let batch = try? await storageService.fetch(limit: pageSize, offset: offset) else { break }
+            guard let batch = try? await storageService.fetch(limit: pageSize, offset: offset)
+            else { break }
             for item in batch {
                 typeCounts[item.type, default: 0] += 1
             }
@@ -193,6 +222,43 @@ final class SettingsViewModel {
     }
 
     func optimizeStorage() async {
-        // Placeholder for VACUUM and expired item cleanup
+        guard !isOptimizing else { return }
+        isOptimizing = true
+        optimizeResult = nil
+
+        let sizeBefore = currentDatabaseSizeBytes()
+
+        do {
+            // 1. Delete expired items (soft-delete)
+            try? await storageService?.deleteExpired()
+
+            // 2. Purge soft-deleted rows + VACUUM + WAL checkpoint
+            try await databaseManager?.vacuum()
+
+            let sizeAfter = currentDatabaseSizeBytes()
+            let saved = max(sizeBefore - sizeAfter, 0)
+            optimizeResult = .success(savedBytes: saved)
+        } catch {
+            optimizeResult = .error(error.localizedDescription)
+        }
+
+        // Refresh storage info display
+        await loadStorageInfo()
+        isOptimizing = false
+    }
+
+    private func currentDatabaseSizeBytes() -> Int64 {
+        let fileManager = FileManager.default
+        let appSupportURL = fileManager.urls(
+            for: .applicationSupportDirectory, in: .userDomainMask
+        ).first
+        let dbPath =
+            appSupportURL?
+            .appendingPathComponent("OpenPaste", isDirectory: true)
+            .appendingPathComponent("clipboard.sqlite")
+            ?? URL(fileURLWithPath: "/dev/null")
+
+        let attrs = try? fileManager.attributesOfItem(atPath: dbPath.path)
+        return attrs?[.size] as? Int64 ?? 0
     }
 }

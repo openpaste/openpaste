@@ -1,5 +1,5 @@
-import Foundation
 @preconcurrency import CloudKit
+import Foundation
 import GRDB
 import os.log
 
@@ -8,15 +8,18 @@ private let syncLog = Logger(subsystem: "dev.tuanle.OpenPaste", category: "SyncS
 @available(macOS 14.0, *)
 extension SyncService {
     func buildRecordsToSave(outbox: [SyncMetadataRecord]) async -> [CKRecord] {
-        let includeSensitive = UserDefaults.standard.bool(forKey: Constants.iCloudSyncIncludeSensitiveKey)
-        let maxSizeBytes = UserDefaults.standard.integer(forKey: Constants.iCloudSyncMaxItemSizeBytesKey)
+        let includeSensitive = UserDefaults.standard.bool(
+            forKey: Constants.iCloudSyncIncludeSensitiveKey)
+        let maxSizeBytes = UserDefaults.standard.integer(
+            forKey: Constants.iCloudSyncMaxItemSizeBytesKey)
 
         var records: [CKRecord] = []
         for entry in outbox {
             do {
                 if entry.tableName == "clipboardItems" {
                     guard let local = try await fetchClipboardItem(id: entry.localId) else {
-                        await markOutboxError(recordName: entry.recordName, message: "Missing local record")
+                        await markOutboxError(
+                            recordName: entry.recordName, message: "Missing local record")
                         continue
                     }
                     if local.isSensitive && !includeSensitive {
@@ -25,7 +28,9 @@ extension SyncService {
                     }
                     // A6: Skip items exceeding max sync size
                     if maxSizeBytes > 0 && local.content.count > maxSizeBytes {
-                        syncLog.info("Skipping \(entry.recordName): content size \(local.content.count) exceeds limit \(maxSizeBytes)")
+                        syncLog.info(
+                            "Skipping \(entry.recordName): content size \(local.content.count) exceeds limit \(maxSizeBytes)"
+                        )
                         await markOutboxSynced(recordName: entry.recordName)
                         await removeFromEnginePendingQueue(recordName: entry.recordName)
                         continue
@@ -42,7 +47,8 @@ extension SyncService {
                     records.append(mapped.record)
                 } else if entry.tableName == "collections" {
                     guard let local = try await fetchCollection(id: entry.localId) else {
-                        await markOutboxError(recordName: entry.recordName, message: "Missing local record")
+                        await markOutboxError(
+                            recordName: entry.recordName, message: "Missing local record")
                         continue
                     }
 
@@ -57,7 +63,8 @@ extension SyncService {
                     records.append(mapped.record)
                 } else if entry.tableName == "smartLists" {
                     guard let local = try await fetchSmartListRecord(id: entry.localId) else {
-                        await markOutboxError(recordName: entry.recordName, message: "Missing local record")
+                        await markOutboxError(
+                            recordName: entry.recordName, message: "Missing local record")
                         continue
                     }
 
@@ -72,7 +79,8 @@ extension SyncService {
                     records.append(mapped.record)
                 }
             } catch {
-                await markOutboxError(recordName: entry.recordName, message: error.localizedDescription)
+                await markOutboxError(
+                    recordName: entry.recordName, message: error.localizedDescription)
             }
         }
         return records
@@ -109,7 +117,8 @@ extension SyncService {
                     }
 
                     try db.execute(
-                        sql: "UPDATE sync_metadata SET syncStatus = 'synced', lastError = NULL WHERE recordName = ?",
+                        sql:
+                            "UPDATE sync_metadata SET syncStatus = 'synced', lastError = NULL WHERE recordName = ?",
                         arguments: [recordName]
                     )
                 }
@@ -128,12 +137,22 @@ extension SyncService {
                 zoneNotFoundDetected = true
                 // Reset to pending so they're re-sent after zone recreation
                 await markOutboxForRetry(recordName: recordName, retryAfter: 5)
+            } else if ckError.code == .serverRecordChanged {
+                // Server already has this record — save the server's system fields
+                // so the next attempt sends an UPDATE (with etag) instead of INSERT.
+                await resolveServerRecordChanged(
+                    recordName: recordName,
+                    serverRecord: ckError.serverRecord,
+                    clientRecord: failure.record
+                )
             } else if isRetryableCloudKitError(ckError) {
                 let retryAfter = ckError.retryAfterSeconds ?? Constants.syncRetryBaseInterval
-                syncLog.info("Rate limited for \(recordName), CKSyncEngine will retry after ~\(retryAfter)s")
+                syncLog.info(
+                    "Rate limited for \(recordName), CKSyncEngine will retry after ~\(retryAfter)s")
                 await markOutboxForRetry(recordName: recordName, retryAfter: retryAfter)
             } else {
-                await markOutboxError(recordName: recordName, message: failure.error.localizedDescription)
+                await markOutboxError(
+                    recordName: recordName, message: failure.error.localizedDescription)
                 await removeFromEnginePendingQueue(recordName: recordName)
             }
         }
@@ -166,10 +185,10 @@ extension SyncService {
         try? await dbQueue.write { db in
             try db.execute(
                 sql: """
-                UPDATE sync_metadata
-                SET syncStatus = ?, lastError = 'Rate limited', updatedAt = ?
-                WHERE recordName = ?
-                """,
+                    UPDATE sync_metadata
+                    SET syncStatus = ?, lastError = 'Rate limited', updatedAt = ?
+                    WHERE recordName = ?
+                    """,
                 arguments: [SyncOutboxStatus.pending.rawValue, futureDate, recordName]
             )
         }
@@ -183,5 +202,58 @@ extension SyncService {
             CKRecord.ID(recordName: recordName, zoneID: CloudKitMapper.zoneID)
         )
         engine.state.remove(pendingRecordZoneChanges: [change])
+    }
+
+    /// Resolve a "Server Record Changed" (14/2004) error by saving the server's
+    /// system fields locally so the next send attempt uses the correct etag.
+    /// This handles the case where a record was created on another device and
+    /// the local device tries to INSERT instead of UPDATE.
+    private func resolveServerRecordChanged(
+        recordName: String,
+        serverRecord: CKRecord?,
+        clientRecord: CKRecord
+    ) async {
+        guard let serverRecord else {
+            syncLog.warning(
+                "ServerRecordChanged for \(recordName) but no server record — marking error")
+            await markOutboxError(
+                recordName: recordName, message: "ServerRecordChanged without server record")
+            return
+        }
+
+        do {
+            let system = try CloudKitSystemFields.encode(from: serverRecord)
+            let localId =
+                serverRecord[CloudKitMapper.Field.localId] as? String
+                ?? clientRecord[CloudKitMapper.Field.localId] as? String ?? ""
+
+            try await dbQueue.write { db in
+                if serverRecord.recordType == CloudKitMapper.RecordType.clipboardItem {
+                    try db.execute(
+                        sql: "UPDATE clipboardItems SET ckSystemFields = ? WHERE id = ?",
+                        arguments: [system, localId]
+                    )
+                } else if serverRecord.recordType == CloudKitMapper.RecordType.collection {
+                    try db.execute(
+                        sql: "UPDATE collections SET ckSystemFields = ? WHERE id = ?",
+                        arguments: [system, localId]
+                    )
+                } else if serverRecord.recordType == CloudKitMapper.RecordType.smartList {
+                    try db.execute(
+                        sql: "UPDATE smartLists SET ckSystemFields = ? WHERE id = ?",
+                        arguments: [system, localId]
+                    )
+                }
+            }
+            syncLog.info("ServerRecordChanged for \(recordName): saved server etag, re-queuing")
+            await markOutboxForRetry(recordName: recordName, retryAfter: 1)
+        } catch {
+            syncLog.error(
+                "Failed to resolve ServerRecordChanged for \(recordName): \(error.localizedDescription)"
+            )
+            await markOutboxError(
+                recordName: recordName,
+                message: "ServerRecordChanged resolve failed: \(error.localizedDescription)")
+        }
     }
 }

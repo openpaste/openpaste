@@ -1,5 +1,6 @@
 import Foundation
 import Testing
+
 @testable import OpenPaste
 
 @Suite(.serialized)
@@ -11,7 +12,7 @@ struct SettingsViewModelTests {
         let keys = [
             "pollingInterval", "maxItemSizeMB", "sensitiveAutoExpiry",
             "sensitiveDetectionEnabled", Constants.screenSharingAutoHideKey,
-            Constants.urlPreviewEnabledKey, "launchAtLogin", "blacklistedApps"
+            Constants.urlPreviewEnabledKey, "launchAtLogin", "blacklistedApps",
         ]
         for key in keys {
             UserDefaults.standard.removeObject(forKey: key)
@@ -164,6 +165,11 @@ struct SettingsViewModelTests {
         // Should have default blacklisted apps (password managers)
         #expect(!vm.blacklistedApps.isEmpty)
         #expect(vm.blacklistedApps.contains(where: { $0.bundleId == "com.apple.keychainaccess" }))
+        #expect(vm.blacklistedApps.contains(where: { $0.bundleId == "com.1password.1password" }))
+
+        // Defaults should be persisted immediately on first load
+        let persisted = UserDefaults.standard.data(forKey: "blacklistedApps")
+        #expect(persisted != nil)
     }
 
     @Test func addBlacklistedApp() {

@@ -11,33 +11,35 @@ extension SyncService {
     /// Called during `start()` to handle data created before sync was enabled.
     func enqueueExistingRecordsIfNeeded() async {
         do {
-            let includeSensitive = UserDefaults.standard.bool(forKey: Constants.iCloudSyncIncludeSensitiveKey)
+            let includeSensitive = UserDefaults.standard.bool(
+                forKey: Constants.iCloudSyncIncludeSensitiveKey)
             let now = Date()
 
             let enqueued = try await dbQueue.write { db -> Int in
                 var total = 0
 
                 // Enqueue clipboard items not yet in outbox
-                let itemSQL = includeSensitive
+                let itemSQL =
+                    includeSensitive
                     ? """
-                      SELECT id FROM clipboardItems
-                      WHERE isDeleted = 0
-                        AND ('item_' || id) NOT IN (SELECT recordName FROM sync_metadata)
-                      """
+                    SELECT id FROM clipboardItems
+                    WHERE isDeleted = 0
+                      AND ('item_' || id) NOT IN (SELECT recordName FROM sync_metadata)
+                    """
                     : """
-                      SELECT id FROM clipboardItems
-                      WHERE isDeleted = 0 AND isSensitive = 0
-                        AND ('item_' || id) NOT IN (SELECT recordName FROM sync_metadata)
-                      """
+                    SELECT id FROM clipboardItems
+                    WHERE isDeleted = 0 AND isSensitive = 0
+                      AND ('item_' || id) NOT IN (SELECT recordName FROM sync_metadata)
+                    """
                 let itemIds = try String.fetchAll(db, sql: itemSQL)
                 for id in itemIds {
                     let recordName = "item_" + id
                     try db.execute(
                         sql: """
-                        INSERT OR IGNORE INTO sync_metadata
-                            (recordName, tableName, localId, operation, syncStatus, retryCount, updatedAt)
-                        VALUES (?, 'clipboardItems', ?, 'upsert', 'pending', 0, ?)
-                        """,
+                            INSERT OR IGNORE INTO sync_metadata
+                                (recordName, tableName, localId, operation, syncStatus, retryCount, updatedAt)
+                            VALUES (?, 'clipboardItems', ?, 'upsert', 'pending', 0, ?)
+                            """,
                         arguments: [recordName, id, now]
                     )
                     total += 1
@@ -47,19 +49,19 @@ extension SyncService {
                 let collectionIds = try String.fetchAll(
                     db,
                     sql: """
-                    SELECT id FROM collections
-                    WHERE isDeleted = 0
-                      AND ('collection_' || id) NOT IN (SELECT recordName FROM sync_metadata)
-                    """
+                        SELECT id FROM collections
+                        WHERE isDeleted = 0
+                          AND ('collection_' || id) NOT IN (SELECT recordName FROM sync_metadata)
+                        """
                 )
                 for id in collectionIds {
                     let recordName = "collection_" + id
                     try db.execute(
                         sql: """
-                        INSERT OR IGNORE INTO sync_metadata
-                            (recordName, tableName, localId, operation, syncStatus, retryCount, updatedAt)
-                        VALUES (?, 'collections', ?, 'upsert', 'pending', 0, ?)
-                        """,
+                            INSERT OR IGNORE INTO sync_metadata
+                                (recordName, tableName, localId, operation, syncStatus, retryCount, updatedAt)
+                            VALUES (?, 'collections', ?, 'upsert', 'pending', 0, ?)
+                            """,
                         arguments: [recordName, id, now]
                     )
                     total += 1
@@ -69,19 +71,19 @@ extension SyncService {
                 let smartListIds = try String.fetchAll(
                     db,
                     sql: """
-                    SELECT id FROM smartLists
-                    WHERE isDeleted = 0 AND isBuiltIn = 0
-                      AND ('smartlist_' || id) NOT IN (SELECT recordName FROM sync_metadata)
-                    """
+                        SELECT id FROM smartLists
+                        WHERE isDeleted = 0 AND isBuiltIn = 0
+                          AND ('smartlist_' || id) NOT IN (SELECT recordName FROM sync_metadata)
+                        """
                 )
                 for id in smartListIds {
                     let recordName = "smartlist_" + id
                     try db.execute(
                         sql: """
-                        INSERT OR IGNORE INTO sync_metadata
-                            (recordName, tableName, localId, operation, syncStatus, retryCount, updatedAt)
-                        VALUES (?, 'smartLists', ?, 'upsert', 'pending', 0, ?)
-                        """,
+                            INSERT OR IGNORE INTO sync_metadata
+                                (recordName, tableName, localId, operation, syncStatus, retryCount, updatedAt)
+                            VALUES (?, 'smartLists', ?, 'upsert', 'pending', 0, ?)
+                            """,
                         arguments: [recordName, id, now]
                     )
                     total += 1
@@ -102,7 +104,8 @@ extension SyncService {
 
     func claimPendingOutbox(limit: Int) async throws -> [SyncMetadataRecord] {
         try await dbQueue.write { db in
-            let records = try SyncMetadataRecord
+            let records =
+                try SyncMetadataRecord
                 .filter(Column("syncStatus") == SyncOutboxStatus.pending.rawValue)
                 .order(Column("updatedAt").asc)
                 .limit(limit)
@@ -121,16 +124,38 @@ extension SyncService {
     func recoverInFlightOutbox() async {
         try? await dbQueue.write { db in
             try db.execute(
-                sql: "UPDATE sync_metadata SET syncStatus = 'pending', lastError = NULL, updatedAt = ? WHERE syncStatus = 'inFlight'",
+                sql:
+                    "UPDATE sync_metadata SET syncStatus = 'pending', lastError = NULL, updatedAt = ? WHERE syncStatus = 'inFlight'",
                 arguments: [Date()]
             )
+        }
+    }
+
+    /// One-time recovery: reset records stuck in 'error' due to ServerRecordChanged
+    /// ("record to insert already exists") so they can retry with the new fix.
+    func recoverServerRecordChangedErrors() async {
+        let count = try? await dbQueue.write { db -> Int in
+            try db.execute(
+                sql: """
+                    UPDATE sync_metadata
+                    SET syncStatus = 'pending', retryCount = 0, lastError = NULL, updatedAt = ?
+                    WHERE syncStatus = 'error'
+                      AND lastError LIKE '%record to insert already exists%'
+                    """,
+                arguments: [Date()]
+            )
+            return db.changesCount
+        }
+        if let count, count > 0 {
+            syncLog.info("Recovered \(count) records stuck with ServerRecordChanged errors")
         }
     }
 
     func markOutboxSynced(recordName: String) async {
         try? await dbQueue.write { db in
             try db.execute(
-                sql: "UPDATE sync_metadata SET syncStatus = 'synced', lastError = NULL WHERE recordName = ?",
+                sql:
+                    "UPDATE sync_metadata SET syncStatus = 'synced', lastError = NULL WHERE recordName = ?",
                 arguments: [recordName]
             )
         }
@@ -139,7 +164,8 @@ extension SyncService {
     func markOutboxError(recordName: String, message: String) async {
         try? await dbQueue.write { db in
             try db.execute(
-                sql: "UPDATE sync_metadata SET syncStatus = 'error', lastError = ?, retryCount = retryCount + 1, updatedAt = ? WHERE recordName = ?",
+                sql:
+                    "UPDATE sync_metadata SET syncStatus = 'error', lastError = ?, retryCount = retryCount + 1, updatedAt = ? WHERE recordName = ?",
                 arguments: [message, Date(), recordName]
             )
         }
@@ -157,18 +183,31 @@ extension SyncService {
 
                 try db.execute(
                     sql: """
-                    DELETE FROM sync_metadata
-                    WHERE syncStatus = 'synced'
-                      AND localId IN (
-                        SELECT id FROM clipboardItems WHERE isDeleted = 1 AND modifiedAt < ?
-                      )
-                    """,
+                        DELETE FROM sync_metadata
+                        WHERE syncStatus = 'synced'
+                          AND localId IN (
+                            SELECT id FROM clipboardItems WHERE isDeleted = 1 AND modifiedAt < ?
+                          )
+                        """,
                     arguments: [cutoff]
                 )
                 total += db.changesCount
 
                 try db.execute(
                     sql: "DELETE FROM clipboardItems WHERE isDeleted = 1 AND modifiedAt < ?",
+                    arguments: [cutoff]
+                )
+                total += db.changesCount
+
+                // Collection tombstones
+                try db.execute(
+                    sql: """
+                        DELETE FROM sync_metadata
+                        WHERE syncStatus = 'synced'
+                          AND localId IN (
+                            SELECT id FROM collections WHERE isDeleted = 1 AND modifiedAt < ?
+                          )
+                        """,
                     arguments: [cutoff]
                 )
                 total += db.changesCount
@@ -182,12 +221,12 @@ extension SyncService {
                 // Smart list tombstones
                 try db.execute(
                     sql: """
-                    DELETE FROM sync_metadata
-                    WHERE syncStatus = 'synced'
-                      AND localId IN (
-                        SELECT id FROM smartLists WHERE isDeleted = 1 AND modifiedAt < ?
-                      )
-                    """,
+                        DELETE FROM sync_metadata
+                        WHERE syncStatus = 'synced'
+                          AND localId IN (
+                            SELECT id FROM smartLists WHERE isDeleted = 1 AND modifiedAt < ?
+                          )
+                        """,
                     arguments: [cutoff]
                 )
                 total += db.changesCount
@@ -214,23 +253,24 @@ extension SyncService {
     func pruneSyncMetadata(keepCount: Int = 10_000) async {
         do {
             let pruned = try await dbQueue.write { db -> Int in
-                let total = try Int.fetchOne(
-                    db,
-                    sql: "SELECT COUNT(*) FROM sync_metadata WHERE syncStatus = 'synced'"
-                ) ?? 0
+                let total =
+                    try Int.fetchOne(
+                        db,
+                        sql: "SELECT COUNT(*) FROM sync_metadata WHERE syncStatus = 'synced'"
+                    ) ?? 0
                 guard total > keepCount else { return 0 }
 
                 let deleteCount = total - keepCount
                 try db.execute(
                     sql: """
-                    DELETE FROM sync_metadata
-                    WHERE rowid IN (
-                        SELECT rowid FROM sync_metadata
-                        WHERE syncStatus = 'synced'
-                        ORDER BY updatedAt ASC
-                        LIMIT ?
-                    )
-                    """,
+                        DELETE FROM sync_metadata
+                        WHERE rowid IN (
+                            SELECT rowid FROM sync_metadata
+                            WHERE syncStatus = 'synced'
+                            ORDER BY updatedAt ASC
+                            LIMIT ?
+                        )
+                        """,
                     arguments: [deleteCount]
                 )
                 return db.changesCount

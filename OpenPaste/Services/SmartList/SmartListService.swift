@@ -6,7 +6,8 @@ protocol SmartListServiceProtocol: Sendable {
     func save(_ smartList: SmartList) async throws
     func delete(_ id: UUID) async throws
     func evaluate(_ smartList: SmartList, limit: Int) async throws -> [ClipboardItem]
-    func evaluateSummaries(_ smartList: SmartList, limit: Int) async throws -> [ClipboardItemSummary]
+    func evaluateSummaries(_ smartList: SmartList, limit: Int) async throws
+        -> [ClipboardItemSummary]
     func countMatches(_ smartList: SmartList) async throws -> Int
     func seedPresetsIfNeeded() async throws
     func exportAsJSON(_ smartList: SmartList) throws -> Data
@@ -32,6 +33,7 @@ final class SmartListService: SmartListServiceProtocol, Sendable {
     func save(_ smartList: SmartList) async throws {
         var record = SmartListRecord(from: smartList)
         record.modifiedAt = Date()
+        record.deviceId = DeviceID.current
         try await dbQueue.write { db in
             try record.save(db)
         }
@@ -41,8 +43,9 @@ final class SmartListService: SmartListServiceProtocol, Sendable {
         let now = Date()
         try await dbQueue.write { db in
             try db.execute(
-                sql: "UPDATE smartLists SET isDeleted = 1, modifiedAt = ? WHERE id = ?",
-                arguments: [now, id.uuidString]
+                sql:
+                    "UPDATE smartLists SET isDeleted = 1, modifiedAt = ?, deviceId = ? WHERE id = ?",
+                arguments: [now, DeviceID.current, id.uuidString]
             )
         }
     }
@@ -71,7 +74,9 @@ final class SmartListService: SmartListServiceProtocol, Sendable {
             items = items.filter { item in
                 guard let text = item.plainTextContent else { return false }
                 let matcher: (SmartListRule) -> Bool = { rule in
-                    guard let regex = try? NSRegularExpression(pattern: rule.value) else { return false }
+                    guard let regex = try? NSRegularExpression(pattern: rule.value) else {
+                        return false
+                    }
                     let range = NSRange(text.startIndex..., in: text)
                     return regex.firstMatch(in: text, range: range) != nil
                 }
@@ -82,7 +87,9 @@ final class SmartListService: SmartListServiceProtocol, Sendable {
         return Array(items.prefix(limit))
     }
 
-    func evaluateSummaries(_ smartList: SmartList, limit: Int = 500) async throws -> [ClipboardItemSummary] {
+    func evaluateSummaries(_ smartList: SmartList, limit: Int = 500) async throws
+        -> [ClipboardItemSummary]
+    {
         let containsRegex = smartList.rules.contains { $0.field == .textRegex }
         let fetchLimit = containsRegex ? 500 : limit
 
@@ -105,7 +112,9 @@ final class SmartListService: SmartListServiceProtocol, Sendable {
             summaries = summaries.filter { summary in
                 guard let text = summary.plainTextContent else { return false }
                 let matcher: (SmartListRule) -> Bool = { rule in
-                    guard let regex = try? NSRegularExpression(pattern: rule.value) else { return false }
+                    guard let regex = try? NSRegularExpression(pattern: rule.value) else {
+                        return false
+                    }
                     let range = NSRange(text.startIndex..., in: text)
                     return regex.firstMatch(in: text, range: range) != nil
                 }
@@ -164,7 +173,10 @@ final class SmartListService: SmartListServiceProtocol, Sendable {
             name: "Images",
             icon: "photo",
             color: "#FF9500",
-            rules: [SmartListRule(field: .contentType, comparison: .equals, value: ContentType.image.rawValue)],
+            rules: [
+                SmartListRule(
+                    field: .contentType, comparison: .equals, value: ContentType.image.rawValue)
+            ],
             isBuiltIn: true,
             position: 1
         ),
@@ -172,7 +184,10 @@ final class SmartListService: SmartListServiceProtocol, Sendable {
             name: "Links",
             icon: "link",
             color: "#34C759",
-            rules: [SmartListRule(field: .contentType, comparison: .equals, value: ContentType.link.rawValue)],
+            rules: [
+                SmartListRule(
+                    field: .contentType, comparison: .equals, value: ContentType.link.rawValue)
+            ],
             isBuiltIn: true,
             position: 2
         ),
@@ -180,7 +195,10 @@ final class SmartListService: SmartListServiceProtocol, Sendable {
             name: "Code Snippets",
             icon: "chevron.left.forwardslash.chevron.right",
             color: "#AF52DE",
-            rules: [SmartListRule(field: .contentType, comparison: .equals, value: ContentType.code.rawValue)],
+            rules: [
+                SmartListRule(
+                    field: .contentType, comparison: .equals, value: ContentType.code.rawValue)
+            ],
             isBuiltIn: true,
             position: 3
         ),

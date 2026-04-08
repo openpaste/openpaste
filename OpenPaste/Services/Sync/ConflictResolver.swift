@@ -1,7 +1,9 @@
 import Foundation
 
 enum ConflictResolver {
-    static func resolve(local: ClipboardItemRecord, remote: ClipboardItemRecord) -> ClipboardItemRecord {
+    static func resolve(local: ClipboardItemRecord, remote: ClipboardItemRecord)
+        -> ClipboardItemRecord
+    {
         let remoteWins = remote.modifiedAt >= local.modifiedAt
         var merged = remoteWins ? remote : local
 
@@ -25,18 +27,18 @@ enum ConflictResolver {
         // Tags: set union
         merged.tags = encodeTags(union: decodeTags(local.tags), decodeTags(remote.tags))
 
-        // Booleans: true wins, else LWW
-        merged.pinned = local.pinned || remote.pinned
-        merged.starred = local.starred || remote.starred
-        if !merged.pinned { merged.pinned = remoteWins ? remote.pinned : local.pinned }
-        if !merged.starred { merged.starred = remoteWins ? remote.starred : local.starred }
+        // Booleans: LWW (the most recently modified device decides)
+        merged.pinned = remoteWins ? remote.pinned : local.pinned
+        merged.starred = remoteWins ? remote.starred : local.starred
 
         // Counters: max
         merged.accessCount = max(local.accessCount, remote.accessCount)
         merged.accessedAt = max(local.accessedAt, remote.accessedAt)
 
         // Metadata: dictionary merge (prefer winner)
-        merged.metadata = encodeMetadata(merge: decodeMetadata(local.metadata), decodeMetadata(remote.metadata), preferRemote: remoteWins)
+        merged.metadata = encodeMetadata(
+            merge: decodeMetadata(local.metadata), decodeMetadata(remote.metadata),
+            preferRemote: remoteWins)
 
         // Timestamps/versions
         merged.modifiedAt = max(local.modifiedAt, remote.modifiedAt)

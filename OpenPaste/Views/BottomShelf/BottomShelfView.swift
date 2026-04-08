@@ -48,6 +48,15 @@ struct BottomShelfView: View {
             return .handled
         }
         .onKeyPress(.escape) {
+            if searchFocused {
+                searchFocused = false
+                NSApp.keyWindow?.makeFirstResponder(nil)
+                if !searchViewModel.query.isEmpty {
+                    searchViewModel.query = ""
+                    searchViewModel.searchDebounced()
+                }
+                return .handled
+            }
             historyViewModel.dismissAction?()
             return .handled
         }
@@ -74,11 +83,9 @@ struct BottomShelfView: View {
         .onAppear {
             selectedId = displayItems.first?.id
             selectedCollectionId = searchViewModel.filters.collectionId
-            // Delay focus until panel slide-up animation settles,
-            // otherwise .focusable() on the VStack steals first-responder.
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
-                searchFocused = true
-            }
+            // Don't auto-focus search — keep arrow navigation active.
+            // User can type to search or press Cmd+F to focus.
+            searchFocused = false
         }
         .onDisappear {
             isCommandPressed = false

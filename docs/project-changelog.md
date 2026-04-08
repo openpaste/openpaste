@@ -4,6 +4,29 @@ All notable changes to the OpenPaste project are documented in this file. Format
 
 ## [Unreleased]
 
+## [1.7.2] — 2026-04-08
+
+### Added
+- `feat(storage)`: Optimize Storage button in Settings → Storage — purges soft-deleted items, runs SQLite VACUUM and `PRAGMA optimize`, shows before/after size comparison (`DatabaseManager.swift`, `SettingsViewModel.swift`, `StorageSettingsView.swift`)
+
+### Fixed
+- `fix(sync)`: Handle `CKError.serverRecordChanged` (14/2004) by saving server's `ckSystemFields` and re-queuing for retry instead of marking as permanent error (`SyncService+Send.swift`, `SyncService+Outbox.swift`)
+- `fix(sync)`: Add startup recovery for records stuck in error state from "record to insert already exists" failures (`SyncService+Outbox.swift`)
+- `fix(sync)`: Fix collection tombstone cleanup leaving orphaned `sync_metadata` rows (`SyncChangeTracker.swift`)
+- `fix(sync)`: Fix `ConflictResolver` LWW logic for pinned/starred fields (`ConflictResolver.swift`)
+- `fix(sync)`: Fix `SmartListService` missing `deviceId` on save/delete operations (`SmartListService.swift`)
+- `fix(sync)`: Fix `SyncChangeTracker` missing columns causing crash (`SyncChangeTracker.swift`)
+- `fix(privacy)`: Make `UserDefaults` the single source of truth for blacklisted apps — removing hardcoded `defaultBlacklist` from `SensitiveContentDetector` (`SensitiveContentDetector.swift`, `SettingsViewModel+Blacklist.swift`)
+- `fix(privacy)`: Add 1Password 8 (`com.1password.1password`) to default blacklist
+- `fix(privacy)`: Detect nspasteboard.org proprietary transient/confidential pasteboard types (`ContentNormalizer.swift`)
+- `fix(privacy)`: Replace non-scrollable List-in-Form with ScrollView+LazyVStack for native macOS appearance and proper scrolling (`PrivacySettingsView.swift`)
+- `fix(privacy)`: Add file browser (`fileImporter`) to select apps from filesystem; extract `RunningAppPickerView` from deleted `BlacklistView` (`RunningAppPickerView.swift`)
+- `fix(bottomShelf)`: Remove auto-focus on panel open so arrow keys work immediately; add type-to-search (printable keystrokes auto-focus search), ⌘F shortcut, and Escape-first-unfocus behavior (`BottomShelfView.swift`, `BottomShelfView+Logic.swift`)
+
+### Removed
+- `cleanup`: Delete `BlacklistView.swift` (replaced by inline picker in `PrivacySettingsView`)
+- `cleanup`: Delete flaky `OpenPasteE2EQuickEditTests` UI tests
+
 ## [1.7.1] — 2026-04-07
 
 ### Fixed

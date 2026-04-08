@@ -1,16 +1,6 @@
 import Foundation
 
 final class SensitiveContentDetector: SecurityServiceProtocol, @unchecked Sendable {
-    private var blacklistedBundleIds: Set<String>
-    private let defaultBlacklist: Set<String> = [
-        "com.apple.keychainaccess",
-        "com.agilebits.onepassword7",
-        "com.agilebits.onepassword-osx",
-        "com.bitwarden.desktop",
-        "com.lastpass.LastPass",
-        "com.apple.Passwords",
-    ]
-
     private let sensitivePatterns: [(String, String)] = [
         ("Credit Card", #"\b\d{4}[\s-]?\d{4}[\s-]?\d{4}[\s-]?\d{4}\b"#),
         ("AWS Key", #"AKIA[0-9A-Z]{16}"#),
@@ -18,7 +8,10 @@ final class SensitiveContentDetector: SecurityServiceProtocol, @unchecked Sendab
         ("Stripe Key", #"sk_(live|test)_[0-9a-zA-Z]{24,}"#),
         ("JWT Token", #"eyJ[A-Za-z0-9-_]+\.eyJ[A-Za-z0-9-_]+\.[A-Za-z0-9-_.+/=]+"#),
         ("Private Key", #"-----BEGIN (RSA |EC |DSA )?PRIVATE KEY-----"#),
-        ("Generic API Key", #"(?i)(api[_-]?key|apikey|secret[_-]?key)\s*[:=]\s*['"]?[A-Za-z0-9/+=]{16,}"#),
+        (
+            "Generic API Key",
+            #"(?i)(api[_-]?key|apikey|secret[_-]?key)\s*[:=]\s*['"]?[A-Za-z0-9/+=]{16,}"#
+        ),
         ("SSN", #"\b\d{3}-\d{2}-\d{4}\b"#),
     ]
 
@@ -26,19 +19,20 @@ final class SensitiveContentDetector: SecurityServiceProtocol, @unchecked Sendab
     private let defaultExpiryInterval: TimeInterval
 
     init(
-        additionalBlacklist: Set<String> = [],
         defaultExpiryInterval: TimeInterval = 3600
     ) {
-        self.blacklistedBundleIds = defaultBlacklist.union(additionalBlacklist)
         self.defaultExpiryInterval = defaultExpiryInterval
         self.compiledPatterns = sensitivePatterns.compactMap { name, pattern in
-            guard let regex = try? NSRegularExpression(pattern: pattern, options: []) else { return nil }
+            guard let regex = try? NSRegularExpression(pattern: pattern, options: []) else {
+                return nil
+            }
             return (name, regex)
         }
     }
 
     nonisolated func detectSensitive(_ text: String) -> Bool {
-        let enabled = UserDefaults.standard.object(forKey: "sensitiveDetectionEnabled") as? Bool ?? true
+        let enabled =
+            UserDefaults.standard.object(forKey: "sensitiveDetectionEnabled") as? Bool ?? true
         guard enabled else { return false }
 
         let range = NSRange(text.startIndex..<text.endIndex, in: text)
@@ -59,16 +53,12 @@ final class SensitiveContentDetector: SecurityServiceProtocol, @unchecked Sendab
     }
 
     nonisolated func isBlacklisted(bundleId: String) -> Bool {
-        let userBlacklist = loadUserBlacklist()
-        return defaultBlacklist.union(userBlacklist).contains(bundleId)
-    }
-
-    private nonisolated func loadUserBlacklist() -> Set<String> {
         guard let data = UserDefaults.standard.data(forKey: "blacklistedApps"),
-              let apps = try? JSONDecoder().decode([AppInfo].self, from: data) else {
-            return []
+            let apps = try? JSONDecoder().decode([AppInfo].self, from: data)
+        else {
+            return false
         }
-        return Set(apps.map(\.bundleId))
+        return apps.contains { $0.bundleId == bundleId }
     }
 
     private nonisolated func hasHighEntropy(_ text: String) -> Bool {

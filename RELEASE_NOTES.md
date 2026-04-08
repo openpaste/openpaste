@@ -1,5 +1,7 @@
+### Added
+• **Optimize Storage** — new button in Settings → Storage to reclaim disk space by purging soft-deleted items and running SQLite VACUUM, with before/after size comparison
+
 ### Fixed
-• **Drag-and-drop to VS Code & Electron apps** — images can now be dragged into VS Code, Slack, and other Electron-based apps via file URL + PNG export
-• **Drag-and-drop reliability** — panel no longer closes prematurely during cross-app drags; a grace period ensures destination apps can read the dragged data
-• **Faster drag start** — text, links, and URLs now register synchronously so the drag begins instantly without waiting for a database fetch
-• **Image drag formats** — images are now offered as PNG, TIFF, NSImage, and file URL for maximum compatibility across macOS apps
+• **iCloud Sync reliability** — fixed 5 sync bugs including ServerRecordChanged errors, stuck records from "already exists" failures, orphaned tombstone metadata, incorrect last-write-wins for pinned/starred fields, and missing device ID on smart list operations
+• **Ignore Applications overhaul** — blacklisted apps are now stored in UserDefaults (no more hardcoded defaults being ignored), added 1Password 8 detection, recognizes proprietary transient/confidential pasteboard types (nspasteboard.org), and added file browser to select apps from disk
+• **Bottom shelf keyboard navigation** — arrow keys now work immediately on open instead of being captured by search; type any character to auto-focus search, press ⌘F to focus search explicitly, and Escape unfocuses search before dismissing the panel
