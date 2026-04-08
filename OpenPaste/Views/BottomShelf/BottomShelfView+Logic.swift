@@ -42,6 +42,12 @@ extension BottomShelfView {
             return .handled
         }
 
+        // Cmd+F → focus search field
+        if keyPress.modifiers.contains(.command), keyPress.characters == "f" {
+            searchFocused = true
+            return .handled
+        }
+
         if keyPress.modifiers.contains(.command),
             let n = Int(keyPress.characters),
             n >= 1, n <= 9
@@ -51,6 +57,19 @@ extension BottomShelfView {
         }
 
         guard !searchFocused else { return .ignored }
+
+        // Type-to-search: printable characters (no modifiers) focus search
+        if keyPress.modifiers.isEmpty || keyPress.modifiers == .shift,
+            let scalar = keyPress.characters.unicodeScalars.first,
+            CharacterSet.alphanumerics.union(.punctuationCharacters).union(.symbols).contains(
+                scalar)
+        {
+            searchFocused = true
+            // Append the typed character since focus switch eats the keystroke
+            searchViewModel.query.append(keyPress.characters)
+            searchViewModel.searchDebounced()
+            return .handled
+        }
 
         if keyPress.characters == " " {
             togglePreview()
