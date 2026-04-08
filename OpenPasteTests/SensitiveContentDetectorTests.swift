@@ -1,5 +1,6 @@
 import Foundation
 import Testing
+
 @testable import OpenPaste
 
 struct SensitiveContentDetectorTests {
@@ -28,7 +29,9 @@ struct SensitiveContentDetectorTests {
     }
 
     @Test func detectsJWT() {
-        #expect(detector.detectSensitive("eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.abc123def456"))
+        #expect(
+            detector.detectSensitive(
+                "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.abc123def456"))
     }
 
     @Test func detectsPrivateKey() {
@@ -64,18 +67,39 @@ struct SensitiveContentDetectorTests {
         #expect(!detector.detectSensitive("this is a normal text with spaces and words"))
     }
 
-    @Test func defaultBlacklistContainsPasswordManagers() {
+    @Test func blacklistReadsFromUserDefaults() {
+        // Seed UserDefaults with blacklisted apps
+        let apps = [
+            AppInfo(bundleId: "com.apple.keychainaccess", name: "Keychain Access", iconPath: nil),
+            AppInfo(bundleId: "com.agilebits.onepassword7", name: "1Password 7", iconPath: nil),
+            AppInfo(bundleId: "com.1password.1password", name: "1Password", iconPath: nil),
+        ]
+        let data = try! JSONEncoder().encode(apps)
+        UserDefaults.standard.set(data, forKey: "blacklistedApps")
+        defer { UserDefaults.standard.removeObject(forKey: "blacklistedApps") }
+
         #expect(detector.isBlacklisted(bundleId: "com.apple.keychainaccess"))
         #expect(detector.isBlacklisted(bundleId: "com.agilebits.onepassword7"))
-        #expect(detector.isBlacklisted(bundleId: "com.agilebits.onepassword-osx"))
-        #expect(detector.isBlacklisted(bundleId: "com.bitwarden.desktop"))
-        #expect(detector.isBlacklisted(bundleId: "com.lastpass.LastPass"))
-        #expect(detector.isBlacklisted(bundleId: "com.apple.Passwords"))
+        #expect(detector.isBlacklisted(bundleId: "com.1password.1password"))
     }
 
     @Test func doesNotBlacklistNormalApps() {
+        UserDefaults.standard.removeObject(forKey: "blacklistedApps")
         #expect(!detector.isBlacklisted(bundleId: "com.apple.Safari"))
         #expect(!detector.isBlacklisted(bundleId: "com.apple.Terminal"))
+    }
+
+    @Test func removedAppIsNoLongerBlacklisted() {
+        // Only Keychain in the list — 1Password removed
+        let apps = [
+            AppInfo(bundleId: "com.apple.keychainaccess", name: "Keychain Access", iconPath: nil)
+        ]
+        let data = try! JSONEncoder().encode(apps)
+        UserDefaults.standard.set(data, forKey: "blacklistedApps")
+        defer { UserDefaults.standard.removeObject(forKey: "blacklistedApps") }
+
+        #expect(detector.isBlacklisted(bundleId: "com.apple.keychainaccess"))
+        #expect(!detector.isBlacklisted(bundleId: "com.agilebits.onepassword7"))
     }
 
     @Test func suggestsExpiryForSensitiveItems() {
